@@ -1,0 +1,48 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg:           #09090b;
+  --surface:      #111113;
+  --surface-hover:#16161a;
+  --border:       #27272a;
+  --border-subtle:#1c1c1f;
+  --accent:       #f97316;
+  --accent-bg:    rgba(249,115,22,0.08);
+  --green:        #22c55e;
+  --green-bg:     rgba(34,197,94,0.08);
+  --red:          #ef4444;
+  --red-bg:       rgba(239,68,68,0.08);
+  --blue:         #3b82f6;
+  --blue-bg:      rgba(59,130,246,0.08);
+  --text:         #fafafa;
+  --text-2:       #a1a1aa;
+  --text-3:       #52525b;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.mono { font-family: 'JetBrains Mono', monospace; }
+
+/* ApexCharts reset */
+.apexcharts-canvas svg { background: transparent !important; }
+.apexcharts-tooltip {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.4) !important;
+}

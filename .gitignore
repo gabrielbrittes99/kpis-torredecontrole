@@ -1,0 +1,28 @@
+# Environment variables
+.env
+.env.*
+
+# OS generated files
+*.Zone.Identifier
+.DS_Store
+Thumbs.db
+
+# Editor directories
+.vscode/
+.idea/
+
+# Claude/AI config
+.claude/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Node
+node_modules/
+dist/
+*.log
+*.Zone.Identifier
