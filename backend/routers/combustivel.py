@@ -163,6 +163,141 @@ def get_kpis(
     }
 
 
+@router.get("/kpis-estrategicos")
+def get_kpis_estrategicos(
+    mes: Optional[int] = Query(None),
+    ano: Optional[int] = Query(None),
+    tipo_abastecimento: Optional[str] = Query(None),
+    combustivel: Optional[str] = Query(None),
+    placa: Optional[str] = Query(None),
+):
+    """Novos KPIs Estratégicos com Projeção Ponderada conforme briefing Gritsch."""
+    df = _apply_filters(cache.get_df(), tipo_abastecimento, combustivel, placa)
+
+    if df.empty:
+        return {}
+
+    if mes and ano:
+        mes_ref, ano_ref = mes, ano
+    else:
+        ultima_data = df["data_transacao"].max()
+        mes_ref, ano_ref = int(ultima_data.month), int(ultima_data.year)
+
+    df_mes = df[
+        (df["data_transacao"].dt.month == mes_ref)
+        & (df["data_transacao"].dt.year == ano_ref)
+    ].copy()
+
+    if df_mes.empty:
+        return {}
+
+    total_valor = float(df_mes["valor"].sum())
+    total_litros = float(df_mes["litragem"].sum())
+
+    # 1. Custo por KM rodado
+    df_hod = df_mes.dropna(subset=["hodometro", "placa"])
+    km_rodado_total = 0
+    if not df_hod.empty:
+        km_agg = df_hod.groupby("placa").agg(
+            km_min=("hodometro", "min"),
+            km_max=("hodometro", "max")
+        )
+        km_agg["km_rodado"] = km_agg["km_max"] - km_agg["km_min"]
+        km_rodado_total = float(km_agg[km_agg["km_rodado"] > 0]["km_rodado"].sum())
+
+    custo_por_km = total_valor / km_rodado_total if km_rodado_total > 0 else 0
+    km_por_litro = km_rodado_total / total_litros if total_litros > 0 else 0
+
+    # 2. Saving real do mês (vs ANP)
+    from routers.benchmark import _match_produto
+    from anp_client import get_anp_df
+
+    df_anp = get_anp_df()
+    saving_total = 0
+    
+    if not df_anp.empty:
+        df_mes["produto_anp"] = df_mes["nome_combustivel"].apply(_match_produto)
+        df_frota = df_mes[df_mes["produto_anp"].notna()]
+        
+        if not df_frota.empty:
+            frota_agg = (
+                df_frota.groupby(["uf_posto", "produto_anp"])
+                .apply(lambda g: pd.Series({
+                    "preco_frota": (g["valor"].sum() / g["litragem"].sum() if g["litragem"].sum() > 0 else 0),
+                    "total_litros": g["litragem"].sum()
+                }))
+                .reset_index()
+            )
+            anp_agg = (
+                df_anp.groupby(["uf", "produto"])["preco"]
+                .mean().reset_index().rename(columns={"uf": "uf_posto", "produto": "produto_anp", "preco": "preco_anp"})
+            )
+            merged = frota_agg.merge(anp_agg, on=["uf_posto", "produto_anp"], how="left")
+            
+            for _, row in merged.iterrows():
+                if pd.notna(row["preco_anp"]):
+                    desvio = float(row["preco_frota"]) - float(row["preco_anp"])
+                    if desvio < 0:
+                        saving_total += abs(desvio) * float(row["total_litros"])
+
+    # 3. Abastecimentos Fora de Rota
+    df_hist_placa = df[df["placa"].isin(df_mes["placa"].unique())]
+    uf_primarias = df_hist_placa.groupby("placa")["uf_posto"].apply(
+        lambda x: x.mode()[0] if not x.mode().empty else None
+    ).to_dict() if not df_hist_placa.empty else {}
+
+    fora_de_rota = 0
+    for _, row in df_mes.iterrows():
+        p = row["placa"]
+        if p in uf_primarias and uf_primarias[p] and row["uf_posto"] != uf_primarias[p]:
+            fora_de_rota += 1
+            
+    pct_fora_rota = (fora_de_rota / len(df_mes)) * 100 if len(df_mes) > 0 else 0
+
+    # 4. Projeção de Fechamento (Média Ponderada 3 Meses)
+    def get_avg_diario(m_target, a_target):
+        df_t = df[(df["data_transacao"].dt.month == m_target) & (df["data_transacao"].dt.year == a_target)]
+        if df_t.empty: return 0
+        dias = len(df_t["data_transacao"].dt.date.unique())
+        return float(df_t["valor"].sum() / dias) if dias > 0 else 0
+
+    avg0 = total_valor / len(df_mes["data_transacao"].dt.date.unique()) if not df_mes.empty else 0
+    m1 = datetime(ano_ref, mes_ref, 1) - relativedelta(months=1)
+    avg1 = get_avg_diario(m1.month, m1.year)
+    m2 = datetime(ano_ref, mes_ref, 1) - relativedelta(months=2)
+    avg2 = get_avg_diario(m2.month, m2.year)
+
+    weighted_daily = (avg0 * 0.5) + (avg1 * 0.3) + (avg2 * 0.2) if (avg1 > 0 or avg2 > 0) else avg0
+    
+    total_dias = calendar.monthrange(ano_ref, mes_ref)[1]
+    dia_atual = datetime.now().day if (mes_ref == datetime.now().month and ano_ref == datetime.now().year) else total_dias
+    dias_rest = max(0, total_dias - dia_atual)
+    
+    proj_valor = total_valor + (weighted_daily * dias_rest)
+    
+    # Orçamento (5% acima do mês anterior como base)
+    df_ant = df[(df["data_transacao"].dt.month == m1.month) & (df["data_transacao"].dt.year == m1.year)]
+    budget = (float(df_ant["valor"].sum()) * 1.05) if not df_ant.empty else (total_valor * 1.15)
+    
+    meta_necessaria = (budget - total_valor) / dias_rest if dias_rest > 0 else 0
+    desvio = proj_valor - budget
+    pct_budget = (proj_valor / budget * 100) if budget > 0 else 0
+
+    return {
+        "custo_por_km": round(custo_por_km, 2),
+        "km_por_litro": round(km_por_litro, 2),
+        "saving_real": round(saving_total, 2),
+        "fora_de_rota_qtd": fora_de_rota,
+        "fora_de_rota_pct": round(pct_fora_rota, 1),
+        "projecao_fechamento": round(proj_valor, 2),
+        "meta_diaria_necessaria": round(meta_necessaria, 2),
+        "desvio_reais": round(desvio, 2),
+        "percentual_orcamento": round(pct_budget, 1),
+        "dias_restantes": dias_rest,
+        "abastecimentos_fora_rota": fora_de_rota
+    }
+
+
 # ---------------------------------------------------------------------------
 # Gasto diário do mês
 # ---------------------------------------------------------------------------
@@ -349,40 +484,60 @@ def get_top_postos(
     combustivel: Optional[str] = Query(None),
     placa: Optional[str] = Query(None),
 ):
-    """Top postos por valor total gasto."""
+    """Top postos por preço e benchmark ANP (para o Painel de Decisão)."""
     df = _apply_filters(cache.get_df(), tipo_abastecimento, combustivel, placa)
 
     if df.empty:
         return []
 
-    result = (
+    # Agrupa por posto para pegar preço médio real pago
+    postos_agg = (
         df.groupby(["razao_social_posto", "cidade_posto", "uf_posto"])
         .agg(
             total_valor=("valor", "sum"),
             total_litros=("litragem", "sum"),
-            qtd_abastecimentos=("valor", "count"),
+            nome_combustivel_amostra=("nome_combustivel", "first")
         )
         .reset_index()
-        .sort_values("total_valor", ascending=False)
-        .head(limit)
     )
 
-    return [
-        {
+    # Cruza com ANP (lógica simplificada similar ao benchmark municipal)
+    from anp_client import get_anp_df
+    from routers.benchmark import _match_produto
+    df_anp = get_anp_df()
+    
+    resultados = []
+    for _, row in postos_agg.iterrows():
+        preco_medio = row["total_valor"] / row["total_litros"] if row["total_litros"] > 0 else 0
+        prod_anp = _match_produto(row["nome_combustivel_amostra"])
+        
+        # Filtra ANP para o posto
+        anp_ref = df_anp[
+            (df_anp["uf"] == row["uf_posto"]) & 
+            (df_anp["municipio"] == row["cidade_posto"].upper().strip()) & 
+            (df_anp["produto"] == prod_anp)
+        ]["preco"].mean() if not df_anp.empty else None
+        
+        # Fallback para estadual se municipal falhar
+        if pd.isna(anp_ref) and not df_anp.empty:
+            anp_ref = df_anp[
+                (df_anp["uf"] == row["uf_posto"]) & 
+                (df_anp["produto"] == prod_anp)
+            ]["preco"].mean()
+
+        var_pct = round((preco_medio - anp_ref) / anp_ref * 100, 2) if anp_ref else 0
+        
+        resultados.append({
             "razao_social_posto": row["razao_social_posto"],
             "cidade_posto": row["cidade_posto"],
             "uf_posto": row["uf_posto"],
-            "total_valor": round(float(row["total_valor"]), 2),
-            "total_litros": round(float(row["total_litros"]), 3),
-            "preco_medio": (
-                round(float(row["total_valor"]) / float(row["total_litros"]), 4)
-                if float(row["total_litros"]) > 0
-                else 0
-            ),
-            "qtd_abastecimentos": int(row["qtd_abastecimentos"]),
-        }
-        for _, row in result.iterrows()
-    ]
+            "preco_medio": round(float(preco_medio), 3),
+            "variacao_pct": var_pct,
+            "total_valor": round(float(row["total_valor"]), 2)
+        })
+
+    # Ordena pelo melhor preço (menor variação vs ANP)
+    return sorted(resultados, key=lambda x: x["variacao_pct"])[:limit]
 
 
 # ---------------------------------------------------------------------------

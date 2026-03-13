@@ -15,7 +15,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 from data_cache import cache
-from routers import combustivel, precos, frota, diretoria, veiculos, benchmark, operacional
+from routers import combustivel, precos, frota, diretoria, veiculos, benchmark, operacional, alertas, torre
 
 
 @asynccontextmanager
@@ -53,6 +53,8 @@ app.include_router(diretoria.router)
 app.include_router(veiculos.router)
 app.include_router(benchmark.router)
 app.include_router(operacional.router)
+app.include_router(alertas.router)
+app.include_router(torre.router)
 
 
 @app.get("/health", tags=["sistema"])

@@ -32,17 +32,17 @@
         <GraficoEvolucaoPrecos :data="evolucao" :loading="lEvolucao" />
       </section>
 
-      <!-- Preço por UF + Ranking postos lado a lado -->
-      <div class="two-col">
-        <section>
-          <div class="section-heading">Preço médio por estado</div>
-          <GraficoPrecoPorUF :data="precoPorUF" :loading="lUF" />
-        </section>
-        <section>
-          <div class="section-heading">Variação de preço mensal</div>
-          <GraficoVariacaoMensal :data="variacao" :loading="lVariacao" />
-        </section>
-      </div>
+      <!-- Preço por UF (Full Width agora para as novas cards) -->
+      <section>
+        <div class="section-heading">Preço médio por estado</div>
+        <GraficoPrecoPorUF :data="precoPorUF" :loading="lUF" />
+      </section>
+
+      <!-- Variação Mensal -->
+      <section>
+        <div class="section-heading">Variação de preço mensal</div>
+        <GraficoVariacaoMensal :data="variacao" :loading="lVariacao" />
+      </section>
 
       <!-- Ranking postos baratos / caros -->
       <section>

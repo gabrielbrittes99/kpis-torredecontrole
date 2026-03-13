@@ -21,8 +21,10 @@ _ANP_BASE = "https://www.gov.br/anp/pt-br/centrais-de-conteudo/dados-abertos/arq
 # Mapeamento de nome ANP → nome interno do sistema
 PRODUTO_MAP = {
     "GASOLINA COMUM": "gasolina",
+    "GASOLINA": "gasolina",
     "GASOLINA ADITIVADA": "gasolina aditivada",
     "ETANOL HIDRATADO": "etanol",
+    "ETANOL": "etanol",
     "DIESEL": "diesel",
     "DIESEL S10": "diesel s10",
     "GNV": "gnv",
@@ -51,11 +53,19 @@ def _download_csv(url: str) -> Optional[pd.DataFrame]:
             io.StringIO(r.text),
             sep=";",
             decimal=",",
-            usecols=["Estado - Sigla", "Produto", "Valor de Venda"],
-            dtype={"Estado - Sigla": str, "Produto": str},
+            usecols=["Estado - Sigla", "Municipio", "Produto", "Valor de Venda", "Data da Coleta"],
+            dtype={"Estado - Sigla": str, "Municipio": str, "Produto": str},
         )
-        df.rename(columns={"Estado - Sigla": "uf", "Produto": "produto", "Valor de Venda": "preco"}, inplace=True)
+        df.rename(columns={
+            "Estado - Sigla": "uf",
+            "Municipio": "municipio",
+            "Produto": "produto",
+            "Valor de Venda": "preco",
+            "Data da Coleta": "data_coleta"
+        }, inplace=True)
+        df["data_coleta"] = pd.to_datetime(df["data_coleta"], format="%d/%m/%Y", errors="coerce")
         df["preco"] = pd.to_numeric(df["preco"], errors="coerce")
+        df["municipio"] = df["municipio"].fillna("").str.strip().str.upper()
         df.dropna(subset=["preco"], inplace=True)
         return df
     except Exception as e:
@@ -66,20 +76,32 @@ def _download_csv(url: str) -> Optional[pd.DataFrame]:
 def _build_cache() -> pd.DataFrame:
     hoje = datetime.now()
     frames = []
+    
+    # Categorias de arquivos que precisamos (categorias de URL)
+    # 0 = diesel/gnv, 1 = gasolina/etanol
+    categorias_baixadas = [False, False]
 
-    # Tenta o mês atual e o anterior (caso o mês atual ainda não tenha dados)
-    for delta in range(3):
+    # Tenta até os últimos 4 meses para garantir cobertura total
+    for delta in range(4):
+        if all(categorias_baixadas):
+            break
+            
         d = hoje - pd.DateOffset(months=delta)
-        for url in _csv_urls(d.year, d.month):
+        urls = _csv_urls(d.year, d.month)
+        
+        for idx, url in enumerate(urls):
+            if categorias_baixadas[idx]:
+                continue # Já temos os dados mais recentes dessa categoria
+                
             df = _download_csv(url)
             if df is not None and not df.empty:
                 frames.append(df)
-        if frames:
-            break  # Usou o mês mais recente disponível
+                categorias_baixadas[idx] = True
+                logger.info(f"ANP: Dados de {url} carregados com sucesso.")
 
     if not frames:
-        logger.error("ANP: nenhum CSV disponível nos últimos 3 meses")
-        return pd.DataFrame(columns=["uf", "produto", "preco"])
+        logger.error("ANP: nenhum CSV disponível nos últimos 4 meses")
+        return pd.DataFrame(columns=["uf", "municipio", "produto", "preco", "data_coleta"])
 
     return pd.concat(frames, ignore_index=True)
 

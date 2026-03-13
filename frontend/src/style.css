@@ -1,48 +1,91 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-  --bg:           #09090b;
-  --surface:      #111113;
-  --surface-hover:#16161a;
-  --border:       #27272a;
-  --border-subtle:#1c1c1f;
-  --accent:       #f97316;
-  --accent-bg:    rgba(249,115,22,0.08);
-  --green:        #22c55e;
-  --green-bg:     rgba(34,197,94,0.08);
-  --red:          #ef4444;
-  --red-bg:       rgba(239,68,68,0.08);
-  --blue:         #3b82f6;
-  --blue-bg:      rgba(59,130,246,0.08);
-  --text:         #fafafa;
-  --text-2:       #a1a1aa;
-  --text-3:       #52525b;
+  /* Gritsch v3.2 Soft Light Gray (Lighter but not pure white) */
+  --void:    #F8FAFC;   /* Background Slate 50 - Extremamente suave e limpo */
+  --deep:    #FFFFFF;   /* Sidebar / Header - Branco limpo */
+  --s1:      #FFFFFF;   /* Cards - Brancos */
+  --s2:      #E2E8F0;   /* Hover / Slate 200 */
+  --s3:      #F8FAFC;   /* Elementos Internos */
+  --s4:      #CBD5E1;   /* Separadores */
+
+  --border:  rgba(0, 0, 0, 0.05); /* Bordas muito sutis */
+  --border2: rgba(0, 0, 0, 0.08);
+
+  --red:     #EF4444;   /* Vermelho padrão legível */
+  --red2:    #FEE2E2;   /* Fundo vermelho suave */
+  --red3:    #FECACA;
+
+  --yellow:  #F59E0B;   /* Amarelo */
+  --yellow2: #FEF3C7;
+
+  --green:   #10B981;   /* Verde */
+  --green2:  #D1FAE5;
+
+  --blue:    #3B82F6;   /* Azul */
+  --blue2:   #DBEAFE;
+
+  --orange:  #F97316;   /* Gritsch Color */
+  --orange-bg: #FFEDD5;
+  
+  --text:    #1E293B;   /* Texto Slate 800 - Leitura clara */
+  --text2:   #475569;   /* Slate 600 */
+  --text3:   #94A3B8;   /* Slate 400 */
+
+  /* Compatibilidade */
+  --accent:      var(--orange);
+  --accent-bg:   var(--orange-bg);
+  --bg:          var(--void);
+  --text-2:      var(--text2);
+  --text-3:      var(--text3);
+  --border-subtle: var(--border);
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
-  background: var(--bg);
+  background: var(--void);
   color: var(--text);
   font-family: 'Inter', sans-serif;
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.6;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-
-.mono { font-family: 'JetBrains Mono', monospace; }
-
-/* ApexCharts reset */
-.apexcharts-canvas svg { background: transparent !important; }
-.apexcharts-tooltip {
-  background: var(--surface) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 8px !important;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.4) !important;
+h1, h2, h3, h4 { 
+  font-weight: 700; 
+  letter-spacing: -0.01em;
 }
+
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-variant-numeric: tabular-nums; }
+
+/* Custom Scrollbar Thin */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--void); }
+::-webkit-scrollbar-thumb { background: var(--s4); border-radius: 10px; }
+
+/* Cards Professional Light */
+.v-block {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 16px; 
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02), 0 4px 6px -1px rgba(0,0,0,0.03);
+}
+
+.section-title {
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  color: var(--text3);
+  text-transform: uppercase;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.section-title::after { content: ""; flex: 1; height: 1px; background: var(--s2); }
+
+/* Utility Classes */
+.font-syne { font-family: 'Inter', sans-serif; }

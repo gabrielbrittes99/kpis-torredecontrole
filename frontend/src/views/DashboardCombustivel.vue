@@ -52,13 +52,20 @@
     </div>
 
     <div class="page-body">
-
       <!-- KPIs -->
       <div class="kpis-grid">
         <KpiCard label="Total do mês"    :value="kpis.total_valor"        format="currency" :loading="lKpis" />
         <KpiCard label="Total litros"    :value="kpis.total_litros"       format="integer"  :loading="lKpis" />
         <KpiCard label="Preço médio / L" :value="kpis.preco_medio"        format="decimal"  :loading="lKpis" :delta="kpis.variacao_preco_pct" :delta-invert="true" />
         <KpiCard label="Abastecimentos"  :value="kpis.qtd_abastecimentos" format="integer"  :loading="lKpis" />
+      </div>
+
+      <div class="section-heading" style="margin-top: 12px; margin-bottom: 12px;">KPIs Estratégicos</div>
+      <div class="kpis-grid">
+        <KpiCard label="Custo por KM rodado"   :value="kpis_est.custo_por_km"             format="decimal"  :loading="lKpisEst" sub="KMs válidos apurados" />
+        <KpiCard label="Saving do Mês vs ANP"  :value="kpis_est.saving_real"              format="currency" :loading="lKpisEst" sub="Economia gerada" />
+        <KpiCard label="Fora de Rota"          :value="kpis_est.fora_de_rota_qtd"         format="integer"  :loading="lKpisEst" :sub="kpis_est.fora_de_rota_pct + '% dos abastecimentos'" />
+        <KpiCard label="Inflação Rede"         :value="kpis_est.var_forn_pct"             format="decimal"  :loading="lKpisEst" :delta="kpis_est.var_forn_pct" :delta-invert="true" sub="var. mês anterior" />
       </div>
 
       <!-- Gráficos -->
@@ -115,7 +122,9 @@ import SecaoResumoPeriodo from '../components/SecaoResumoPeriodo.vue'
 import SecaoImpactoPreco from '../components/SecaoImpactoPreco.vue'
 import TabelaPostos     from '../components/TabelaPostos.vue'
 import GraficoDiaSemana from '../components/GraficoDiaSemana.vue'
-import { fetchFiltros, fetchKpis, fetchDiario, fetchPorTipo, fetchHistoricoMensal, fetchTopPostos, forceRefresh, fetchCustoDiaSemana } from '../api/combustivel.js'
+import AlertasList      from '../components/AlertasList.vue'
+import { fetchFiltros, fetchKpis, fetchDiario, fetchPorTipo, fetchHistoricoMensal, fetchTopPostos, forceRefresh, fetchCustoDiaSemana, fetchKpisEstrategicos } from '../api/combustivel.js'
+import { fetchAlertas } from '../api/alertas.js'
 
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
 
@@ -127,6 +136,8 @@ const refreshing       = ref(false)
 const refreshInfo      = ref('')
 
 const kpis      = ref({})
+const kpis_est  = ref({})
+const alertas   = ref([])
 const diario    = ref([])
 const porTipo   = ref([])
 const historico = ref([])
@@ -134,6 +145,7 @@ const topPostos   = ref([])
 const diaSemana   = ref([])
 
 const lKpis      = ref(true)
+const lKpisEst   = ref(true)
 const lDiario    = ref(true)
 const lPorTipo   = ref(true)
 const lHistorico = ref(true)
@@ -171,10 +183,12 @@ function getMesAno() {
 async function loadAll() {
   const f = getF()
   const { mes, ano } = getMesAno()
-  lKpis.value = lDiario.value = lPorTipo.value = lHistorico.value = lPostos.value = lDiaSemana.value = true
+  lKpis.value = lKpisEst.value = lDiario.value = lPorTipo.value = lHistorico.value = lPostos.value = lDiaSemana.value = true
 
   await Promise.allSettled([
     fetchKpis({ mes, ano, ...f }).then(d => kpis.value = d).finally(() => lKpis.value = false),
+    fetchKpisEstrategicos({ mes, ano, ...f }).then(d => kpis_est.value = d).finally(() => lKpisEst.value = false),
+    fetchAlertas().then(d => alertas.value = d),
     fetchDiario(mes, ano, f).then(d => diario.value = d).finally(() => lDiario.value = false),
     fetchPorTipo(f).then(d => porTipo.value = d).finally(() => lPorTipo.value = false),
     fetchHistoricoMensal(f, true).then(d => historico.value = d).finally(() => lHistorico.value = false),

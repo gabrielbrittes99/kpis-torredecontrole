@@ -70,6 +70,13 @@ def get_eficiencia_km_litro(
         total_litros = float(validos["litragem"].sum())
         total_valor = float(grupo["valor"].sum())
         km_litro = round(total_km / total_litros, 2) if total_litros > 0 else None
+        # Cálculo de variação vs Histórico (para o Painel de Decisão)
+        df_hist = df[df["placa"] == placa].copy()
+        df_hist["km_perc"] = df_hist["hodometro"].diff()
+        valid_hist = df_hist[(df_hist["km_perc"] > 0) & (df_hist["km_perc"] <= 2000)]
+        
+        avg_hist_km_l = (valid_hist["km_perc"].sum() / valid_hist["litragem"].sum()) if not valid_hist.empty and valid_hist["litragem"].sum() > 0 else km_litro
+        variacao_pct = round(((avg_hist_km_l - km_litro) / avg_hist_km_l * 100), 1) if avg_hist_km_l and km_litro else 0
 
         modelo = grupo["modelo_veiculo"].dropna().mode()
         marca = grupo["marca_veiculo"].dropna().mode()
@@ -81,6 +88,8 @@ def get_eficiencia_km_litro(
             "marca": marca.iloc[0] if not marca.empty else "",
             "motorista_principal": motorista.iloc[0] if not motorista.empty else "",
             "km_litro": km_litro,
+            "consumo_atual": km_litro, # Alias para o front
+            "variacao_consumo_pct": variacao_pct,
             "total_km": round(total_km, 0),
             "total_litros": round(total_litros, 0),
             "total_valor": round(total_valor, 2),
@@ -91,8 +100,8 @@ def get_eficiencia_km_litro(
     if not resultados:
         return []
 
-    resultados.sort(key=lambda x: x["km_litro"] or 0, reverse=True)
-    return resultados[:limit]
+    # Ordena pelo pior desempenho (maior variação negativa ou menor km/L) para destaque
+    return sorted(resultados, key=lambda x: x["variacao_consumo_pct"], reverse=True)[:limit]
 
 
 # ---------------------------------------------------------------------------

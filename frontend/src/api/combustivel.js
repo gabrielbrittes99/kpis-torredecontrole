@@ -18,6 +18,10 @@ export function fetchKpis(filtros = {}) {
   return get('/api/combustivel/kpis', filtros)
 }
 
+export function fetchKpisEstrategicos(filtros = {}) {
+  return get('/api/combustivel/kpis-estrategicos', filtros)
+}
+
 export function fetchDiario(mes, ano, filtros = {}) {
   return get('/api/combustivel/diario', { mes, ano, ...filtros })
 }
