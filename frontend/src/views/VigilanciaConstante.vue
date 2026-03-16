@@ -1,18 +1,18 @@
 <template>
   <div class="vigilancia-root animate-in">
-    
+
     <!-- ZONA 1: Header Fixed -->
     <header class="v-header">
       <div class="header-left">
         <span class="logo">GRITSCH <span class="divider">//</span> <span class="subtitle">Torre de Decisão</span></span>
       </div>
-      
+
       <div class="header-center">
         <div class="status-indicator" :class="getStatusGlobalClass">
           {{ getStatusGlobalText }}
         </div>
       </div>
-      
+
       <div class="header-right">
         <div class="live-indicator">
           <div class="pulse-dot"></div>
@@ -27,12 +27,12 @@
       <AlertasList :alertas="alertas" style="margin-bottom: 24px;" />
 
       <!-- Alerta de Recomendação Flex -->
-      <div v-if="estado.flex_analysis" class="flex-recommendation-alert" :class="estado.flex_analysis.recomendacao.includes('ETANOL') ? 'etanol' : 'gasolina'">
-        <div class="flex-alert-icon">{{ estado.flex_analysis.recomendacao.includes('ETANOL') ? '🍃' : '⛽' }}</div>
+      <div v-if="estado.flex" class="flex-recommendation-alert" :class="estado.flex.recomendacao.includes('ETANOL') ? 'etanol' : 'gasolina'">
+        <div class="flex-alert-icon">{{ estado.flex.recomendacao.includes('ETANOL') ? '🍃' : '⛽' }}</div>
         <div class="flex-alert-content">
-          <div class="flex-alert-title">RECOMENDAÇÃO FLEX: {{ estado.flex_analysis.recomendacao }}</div>
+          <div class="flex-alert-title">RECOMENDAÇÃO FLEX: {{ estado.flex.recomendacao }}</div>
           <div class="flex-alert-desc">
-            Análise regional indica economia potencial de <strong>{{ estado.flex_analysis.economia_potencial }}</strong> no custo por KM utilizando {{ estado.flex_analysis.recomendacao.split(' ').pop() }}.
+            Análise regional indica economia potencial de <strong>{{ estado.flex.economia_potencial }}</strong> no custo por KM utilizando {{ estado.flex.recomendacao.split(' ').pop() }}.
           </div>
         </div>
       </div>
@@ -56,10 +56,10 @@
 
     <!-- ZONA 3: Main Layout -->
     <main class="v-main-layout">
-      
+
       <!-- Coluna Esquerda -->
       <div class="col-left">
-        
+
         <!-- Bloco Ações Agora -->
         <div class="v-block actions-block">
           <div class="section-title">O QUE FAZER AGORA <span class="action-count-badge">{{ pendentesCount }}</span></div>
@@ -117,30 +117,30 @@
 
       <!-- Coluna Direita (320px) -->
       <aside class="col-right">
-        
+
         <!-- Análise Flex -->
         <div class="v-block side-block">
           <div class="label-tiny mono">EFICIÊNCIA FLEX — MÉDIA REGIÃO</div>
           <div class="flex-comparison">
             <div class="flex-item">
               <span class="f-label">GASOLINA</span>
-              <span class="f-val">R$ {{ estado.flex_analysis?.gasolina_preco?.toFixed(2) }}</span>
+              <span class="f-val">R$ {{ estado.flex?.gasolina_preco?.toFixed(2) }}</span>
               <span class="f-sub mono">Custo/KM: R$ 0,54</span>
             </div>
             <div class="flex-divider">vs</div>
             <div class="flex-item">
               <span class="f-label">ETANOL</span>
-              <span class="f-val">R$ {{ estado.flex_analysis?.etanol_preco?.toFixed(2) }}</span>
+              <span class="f-val">R$ {{ estado.flex?.etanol_preco?.toFixed(2) }}</span>
               <span class="f-sub mono">Custo/KM: R$ 0,48</span>
             </div>
           </div>
           <div class="flex-ratio-bar">
-            <div class="ratio-fill" :style="{ width: estado.flex_analysis?.ratio + '%' }"></div>
-            <span class="ratio-text">{{ estado.flex_analysis?.ratio }}%</span>
+            <div class="ratio-fill" :style="{ width: estado.flex?.ratio + '%' }"></div>
+            <span class="ratio-text">{{ estado.flex?.ratio }}%</span>
           </div>
           <p class="label-sub" style="margin-top: 12px; font-size: 11px;">
             Ponto de equilíbrio ideal: <strong>70%</strong>. <br/>
-            Atual: {{ estado.flex_analysis?.ratio }}%. {{ estado.flex_analysis?.recomendacao }}
+            Atual: {{ estado.flex?.ratio }}%. {{ estado.flex?.recomendacao }}
           </p>
         </div>
 
@@ -148,7 +148,7 @@
         <div class="v-block side-block proj-block highlighted">
           <div class="label-tiny mono">PROJEÇÃO DE FECHAMENTO — {{ currentMonthName }} de {{ new Date().getFullYear() }}</div>
           <div class="proj-value" :class="{ critical: projecao > meta }">R$ {{ fmtN(projecao) }}</div>
-          
+
           <div class="meta-comparison">
              <div class="meta-info">
                <span class="meta-label">META ORÇAMENTÁRIA (HISTÓRICO)</span>
@@ -239,7 +239,7 @@
           <button class="modal-close" @click="modalAcao = null">×</button>
           <div class="modal-title" :class="modalAcao.tipo">{{ modalAcao.titulo }}</div>
           <div class="modal-sub">{{ modalAcao.desc }}</div>
-          
+
           <div class="modal-steps">
             <div v-for="(p, i) in steps" :key="i" class="modal-step">
               <div class="step-num">{{ i + 1 }}</div>
@@ -285,7 +285,10 @@ onMounted(async () => {
 onUnmounted(() => clearInterval(timerId))
 
 // Mapeamentos e Computeds
-const periodo = computed(() => new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }))
+const _hoje = new Date()
+const periodo = computed(() => _hoje.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }))
+const periodoLabel = _hoje.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+const currentMonthName = _hoje.toLocaleDateString('pt-BR', { month: 'long' })
 
 const getStatusGlobalText = computed(() => {
   if (pendentesCount.value > 0) return '⚠ ATENÇÃO NECESSÁRIA'
@@ -297,55 +300,77 @@ const getStatusGlobalClass = computed(() => {
   return 'healthy'
 })
 
-const situationCards = computed(() => [
-  { 
-    label: 'ORÇAMENTO DO MÊS', 
-    value: (estado.value.situacao?.orcamento?.valor || 0) + '%', 
-    verdict: (estado.value.situacao?.orcamento?.valor || 0) > 100 ? '▲ Agir Agora' : '✓ No Esperado',
-    status: (estado.value.situacao?.orcamento?.valor || 0) > 100 ? 'critical' : 'healthy',
-    sub: `Proj. R$ ${fmtK(estado.value.situacao?.orcamento?.projecao)}`,
-    detail: `Meta R$ ${fmtK(estado.value.situacao?.orcamento?.meta)}`
-  },
-  { 
-    label: 'VEÍCULOS COM PROBLEMA', 
-    value: estado.value.situacao?.veiculos?.count || 0, 
-    verdict: (estado.value.situacao?.veiculos?.count || 0) > 0 ? '⚠ Verificar' : '✓ No Esperado',
-    status: (estado.value.situacao?.veiculos?.count || 0) > 0 ? 'warning' : 'healthy',
-    sub: `de ${estado.value.situacao?.veiculos?.ativos || 0} ativos`,
-    detail: 'Placas: ABC, GHI...'
-  },
-  { 
-    label: 'PREÇO MÉDIO vs ANP', 
-    value: (estado.value.situacao?.preco_anp?.variacao || 0) + '%', 
-    verdict: (estado.value.situacao?.preco_anp?.variacao || 0) < 0 ? '✓ Economizando' : '▲ Perdendo',
-    status: (estado.value.situacao?.preco_anp?.variacao || 0) < 0 ? 'healthy' : 'critical',
-    sub: `Pago R$ ${estado.value.situacao?.preco_anp?.pago?.toFixed(2)}`,
-    detail: `ANP mun. R$ ${estado.value.situacao?.preco_anp?.anp?.toFixed(2)}`
-  },
-  { 
-    label: 'SAVING ACUMULADO', 
-    value: 'R$ ' + fmtK(estado.value.situacao?.saving?.valor), 
-    verdict: '↑ Economia Real',
-    status: 'info',
-    sub: 'Acumulado Junho',
-    detail: 'vs diesel mercado'
+const situationCards = computed(() => {
+  const orc = estado.value.situacao?.orcamento || {}
+  const veic = estado.value.situacao?.veiculos || {}
+  const anp = estado.value.situacao?.preco_anp || {}
+  const sav = estado.value.situacao?.saving || {}
+  const pctHist = orc.pct_media_hist || 0
+  const nVeic = veic.com_problema || 0
+  const varAnp = anp.variacao_pct || 0
+  return [
+    {
+      label: 'ORÇAMENTO DO MÊS',
+      value: pctHist.toFixed(1) + '%',
+      verdict: pctHist > 102 ? '▲ Agir Agora' : '✓ No Esperado',
+      status: pctHist > 102 ? 'critical' : 'healthy',
+      sub: `Proj. R$ ${fmtK(orc.projecao || 0)}`,
+      detail: `Ref. hist. R$ ${fmtK(orc.referencia_hist || 0)}`
+    },
+    {
+      label: 'VEÍCULOS COM PROBLEMA',
+      value: nVeic,
+      verdict: nVeic > 0 ? '⚠ Verificar' : '✓ No Esperado',
+      status: nVeic > 0 ? 'warning' : 'healthy',
+      sub: `de ${veic.ativos || 0} ativos`,
+      detail: nVeic > 0 ? `Ex: ${(veic.lista_problema || [])[0]?.placa || '—'}` : 'Frota OK'
+    },
+    {
+      label: 'PREÇO MÉDIO vs ANP',
+      value: (varAnp > 0 ? '+' : '') + varAnp.toFixed(1) + '%',
+      verdict: varAnp <= 0 ? '✓ Economizando' : '▲ Perdendo',
+      status: varAnp <= 0 ? 'healthy' : 'critical',
+      sub: anp.pago_medio ? `Pago R$ ${anp.pago_medio.toFixed(3)}` : 'Sem dados ANP',
+      detail: anp.anp_medio ? `ANP R$ ${anp.anp_medio.toFixed(3)}` : ''
+    },
+    {
+      label: 'SAVING ACUMULADO',
+      value: 'R$ ' + fmtK(sav.valor || 0),
+      verdict: '↑ Economia Real',
+      status: 'info',
+      sub: periodoLabel,
+      detail: 'vs preço ANP mercado'
+    }
+  ]
+})
+
+const projecao   = computed(() => estado.value.situacao?.orcamento?.projecao     || 0)
+const meta       = computed(() => estado.value.situacao?.orcamento?.referencia_hist || 0)
+const gastoDia   = computed(() => estado.value.situacao?.orcamento?.media_diaria   || 0)
+const metaDiaria = computed(() => {
+  // Meta diária = referência histórica ÷ dias no mês
+  const ref = estado.value.situacao?.orcamento?.referencia_hist || 0
+  const diasMes = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()
+  return ref > 0 ? ref / diasMes : 0
+})
+const diasRestantes = computed(() => estado.value.situacao?.orcamento?.dias_restantes || 0)
+
+// Score sintético calculado a partir dos dados reais
+const scores = computed(() => {
+  const orc = estado.value.situacao?.orcamento || {}
+  const anp = estado.value.situacao?.preco_anp || {}
+  const veic = estado.value.situacao?.veiculos || {}
+  const pct = orc.pct_media_hist || 100
+  return {
+    orcamento: Math.max(0, Math.min(100, Math.round(200 - pct))),
+    precos:    anp.variacao_pct != null ? Math.max(0, Math.min(100, Math.round(100 - anp.variacao_pct * 5))) : 50,
+    frota:     veic.ativos > 0 ? Math.round((1 - (veic.com_problema || 0) / veic.ativos) * 100) : 100,
+    rota:      100,
   }
-])
-
-const projecao = computed(() => estado.value.projecao_detalhe?.valor_projetado || 0)
-const meta = computed(() => estado.value.situacao?.orcamento?.meta || 0)
-const gastoDia = computed(() => estado.value.projecao_detalhe?.gasto_dia_atual || 0)
-const metaDiaria = computed(() => estado.value.projecao_detalhe?.meta_diaria || 0)
-const diasRestantes = computed(() => estado.value.projecao_detalhe?.dias_restantes || 0)
-const desvio = computed(() => estado.value.projecao_detalhe?.desvio_total || 0)
-
-const progressW = computed(() => Math.min(100, (projecao.value / (meta.value * 1.1)) * 100))
-const metaMarkerPos = computed(() => (meta.value / (meta.value * 1.1)) * 100)
-
-const scores = computed(() => estado.value.score || {})
+})
 const avgScore = computed(() => {
   const vals = Object.values(scores.value)
-  return vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length) : 0
+  return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0
 })
 
 const keyMap = { precos: 'PREÇOS', frota: 'FROTA', orcamento: 'META', rota: 'ROTA' }
@@ -368,17 +393,16 @@ const postos = [
   { rank: '✕', nome: 'Ipiranga Cascavel', cidade: 'CASCAVEL - BR-376', preco: 6.34, diff: '+8,2% ANP', trend: 'bad', badge: 'EVITAR', badgeClass: 'bad' }
 ]
 
-const veiculos = computed(() => {
-  const anom = (estado.value.anomalias || []).filter(a => a.tipo === 'frota' || a.tipo === 'rota' || a.tipo === 'gasto')
-  return anom.map(a => ({
-    placa: a.titulo,
-    problema: a.tipo === 'gasto' ? 'Alerta Orçamento' : (a.tipo === 'frota' ? 'Consumo Crítico' : 'Desvio de Rota'),
-    detalhe: a.detalhe,
-    status: a.tipo === 'critica' || a.tipo === 'frota' ? 'critical' : 'warning',
-    kml: a.tipo === 'frota' ? '2,1' : '3,0',
+const veiculos = computed(() =>
+  (estado.value.situacao?.veiculos?.lista_problema || []).map(v => ({
+    placa: v.placa,
+    problema: 'Consumo Crítico',
+    detalhe: `KM/L atual: ${v.kml_atual} (média: ${v.kml_medio})`,
+    status: 'critical',
+    kml: v.kml_atual,
     kmlStatus: 'bad'
   }))
-})
+)
 
 const modalAcao = ref(null)
 const steps = [
@@ -388,8 +412,12 @@ const steps = [
 
 const abrirAcao = (acao) => { modalAcao.value = acao }
 
-const fmtN = v => Number(v).toLocaleString('pt-BR')
-const fmtK = v => (v/1000).toFixed(1) + 'k'
+const fmtN = v => Number(v || 0).toLocaleString('pt-BR')
+const fmtK = v => {
+  const n = Number(v || 0)
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + 'M'
+  return (n / 1000).toFixed(1) + 'k'
+}
 
 const getHealthColor = v => {
   if (v > 70) return 'var(--green)'

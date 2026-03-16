@@ -88,25 +88,67 @@ def get_kpis_estrategicos(
     if kml_medio < 2.5: score -= 15
     if saving_resumo.get("variacao_media_pct", 0) > 0: score -= 15
 
-    # Projeção Mês Ativo (Run-rate)
-    df_mes_ativo = df_ano[df_ano["data_transacao"].dt.month == mes_ref]
+    # Projeção Mês Ativo (Run-rate ponderado Dias Úteis vs Fim de Semana)
+    df_mes_ativo = df_ano[df_ano["data_transacao"].dt.month == mes_ref].copy()
     gasto_real_mes = float(df_mes_ativo["valor"].sum())
     
     dias_no_mes = calendar.monthrange(ano_ref, mes_ref)[1]
     if eh_mes_atual:
-        # Se for o mês atual, projetamos o restante
+        # Se for o mês atual, verificamos até que dia temos dados
         dia_referencia = int(df_mes_ativo["data_transacao"].dt.day.max()) if not df_mes_ativo.empty else hoje.day
     else:
-        # Se for mês passado, o "dia de referência" para cálculos comparativos é o fim do mês
         dia_referencia = dias_no_mes
     
-    if dia_referencia > 0:
-        media_diaria = gasto_real_mes / dia_referencia
-        proj_restante = media_diaria * (dias_no_mes - dia_referencia)
-        proj_total_mes = round(gasto_real_mes + proj_restante, 2)
-    else:
-        proj_restante = 0
-        proj_total_mes = 0
+    proj_restante = 0.0
+    
+    if dia_referencia > 0 and dia_referencia < dias_no_mes:
+        # Identifica se a data da transação ocorreu em final de semana (5=Sábado, 6=Domingo)
+        df_mes_ativo["weekday"] = df_mes_ativo["data_transacao"].dt.dayofweek
+        
+        # Separa transações
+        df_fds = df_mes_ativo[df_mes_ativo["weekday"].isin([5, 6])]
+        df_uteis = df_mes_ativo[~df_mes_ativo["weekday"].isin([5, 6])]
+        
+        # Conta a quantidade de dias úteis e de finais de semana ATÉ o dia de referência
+        dias_passados_uteis = 0
+        dias_passados_fds = 0
+        
+        for d in range(1, dia_referencia + 1):
+            wd = datetime(ano_ref, mes_ref, d).weekday()
+            if wd in [5, 6]:
+                dias_passados_fds += 1
+            else:
+                dias_passados_uteis += 1
+                
+        # Calcula médias
+        media_dia_util = float(df_uteis["valor"].sum()) / dias_passados_uteis if dias_passados_uteis > 0 else 0
+        media_fds = float(df_fds["valor"].sum()) / dias_passados_fds if dias_passados_fds > 0 else 0
+        
+        # Se uma das médias for zero por falta de amostra, usa a média geral como fallback
+        if media_dia_util == 0 and media_fds == 0:
+            media_geral = gasto_real_mes / dia_referencia
+            media_dia_util = media_geral
+            media_fds = media_geral
+        elif media_dia_util == 0:
+            media_dia_util = media_fds
+        elif media_fds == 0:
+            media_fds = media_dia_util
+            
+        # Conta quantos dias úteis e fds FALTAM para o mês acabar
+        dias_restantes_uteis = 0
+        dias_restantes_fds = 0
+        
+        for d in range(dia_referencia + 1, dias_no_mes + 1):
+            wd = datetime(ano_ref, mes_ref, d).weekday()
+            if wd in [5, 6]:
+                dias_restantes_fds += 1
+            else:
+                dias_restantes_uteis += 1
+                
+        # Projeta o restante
+        proj_restante = (media_dia_util * dias_restantes_uteis) + (media_fds * dias_restantes_fds)
+
+    proj_total_mes = round(gasto_real_mes + proj_restante, 2)
 
     return {
         "status": "success",

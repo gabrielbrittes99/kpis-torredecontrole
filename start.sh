@@ -9,6 +9,11 @@ set -e
 echo "🚀 Iniciando KPIs Torre de Controle..."
 echo ""
 
+# Limpa processos anteriores para evitar conflito de porta
+pkill -f "uvicorn main:app" 2>/dev/null || true
+pkill -f "vite" 2>/dev/null || true
+sleep 1
+
 # --- Backend ---
 echo "📦 Configurando Backend..."
 cd backend

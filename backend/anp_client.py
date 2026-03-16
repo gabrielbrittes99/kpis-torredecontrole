@@ -7,6 +7,7 @@ Cache local de 24h para evitar downloads repetidos.
 """
 import io
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -46,7 +47,7 @@ def _csv_urls(ano: int, mes: int) -> list[str]:
 
 def _download_csv(url: str) -> Optional[pd.DataFrame]:
     try:
-        with httpx.Client(timeout=30, follow_redirects=True) as client:
+        with httpx.Client(timeout=12, follow_redirects=True) as client:
             r = client.get(url)
             r.raise_for_status()
         df = pd.read_csv(
@@ -74,36 +75,38 @@ def _download_csv(url: str) -> Optional[pd.DataFrame]:
 
 
 def _build_cache() -> pd.DataFrame:
+    """Baixa os CSVs da ANP em paralelo (máx 4 threads)."""
     hoje = datetime.now()
-    frames = []
-    
-    # Categorias de arquivos que precisamos (categorias de URL)
-    # 0 = diesel/gnv, 1 = gasolina/etanol
-    categorias_baixadas = [False, False]
 
-    # Tenta até os últimos 4 meses para garantir cobertura total
+    # Monta lista de URLs candidatas (mês atual + 3 anteriores × 2 categorias)
+    candidatas: list[tuple[int, str]] = []  # (idx_categoria, url)
     for delta in range(4):
-        if all(categorias_baixadas):
-            break
-            
         d = hoje - pd.DateOffset(months=delta)
-        urls = _csv_urls(d.year, d.month)
-        
-        for idx, url in enumerate(urls):
-            if categorias_baixadas[idx]:
-                continue # Já temos os dados mais recentes dessa categoria
-                
-            df = _download_csv(url)
-            if df is not None and not df.empty:
-                frames.append(df)
-                categorias_baixadas[idx] = True
-                logger.info(f"ANP: Dados de {url} carregados com sucesso.")
+        for idx, url in enumerate(_csv_urls(d.year, d.month)):
+            candidatas.append((idx, url))
 
-    if not frames:
+    # Baixa tudo em paralelo; para cada categoria pega só a primeira que funcionar
+    resultados: dict[int, pd.DataFrame] = {}  # idx_categoria → df
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        future_to_meta = {pool.submit(_download_csv, url): (idx, url) for idx, url in candidatas}
+        for future in as_completed(future_to_meta):
+            idx, url = future_to_meta[future]
+            if idx in resultados:
+                continue  # Já temos os dados dessa categoria
+            try:
+                df = future.result()
+                if df is not None and not df.empty:
+                    resultados[idx] = df
+                    logger.info(f"ANP: {url} carregado ({len(df)} registros)")
+            except Exception as e:
+                logger.warning(f"ANP: erro {url}: {e}")
+
+    if not resultados:
         logger.error("ANP: nenhum CSV disponível nos últimos 4 meses")
         return pd.DataFrame(columns=["uf", "municipio", "produto", "preco", "data_coleta"])
 
-    return pd.concat(frames, ignore_index=True)
+    return pd.concat(list(resultados.values()), ignore_index=True)
 
 
 def get_anp_df() -> pd.DataFrame:

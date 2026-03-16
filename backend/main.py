@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -15,17 +16,49 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 from data_cache import cache
-from routers import combustivel, precos, frota, diretoria, veiculos, benchmark, operacional, alertas, torre
+from routers import combustivel, precos, frota, diretoria, veiculos, benchmark, operacional, alertas, torre, financeiro, filiais, visao_geral
+
+
+def _warmup_all():
+    """Carrega todos os caches externos em background (DB + ANP + mercado)."""
+    import threading
+    from market_client import get_brent, get_cambio, get_noticias
+    from anp_client import get_anp_df
+
+    # 1. Dados de transações (PostgreSQL)
+    try:
+        cache.get_df()
+        logger.info("Cache de transações carregado.")
+    except Exception as e:
+        logger.error(f"Falha ao carregar cache de transações: {e}")
+
+    # 2. ANP (downloads CSV — paralelos internamente)
+    def _anp():
+        try:
+            get_anp_df()
+            logger.info("Cache ANP carregado.")
+        except Exception as e:
+            logger.warning(f"Warmup ANP: {e}")
+
+    # 3. Mercado externo (Brent + câmbio + notícias)
+    def _mercado():
+        try:
+            get_brent()
+            get_cambio()
+            get_noticias()
+            logger.info("Cache de mercado carregado.")
+        except Exception as e:
+            logger.warning(f"Warmup mercado: {e}")
+
+    threading.Thread(target=_anp, daemon=True).start()
+    threading.Thread(target=_mercado, daemon=True).start()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Iniciando servidor — carregando cache de dados...")
-    try:
-        cache.get_df()
-        logger.info("Cache carregado com sucesso.")
-    except Exception as e:
-        logger.error(f"Falha ao carregar cache na inicialização: {e}")
+    logger.info("Iniciando servidor — aquecendo caches em background...")
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(None, _warmup_all)
     yield
 
 
@@ -55,6 +88,9 @@ app.include_router(benchmark.router)
 app.include_router(operacional.router)
 app.include_router(alertas.router)
 app.include_router(torre.router)
+app.include_router(financeiro.router)
+app.include_router(filiais.router)
+app.include_router(visao_geral.router)
 
 
 @app.get("/health", tags=["sistema"])

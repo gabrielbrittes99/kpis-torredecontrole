@@ -3,6 +3,7 @@ Seção 6 — Benchmark ANP
 Compara preços pagos pela frota com a média de mercado (ANP) por UF e combustível.
 """
 import logging
+from datetime import datetime, timedelta
 from typing import Optional
 
 import pandas as pd
@@ -14,6 +15,11 @@ from data_cache import cache
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/benchmark", tags=["benchmark"])
+
+# Cache leve para resultados pesados (evita recomputar a cada request do dashboard)
+_comparativo_cache: dict = {"data": None, "ts": None}
+_resumo_cache: dict = {"data": None, "ts": None}
+_CACHE_TTL_BENCH = timedelta(minutes=10)
 
 
 # Mapeamento fuzzy: nome do combustível no TruckPag → produto ANP
@@ -89,13 +95,21 @@ def get_comparativo_frota(
     uf: Optional[str] = Query(None, description="Filtrar por UF (ex: SP, PR)"),
     mes: Optional[int] = Query(None),
     ano: Optional[int] = Query(None),
-    match_temporal: bool = Query(True, description="Tentar correspondência por semana de coleta")
+    match_temporal: bool = Query(True, description="Tentar correspondência por semana de coleta"),
+    _use_cache: bool = True,
 ):
     """
     Compara o preço médio pago pela frota com a média ANP de mercado.
-    Se match_temporal for True, tenta comparar abastecimentos com a média ANP 
+    Se match_temporal for True, tenta comparar abastecimentos com a média ANP
     daquela semana específica de coleta.
     """
+    global _comparativo_cache
+    # Usa cache quando chamado sem filtros (caso padrão do dashboard)
+    if _use_cache and uf is None and mes is None and ano is None:
+        if (_comparativo_cache["data"] is not None and _comparativo_cache["ts"] is not None
+                and datetime.now() - _comparativo_cache["ts"] < _CACHE_TTL_BENCH):
+            return _comparativo_cache["data"]
+
     df_frota = cache.get_df().copy()
     if not df_frota.empty:
         if ano:
@@ -190,6 +204,12 @@ def get_comparativo_frota(
     resultado.sort(key=lambda x: (x["desvio_pct"] or 0), reverse=True)
     # Filtra para retornar apenas registros que possuem dados da ANP (evita dados distorcidos)
     resultado = [r for r in resultado if r["preco_anp_mercado"] is not None]
+
+    # Salva no cache se chamada sem filtros
+    if _use_cache and uf is None and mes is None and ano is None:
+        _comparativo_cache["data"] = resultado
+        _comparativo_cache["ts"] = datetime.now()
+
     return resultado
 
 
@@ -201,6 +221,12 @@ def get_resumo_benchmark(
     """
     Resumo executivo: quanto a frota está pagando acima/abaixo do mercado ANP no total.
     """
+    global _resumo_cache
+    if (mes is None and ano is None and _resumo_cache["data"] is not None
+            and _resumo_cache["ts"] is not None
+            and datetime.now() - _resumo_cache["ts"] < _CACHE_TTL_BENCH):
+        return _resumo_cache["data"]
+
     comparativo = get_comparativo_frota(mes=mes, ano=ano)
     if not comparativo:
         return {}
@@ -215,7 +241,7 @@ def get_resumo_benchmark(
     total_litros_global = sum(r["total_litros"] for r in comparativo)
     variacao_media_pct = sum((r["desvio_pct"] or 0) * r["total_litros"] for r in comparativo) / total_litros_global if total_litros_global > 0 else 0
 
-    return {
+    result = {
         "gasto_total_frota": round(gasto_total, 2),
         "economia_potencial_total": round(economia_total, 2),
         "economia_pct": round(economia_total / gasto_total * 100, 2) if gasto_total else 0,
@@ -225,6 +251,10 @@ def get_resumo_benchmark(
         "ufs_abaixo_mercado": len(set(r["uf"] for r in abaixo)),
         "combinacoes_analisadas": len(comparativo),
     }
+    if mes is None and ano is None:
+        _resumo_cache["data"] = result
+        _resumo_cache["ts"] = datetime.now()
+    return result
 
 
 @router.get("/comparativo-municipal")
