@@ -18,18 +18,13 @@ sleep 1
 echo "📦 Configurando Backend..."
 cd backend
 
-if [ ! -d ".venv" ]; then
-    echo "   Criando ambiente virtual Python..."
-    python3 -m venv .venv
-fi
-
-echo "   Ativando venv e instalando dependências..."
-source .venv/bin/activate
+echo "   Instalando/Verificando dependências..."
 pip install -r requirements.txt --quiet
 
 echo "   ✅ Backend pronto!"
 echo "   Iniciando servidor na porta 8000..."
-uvicorn main:app --reload --port 8000 &
+# No Railway, a porta é passada pela variável PORT
+uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} &
 BACKEND_PID=$!
 
 cd ..
@@ -39,14 +34,10 @@ echo ""
 echo "📦 Configurando Frontend..."
 cd frontend
 
-if [ ! -d "node_modules" ]; then
-    echo "   Instalando dependências npm..."
-    npm install
-fi
-
 echo "   ✅ Frontend pronto!"
-echo "   Iniciando dev server na porta 5173..."
-npm run dev &
+# Usamos o preview do vite para servir o build de produção ou o dev server com host
+# Se for produção real, o ideal seria um servidor estático, mas para subir rápido:
+npm run dev -- --host 0.0.0.0 &
 FRONTEND_PID=$!
 
 cd ..
