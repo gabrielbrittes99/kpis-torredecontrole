@@ -1,11 +1,4 @@
-"""
-Configurações centrais do sistema Torre de Controle.
-
-Este arquivo é a fonte de verdade para:
-- Agrupamento de combustíveis (4 grupos)
-- Mapeamento de filiais (sigla SQL Server → nome + estado + região)
-- Placas hardcoded da Gritsch Palmas (ainda sem sigla no SQL Server)
-"""
+from typing import Optional
 
 # ---------------------------------------------------------------------------
 # GRUPOS DE COMBUSTÍVEL
@@ -13,19 +6,48 @@ Este arquivo é a fonte de verdade para:
 
 # De → Para (nome_combustivel no banco → grupo)
 FUEL_GROUP_MAP: dict[str, str] = {
-    # Diesel
-    "diesel s10":           "Diesel",
-    "diesel s10 aditivado": "Diesel",
-    "diesel aditivado":     "Diesel",
-    "biodiesel":            "Diesel",
-    # Gasolina
-    "gasolina comum":       "Gasolina",
-    "gasolina aditivada":   "Gasolina",
-    # Álcool
-    "alcool comum":         "Álcool",
-    "alcool aditivado":     "Álcool",
+    # Diesel — todas as variantes
+    "diesel":                    "Diesel",
+    "diesel s10":                "Diesel",
+    "diesel s-10":               "Diesel",
+    "diesel s500":               "Diesel",
+    "diesel s-500":              "Diesel",
+    "diesel s10 aditivado":      "Diesel",
+    "diesel s500 aditivado":     "Diesel",
+    "diesel aditivado":          "Diesel",
+    "diesel comum":              "Diesel",
+    "oleo diesel":               "Diesel",
+    "óleo diesel":               "Diesel",
+    "biodiesel":                 "Diesel",
+    "b10":                       "Diesel",
+    "b12":                       "Diesel",
+    "b13":                       "Diesel",
+    # Gasolina — todas as variantes
+    "gasolina":                  "Gasolina",
+    "gasolina c":                "Gasolina",
+    "gasolina comum":            "Gasolina",
+    "gasolina aditivada":        "Gasolina",
+    "gasolina premium":          "Gasolina",
+    "gasolina podium":           "Gasolina",
+    "gasolina v-power":          "Gasolina",
+    "gasolina select":           "Gasolina",
+    "gasolina boa":              "Gasolina",
+    "gasolina super":            "Gasolina",
+    "gasolina aditivada premium": "Gasolina",
+    # Álcool / Etanol — todas as variantes
+    "alcool":                    "Álcool",
+    "álcool":                    "Álcool",
+    "etanol":                    "Álcool",
+    "etanol hidratado":          "Álcool",
+    "alcool comum":              "Álcool",
+    "alcool aditivado":          "Álcool",
+    "álcool comum":              "Álcool",
+    "álcool aditivado":          "Álcool",
+    "etanol aditivado":          "Álcool",
     # Arla
-    "arla 32":              "Arla",
+    "arla":                      "Arla",
+    "arla 32":                   "Arla",
+    "arla32":                    "Arla",
 }
 
 FUEL_GROUPS = ["Diesel", "Gasolina", "Álcool", "Arla"]
@@ -89,6 +111,17 @@ PALMAS_PLACAS: set[str] = {
     "SDX2J14", "SEN1C55", "SEN1C56", "SFL1E46", "UAV5J75",
 }
 
+# Placas para Curitiba (Base) que não sobem no sistema ou tem exceção
+CWB_BASE_FILIAL = {"nome": "Gritsch Curitiba", "estado": "PR", "regiao": "Sul"}
+CWB_BASE_PLACAS: set[str] = {
+    "TBU9D20",
+}
+
+# Placas que não acharam no sistema e o usuário quer ignorar e excluir dos KPIs
+IGNORAR_PLACAS: set[str] = {
+    "TBI2068",
+}
+
 
 def get_filial_info(sigla_sqlserver: str) -> dict:
     """Retorna nome, estado e região da filial pelo código do SQL Server."""
@@ -100,9 +133,12 @@ def get_filial_info(sigla_sqlserver: str) -> dict:
 
 
 def get_filial_by_placa(placa: str) -> dict | None:
-    """Retorna os dados de Palmas se a placa for uma das hardcoded."""
-    if placa.upper().strip() in PALMAS_PLACAS:
+    """Retorna os dados de Palmas ou Curitiba se a placa for uma das hardcoded."""
+    p_upper = placa.upper().strip()
+    if p_upper in PALMAS_PLACAS:
         return PALMAS_FILIAL
+    if p_upper in CWB_BASE_PLACAS:
+        return CWB_BASE_FILIAL
     return None
 
 
@@ -194,6 +230,7 @@ VEICULO_RULES: list[tuple[str, str | None, str]] = [
     # Fallbacks genéricos para caminhões (se não bateu acima)
     ("accelo",          None,       "Caminhão5.5Ton"),  # Accelo genérico → 5.5T
     ("atego",           None,       "Caminhão10.5Ton"), # Atego genérico → 10.5T
+    ("20.480",          "vw",       "Caminhão12Ton"),
     ("constellation",   None,       "Caminhão12Ton"),   # Constellation genérico → 12T
     ("constelation",    None,       "Caminhão12Ton"),
     ("vm",              "volvo",    "Caminhão12Ton"),    # Volvo VM genérico → 12T
@@ -254,6 +291,42 @@ VEICULO_GROUPS = [
     "Moto",
 ]
 
+# Grupos que operam obrigatoriamente a Diesel
+HEAVY_GROUPS = [
+    "Caminhão17Ton",
+    "Caminhão12Ton",
+    "Caminhão10.5Ton",
+    "Caminhão9Ton",
+    "Caminhão7.5Ton",
+    "Caminhão6Ton",
+    "Caminhão5.5Ton",
+    "Caminhão5Ton",
+    "Caminhão4.2Ton",
+    "Pesado",
+]
+
+# Exceções manuais por placa (Placa -> Grupo)
+# Útil quando o modelo no cadastro está incorreto ou é genérico demais.
+VEICULO_PLATE_OVERRIDES: dict[str, str] = {
+    "SEN1C55": "Leve",  # Cadastrado como Master, mas é um Polo (confirmado pelo usuário)
+}
+
+# Exceções manuais de combustível por placa (Placa -> Grupo Combustível esperado)
+# Corrige erros de lançamento ou cadastros onde o combustível real difere do registrado.
+FUEL_PLATE_OVERRIDES: dict[str, str] = {
+    "BCQ7B53": "Diesel",
+    "BCQ7B55": "Diesel",
+    "SDP5J32": "Diesel",
+    "RHE2E95": "Diesel",
+    "BAJ7269": "Diesel",
+}
+
+# Exceções manuais de filial por placa (Placa -> Sigla Filial BlueFleet)
+FILIAL_PLATE_OVERRIDES: dict[str, str] = {
+    "RHF1B45": "REFERÊNCIA SINOP",
+    "SDX2A65": "Gritsch Brasília",
+}
+
 
 # ---------------------------------------------------------------------------
 # KM/L DE REFERÊNCIA POR GRUPO DE VEÍCULO
@@ -312,24 +385,24 @@ KML_REFERENCIA: dict[str, dict[str, tuple]] = {
 }
 
 
-def get_kml_referencia(grupo: str, combustivel: str) -> float | None:
-    """Retorna km/L de referência médio (rodo + urbano) para o grupo/combustível.
-
-    Retorna None se não houver referência definida.
-    """
-    ref = KML_REFERENCIA.get(grupo, {}).get(combustivel)
-    if ref is None:
-        return None
-    rodo, urb = ref
-    valores = [v for v in (rodo, urb) if v is not None]
-    return round(sum(valores) / len(valores), 2) if valores else None
+def is_fuel_incompatible(grupo_veiculo: str, grupo_combustivel: str) -> bool:
+    """Retorna True se houver uma incompatibilidade lógica (ex: Caminhão com Gasolina)."""
+    if grupo_veiculo in HEAVY_GROUPS:
+        # Pesados/Caminhões não devem abastecer Gasolina ou Álcool
+        if grupo_combustivel and grupo_combustivel.lower() in ["gasolina", "álcool", "etanol"]:
+            return True
+    return False
 
 
-def get_veiculo_group(modelo: str, marca: str = "") -> str:
-    """Retorna o grupo do veículo baseado em modelo e marca.
+def get_veiculo_group(modelo: str, marca: str = "", placa: str = "") -> str:
+    """Retorna o grupo do veículo baseado em modelo, marca e placa.
 
     Aplica as regras VEICULO_RULES em ordem; retorna 'Outros' se nenhuma bater.
     """
+    p_upper = placa.upper().replace("-", "").strip()
+    if p_upper in VEICULO_PLATE_OVERRIDES:
+        return VEICULO_PLATE_OVERRIDES[p_upper]
+
     m = (modelo or "").lower().strip()
     b = (marca or "").lower().strip()
     for keyword_modelo, keyword_marca, grupo in VEICULO_RULES:
@@ -339,3 +412,23 @@ def get_veiculo_group(modelo: str, marca: str = "") -> str:
             continue
         return grupo
     return "Outros"
+
+
+def get_kml_referencia(grupo_veiculo: str, grupo_combustivel: str) -> Optional[float]:
+    """Retorna o KM/L de referência (média simples) para o par grupo/combustível."""
+    grupo_data = KML_REFERENCIA.get(grupo_veiculo)
+    if not grupo_data:
+        return None
+    
+    # Normaliza nome do combustível para os campos da tabela (Gasolina, Álcool, Diesel)
+    fuel_norm = (grupo_combustivel or "").capitalize().strip()
+    if fuel_norm in ["Etanol", "Alcool"]:
+        fuel_norm = "Álcool"
+        
+    ref_tuple = grupo_data.get(fuel_norm)
+    if not ref_tuple:
+        return None
+    
+    # Média simples dos valores disponíveis (Rodoviário e Urbano)
+    vals = [v for v in ref_tuple if v is not None]
+    return round(sum(vals) / len(vals), 2) if vals else None

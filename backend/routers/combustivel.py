@@ -19,7 +19,7 @@ def _apply_filters(
     if tipo_abastecimento:
         df = df[df["tipo_abastecimento"] == tipo_abastecimento]
     if combustivel:
-        df = df[df["nome_combustivel"] == combustivel]
+        df = df[df["grupo_combustivel"] == combustivel]
     if placa:
         df = df[df["placa"] == placa.upper()]
     return df
@@ -46,7 +46,7 @@ def get_filtros():
         "tipos_abastecimento": sorted(
             df["tipo_abastecimento"].dropna().unique().tolist()
         ),
-        "combustiveis": sorted(df["nome_combustivel"].dropna().unique().tolist()),
+        "combustiveis": sorted(df["grupo_combustivel"].dropna().unique().tolist()),
         "placas": sorted(df["placa"].dropna().unique().tolist()),
         "meses_disponiveis": sorted(
             df["data_transacao"].dt.to_period("M").astype(str).unique().tolist()
@@ -372,7 +372,7 @@ def get_por_tipo(
     total_litros_geral = float(df["litragem"].sum())
 
     result = (
-        df.groupby("nome_combustivel")
+        df.groupby("grupo_combustivel")
         .agg(
             total_valor=("valor", "sum"),
             total_litros=("litragem", "sum"),
@@ -384,7 +384,7 @@ def get_por_tipo(
 
     return [
         {
-            "nome_combustivel": row["nome_combustivel"],
+            "nome_combustivel": row["grupo_combustivel"],
             "total_valor": round(float(row["total_valor"]), 2),
             "total_litros": round(float(row["total_litros"]), 3),
             "qtd": int(row["qtd"]),
@@ -424,17 +424,17 @@ def get_historico_mensal(
 
     if por_combustivel:
         result = (
-            df.groupby(["ano_mes", "nome_combustivel"])
+            df.groupby(["ano_mes", "grupo_combustivel"])
             .agg(total_valor=("valor", "sum"), total_litros=("litragem", "sum"))
             .reset_index()
-            .sort_values(["nome_combustivel", "ano_mes"])
+            .sort_values(["grupo_combustivel", "ano_mes"])
         )
         # Retorna estrutura de séries: [{combustivel, dados:[{ano_mes, ...}]}]
         meses = sorted(result["ano_mes"].unique())
-        tipos = sorted(result["nome_combustivel"].unique())
+        tipos = sorted(result["grupo_combustivel"].unique())
         series = []
         for tipo in tipos:
-            sub = result[result["nome_combustivel"] == tipo].set_index("ano_mes")
+            sub = result[result["grupo_combustivel"] == tipo].set_index("ano_mes")
             pontos = []
             for mes in meses:
                 if mes in sub.index:
@@ -578,9 +578,9 @@ def get_impacto_preco(
         return {"combustiveis": [], "total": {}, "meses_historico": meses_historico}
 
     result = []
-    for comb in sorted(df["nome_combustivel"].dropna().unique()):
-        h = df_hist[df_hist["nome_combustivel"] == comb]
-        a = df_atual[df_atual["nome_combustivel"] == comb]
+    for comb in sorted(df["grupo_combustivel"].dropna().unique()):
+        h = df_hist[df_hist["grupo_combustivel"] == comb]
+        a = df_atual[df_atual["grupo_combustivel"] == comb]
 
         if h.empty:
             continue
@@ -676,9 +676,9 @@ def get_resumo_periodo(
         return tv, tl, round(tv / tl, 4) if tl > 0 else 0
 
     combustiveis = []
-    for comb in sorted(df_p["nome_combustivel"].dropna().unique()):
-        gp = df_p[df_p["nome_combustivel"] == comb]
-        ga = df_a[df_a["nome_combustivel"] == comb] if not df_a.empty else pd.DataFrame()
+    for comb in sorted(df_p["grupo_combustivel"].dropna().unique()):
+        gp = df_p[df_p["grupo_combustivel"] == comb]
+        ga = df_a[df_a["grupo_combustivel"] == comb] if not df_a.empty else pd.DataFrame()
 
         tv, tl, pl = _agg(gp)
         tv_a, tl_a, pl_a = _agg(ga) if not ga.empty else (None, None, None)
@@ -789,4 +789,33 @@ def refresh_cache():
         "ultima_atualizacao": cache.last_updated.isoformat(),
         "total_registros": int(len(df)),
         "data_mais_recente": ultima_data.isoformat() if ultima_data is not None else None,
+    }
+
+
+@router.get("/outliers")
+def get_outliers():
+    """Retorna transações sinalizadas como outliers (Combustível indevido ou Veículo em Venda)."""
+    df = cache.get_df()
+    
+    if df.empty:
+        return {"combustivel": [], "venda": []}
+    
+    # 1. Combustível Indevido (ex: Pesado com Gasolina)
+    df_comb = df[df["flag_combustivel_indevido"] == True][
+        ["id", "data_transacao", "placa", "modelo_veiculo", "grupo_veiculo", "nome_combustivel", "litragem", "valor"]
+    ].sort_values("data_transacao", ascending=False)
+    
+    # 2. Veículos em Venda/Vendido
+    df_venda = df[df["flag_venda"] == True][
+        ["id", "data_transacao", "placa", "modelo_veiculo", "filial_nome", "nome_combustivel", "litragem", "valor"]
+    ].sort_values("data_transacao", ascending=False)
+    
+    return {
+        "resumo": {
+            "total_transacoes": int(len(df)),
+            "qtd_outliers_combustivel": int(len(df_comb)),
+            "qtd_outliers_venda": int(len(df_venda)),
+        },
+        "combustivel": df_comb.head(100).to_dict(orient="records"),
+        "venda": df_venda.head(100).to_dict(orient="records"),
     }

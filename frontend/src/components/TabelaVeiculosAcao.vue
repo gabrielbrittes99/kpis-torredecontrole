@@ -1,33 +1,32 @@
 <template>
-  <div class="card">
+  <div class="card card-acao">
     <div class="card-header">
       <div>
-        <div class="card-title">Veículos para ação urgente — Diesel</div>
+        <div class="card-title">Monitoramento de Frota</div>
         <div class="card-hint" v-if="resumo.total_acao != null">
-          {{ resumo.total_acao }} de {{ resumo.total_frota }} veículos · economia total possível {{ fmtR(resumo.economia_total_possivel) }}
+          {{ resumo.total_acao }} veículos fora do padrão do seu grupo · economia possível {{ fmtR(resumo.economia_total_possivel) }}
         </div>
       </div>
-      <button class="btn-csv" @click="exportarCSV" v-if="data.length">⬇ CSV</button>
+      <button class="btn-csv" @click="exportarCSV" v-if="data.length">Exportar CSV</button>
     </div>
 
     <div v-if="loading" class="skel" style="height:280px" />
     <div v-else-if="!data.length" class="empty">
-      <div style="color:var(--green);font-size:20px">✓</div>
-      <div>Nenhum veículo acima do limite — frota dentro da meta</div>
+      <div>Todos os veículos estão dentro do padrão do seu grupo</div>
     </div>
 
     <div v-else class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th>Flag</th>
+            <th>Status</th>
             <th>Placa</th>
+            <th>Grupo</th>
             <th>Filial</th>
-            <th>Motorista</th>
             <th class="right">Custo/km</th>
-            <th class="right">km/L</th>
-            <th class="right">Vs média</th>
-            <th class="right">Economia possível</th>
+            <th class="right">Média grupo</th>
+            <th class="right">vs Grupo</th>
+            <th class="right">Economia</th>
           </tr>
         </thead>
         <tbody>
@@ -38,16 +37,18 @@
               </span>
             </td>
             <td class="mono placa">{{ v.placa }}</td>
-            <td class="filial">{{ v.filial }}</td>
-            <td class="motorista dim">{{ v.motorista || '—' }}</td>
+            <td class="grupo-td">{{ formatGrupo(v.grupo) }}</td>
+            <td class="filial-td">{{ v.filial }}</td>
             <td class="right mono" :class="v.flag !== 'OK' ? 'red' : ''">
               {{ v.custo_km ? `R$ ${v.custo_km.toFixed(4)}` : '—' }}
             </td>
-            <td class="right mono dim">{{ v.km_litro?.toFixed(1) ?? '—' }}</td>
-            <td class="right mono" :class="v.pct_vs_media > 0 ? 'red' : 'green'">
-              {{ v.pct_vs_media != null ? (v.pct_vs_media > 0 ? '+' : '') + v.pct_vs_media.toFixed(1) + '%' : '—' }}
+            <td class="right mono dim">
+              {{ v.media_grupo_custo_km ? `R$ ${v.media_grupo_custo_km.toFixed(4)}` : '—' }}
             </td>
-            <td class="right mono red">
+            <td class="right mono" :class="v.pct_vs_grupo > 0 ? 'red' : 'green'">
+              {{ v.pct_vs_grupo != null ? (v.pct_vs_grupo > 0 ? '+' : '') + v.pct_vs_grupo.toFixed(1) + '%' : '—' }}
+            </td>
+            <td class="right mono red semibold">
               {{ v.economia_possivel > 0 ? fmtR(v.economia_possivel) : '—' }}
             </td>
           </tr>
@@ -55,11 +56,11 @@
       </table>
     </div>
 
-    <!-- Médias de referência -->
-    <div class="ref-row" v-if="resumo.media_custo_km && !loading">
-      <span>Média frota: <b class="mono">R$ {{ resumo.media_custo_km?.toFixed(4) }}/km</b></span>
-      <span v-if="resumo.media_km_litro">· <b class="mono">{{ resumo.media_km_litro?.toFixed(1) }} km/L</b></span>
-      <span>· Meta: <b class="mono accent">R$ {{ resumo.meta_custo_km?.toFixed(2) }}/km</b></span>
+    <!-- Resumo -->
+    <div class="ref-row" v-if="resumo.total_frota && !loading">
+      <div class="ref-item">Frota analisada: <b class="mono">{{ resumo.total_frota }} veículos</b></div>
+      <div class="ref-item">Grupos monitorados: <b class="mono">{{ resumo.grupos_monitorados }}</b></div>
+      <div class="ref-item" v-if="resumo.media_custo_km_geral">Custo/km geral: <b class="mono">R$ {{ resumo.media_custo_km_geral?.toFixed(4) }}</b></div>
     </div>
   </div>
 </template>
@@ -73,8 +74,13 @@ const props = defineProps({
 
 const fmtR = v => v != null ? Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }) : '—'
 
+function formatGrupo(g) {
+  if (!g) return '—'
+  return g.replace('Caminhão', 'Cam.').replace('Ton', 'T').replace('10.5', '10,5').replace('4.2', '4,2').replace('5.5', '5,5').replace('7.5', '7,5')
+}
+
 const flagLabel = flag => ({
-  CRITICO: '🚨 Crítico', ALTO_CUSTO: '🚨 Alto custo', BAIXO_RENDIMENTO: '⚠ Baixo km/L', OK: '✓ OK',
+  CRITICO: 'Crítico', ALTO_CUSTO: 'Alto custo', BAIXO_RENDIMENTO: 'Baixo rend.', OK: 'Normal',
 }[flag] ?? flag)
 
 const flagClass = flag => ({
@@ -86,7 +92,7 @@ const rowClass = flag => ({
 }[flag] ?? '')
 
 function exportarCSV() {
-  const cols = ['placa','filial','motorista','modelo','custo_km','km_litro','pct_vs_media','economia_possivel','flag']
+  const cols = ['placa','grupo','filial','motorista','modelo','custo_km','media_grupo_custo_km','km_litro','pct_vs_grupo','economia_possivel','flag']
   const header = cols.join(';')
   const rows = props.data.map(v => cols.map(c => v[c] ?? '').join(';'))
   const blob = new Blob([header + '\n' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' })
@@ -98,55 +104,57 @@ function exportarCSV() {
 </script>
 
 <style scoped>
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; }
-.card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
-.card-title { font-size: 14px; font-weight: 600; color: var(--text); }
-.card-hint { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+.card { background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; }
+.card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+.card-title { font-size: 14px; font-weight: 700; color: #0f172a; }
+.card-hint { font-size: 12px; color: #94a3b8; margin-top: 2px; }
 
 .btn-csv {
-  background: transparent; border: 1px solid var(--border); color: var(--text-3);
-  font-size: 11px; padding: 5px 10px; border-radius: 6px; cursor: pointer;
-  font-family: 'Inter', sans-serif; white-space: nowrap; transition: all 0.15s;
+  background: white; border: 1px solid #e2e8f0; color: #64748b;
+  font-size: 11px; font-weight: 600; padding: 6px 12px; border-radius: 8px;
+  cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.2s;
 }
-.btn-csv:hover { border-color: var(--accent); color: var(--accent); }
+.btn-csv:hover { border-color: #f97316; color: #f97316; }
 
-.table-wrap { overflow-x: auto; }
+.table-wrap { overflow-x: auto; margin: 0 -24px; padding: 0 24px; }
 table { width: 100%; border-collapse: collapse; }
 thead th {
-  font-size: 11px; font-weight: 500; color: var(--text-3);
-  text-align: left; padding: 0 10px 10px;
-  border-bottom: 1px solid var(--border-subtle); white-space: nowrap;
+  font-size: 11px; font-weight: 700; color: #94a3b8;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  text-align: left; padding: 12px 10px;
+  border-bottom: 1px solid #f1f5f9; white-space: nowrap;
 }
 th.right, td.right { text-align: right; }
 tbody tr { transition: background 0.1s; }
-tbody tr:hover { background: var(--surface-hover); }
-tbody td { font-size: 12px; color: var(--text-2); padding: 9px 10px; border-bottom: 1px solid var(--border-subtle); white-space: nowrap; vertical-align: middle; }
+tbody tr:hover { background: #fcfcfc; }
+tbody td { font-size: 13px; color: #334155; padding: 12px 10px; border-bottom: 1px solid #f8fafc; white-space: nowrap; vertical-align: middle; }
 tbody tr:last-child td { border-bottom: none; }
 
-tbody tr.row-critico { background: rgba(239,68,68,.05); }
-tbody tr.row-alto    { background: rgba(239,68,68,.03); }
-tbody tr.row-baixo   { background: rgba(245,158,11,.03); }
+tbody tr.row-critico { background: rgba(239,68,68,0.02); }
+tbody tr.row-alto    { background: rgba(239,68,68,0.01); }
+tbody tr.row-baixo   { background: rgba(245,158,11,0.01); }
 
-.flag-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; }
-.flag-critico { background: rgba(239,68,68,.15); color: #ef4444; border: 1px solid rgba(239,68,68,.3); }
-.flag-alto    { background: rgba(239,68,68,.10); color: #ef4444; border: 1px solid rgba(239,68,68,.2); }
-.flag-baixo   { background: rgba(245,158,11,.12); color: #f59e0b; border: 1px solid rgba(245,158,11,.25); }
-.flag-ok      { background: rgba(34,197,94,.10);  color: #22c55e; border: 1px solid rgba(34,197,94,.2); }
+.flag-badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
+.flag-critico { background: #fef2f2; color: #ef4444; border: 1px solid rgba(239,68,68,0.2); }
+.flag-alto    { background: #fff1f2; color: #ef4444; border: 1px solid rgba(239,68,68,0.1); }
+.flag-baixo   { background: #fffbeb; color: #f59e0b; border: 1px solid rgba(245,158,11,0.15); }
+.flag-ok      { background: #ecfdf5; color: #10b981; border: 1px solid rgba(34,197,94,0.1); }
 
 .mono { font-family: 'JetBrains Mono', monospace; }
-.dim  { color: var(--text-3); }
-.red  { color: var(--red); }
-.green { color: var(--green); }
-.accent { color: var(--accent); }
-.placa { font-weight: 600; color: var(--text); }
-.filial { font-size: 12px; color: var(--text-2); }
-.motorista { font-size: 11px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+.dim { color: #94a3b8; }
+.red { color: #ef4444; font-weight: 600; }
+.green { color: #10b981; font-weight: 600; }
+.semibold { font-weight: 600; }
+.placa { font-weight: 700; color: #0f172a; }
+.grupo-td { font-size: 11px; font-weight: 600; color: #64748b; }
+.filial-td { font-weight: 500; font-size: 12px; color: #64748b; max-width: 130px; overflow: hidden; text-overflow: ellipsis; }
 
-.ref-row { margin-top: 14px; font-size: 12px; color: var(--text-3); display: flex; gap: 12px; flex-wrap: wrap; }
-.ref-row b { color: var(--text-2); }
-.ref-row .accent { color: var(--accent); }
+.ref-row { margin-top: 24px; padding-top: 16px; border-top: 1px dashed #e2e8f0; display: flex; gap: 20px; flex-wrap: wrap; }
+.ref-item { font-size: 12px; color: #64748b; }
+.ref-item b { color: #0f172a; }
 
-.empty { padding: 48px 0; text-align: center; color: var(--text-3); font-size: 13px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.skel { background: var(--border); border-radius: 8px; animation: pulse 1.4s infinite; }
-@keyframes pulse { 0%,100%{opacity:.3} 50%{opacity:.7} }
+.empty { padding: 48px 0; text-align: center; color: #94a3b8; font-size: 13px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+
+.skel { background: #f1f5f9; border-radius: 12px; animation: pulse 1.4s infinite; }
+@keyframes pulse { 0%,100%{opacity:.6} 50%{opacity:.8} }
 </style>

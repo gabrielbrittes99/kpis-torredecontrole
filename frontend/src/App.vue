@@ -8,61 +8,40 @@
           <span v-show="!collapsed" class="logo-text font-syne">Gritsch</span>
         </div>
         <button class="toggle-btn" @click="collapsed = !collapsed" :title="collapsed ? 'Expandir menu' : 'Recolher menu'">
-          <span class="toggle-icon">{{ collapsed ? '☰' : '✕' }}</span>
+          <span class="toggle-icon"></span>
         </button>
       </div>
 
       <div v-show="!collapsed" class="nav-section-label font-syne">Torre de Controle</div>
 
-      <!-- Vigilância -->
       <button
         class="nav-item"
-        :class="{ active: activeSection === 'vigilancia' }"
-        @click="activeSection = 'vigilancia'"
-        :title="collapsed ? 'Vigilância Constante' : ''"
+        :class="{ active: activeSection === 'visao-geral' }"
+        @click="goTo('visao-geral')"
+        :title="collapsed ? 'Visão Geral' : ''"
       >
-        <span class="nav-icon">🛡️</span>
-        <span v-show="!collapsed" class="nav-label font-syne">Vigilância Constante</span>
+        <span class="nav-icon-bullet"></span>
+        <span v-show="!collapsed" class="nav-label font-syne">Visão Geral</span>
       </button>
 
-      <!-- Grupo Combustível -->
-      <div class="nav-group">
-        <button
-          class="nav-item nav-group-header"
-          :class="{ 'group-open': combustivelOpen, active: isCombustivelActive }"
-          @click="collapsed ? (collapsed = false, combustivelOpen = true) : (combustivelOpen = !combustivelOpen)"
-          :title="collapsed ? 'Combustível' : ''"
-        >
-          <span class="nav-icon">⛽</span>
-          <span v-show="!collapsed" class="nav-label font-syne">Combustível</span>
-          <span v-show="!collapsed" class="nav-arrow">{{ combustivelOpen ? '▾' : '▸' }}</span>
-        </button>
-
-        <div v-show="combustivelOpen && !collapsed" class="nav-sub">
-          <button
-            v-for="sub in combustivelSubs"
-            :key="sub.id"
-            class="nav-item nav-sub-item"
-            :class="{ active: activeSection === sub.id }"
-            @click="activeSection = sub.id"
-          >
-            <span class="nav-icon-sub">{{ sub.icon }}</span>
-            <span class="nav-label font-syne">{{ sub.label }}</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Outros -->
       <button
-        v-for="item in outrosNavItems"
-        :key="item.id"
         class="nav-item"
-        :class="{ active: activeSection === item.id }"
-        @click="activeSection = item.id"
-        :title="collapsed ? item.label : ''"
+        :class="{ active: activeSection === 'operacional' }"
+        @click="goTo('operacional')"
+        :title="collapsed ? 'Operacional' : ''"
       >
-        <span class="nav-icon">{{ item.icon }}</span>
-        <span v-show="!collapsed" class="nav-label font-syne">{{ item.label }}</span>
+        <span class="nav-icon-bullet"></span>
+        <span v-show="!collapsed" class="nav-label font-syne">Visão Operacional</span>
+      </button>
+
+      <button
+        class="nav-item"
+        :class="{ active: activeSection === 'diretoria' }"
+        @click="goTo('diretoria')"
+        :title="collapsed ? 'Diretoria' : ''"
+      >
+        <span class="nav-icon-bullet"></span>
+        <span v-show="!collapsed" class="nav-label font-syne">Visão da Diretoria</span>
       </button>
 
       <div class="sidebar-footer">
@@ -71,47 +50,31 @@
     </nav>
 
     <main class="main-content">
-      <VigilanciaConstante   v-if="activeSection === 'vigilancia'" />
-      <VisaoGeral            v-else-if="activeSection === 'visao-geral'" />
-      <DashboardOperacional  v-else-if="activeSection === 'operacional'" />
-      <DashboardDiretoria    v-else-if="activeSection === 'diretoria'" />
-      <!-- legados mantidos -->
-      <DashboardCombustivel  v-else-if="activeSection === 'combustivel'" />
-      <DashboardPrecos       v-else-if="activeSection === 'precos'" />
-      <DashboardFrota        v-else-if="activeSection === 'frota'" />
+      <router-view />
     </main>
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
-import VigilanciaConstante  from './views/VigilanciaConstante.vue'
-import VisaoGeral           from './views/VisaoGeral.vue'
-import DashboardCombustivel  from './views/DashboardCombustivel.vue'
-import DashboardOperacional  from './views/DashboardOperacional.vue'
-import DashboardPrecos      from './views/DashboardPrecos.vue'
-import DashboardFrota       from './views/DashboardFrota.vue'
-import DashboardDiretoria   from './views/DashboardDiretoria.vue'
+import { useRouter, useRoute } from 'vue-router'
 
-const activeSection  = ref('vigilancia')
-const combustivelOpen = ref(false)
+const router = useRouter()
+const route = useRoute()
+
+// Estado da navegação
 const collapsed = ref(false)
 
-const combustivelSubs = [
-  { id: 'visao-geral',  icon: '📊', label: 'Visão Geral' },
-  { id: 'operacional',  icon: '🎯', label: 'Visão Operacional' },
-  { id: 'diretoria',    icon: '📈', label: 'Visão da Diretoria' },
-]
+const activeSection = computed(() => {
+  if (route.path === '/') return 'vigilancia'
+  return route.path.substring(1)
+})
 
-const outrosNavItems = [
-  { id: 'precos',  icon: '💹', label: 'Inteligência de Preços' },
-  { id: 'frota',   icon: '🚛', label: 'Eficiência de Frota' },
-]
-
-const isCombustivelActive = computed(() =>
-  combustivelSubs.some(s => s.id === activeSection.value)
-)
+const goTo = (id) => {
+  router.push({ name: id })
+}
 </script>
+
 
 <style>
 /* Reset global */
@@ -198,8 +161,31 @@ body { background: var(--void); color: var(--text); font-family: 'Inter', sans-s
   background: var(--s2);
 }
 .toggle-icon {
-  font-size: 14px;
-  color: var(--text2);
+  width: 12px;
+  height: 2px;
+  background: var(--text2);
+  position: relative;
+}
+.toggle-icon::before, .toggle-icon::after {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 2px;
+  background: inherit;
+  left: 0;
+}
+.toggle-icon::before { top: -4px; }
+.toggle-icon::after { bottom: -4px; }
+
+.nav-icon-bullet {
+  width: 6px;
+  height: 6px;
+  background: var(--text3);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.active .nav-icon-bullet {
+  background: var(--orange);
 }
 
 .nav-section-label {

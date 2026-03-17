@@ -1,44 +1,49 @@
 <template>
-  <div class="card">
+  <div class="card card-posto">
     <div class="card-header">
-      <div class="card-title">{{ ordem === 'mais_barato' ? 'Postos mais baratos' : 'Postos mais caros' }}</div>
+      <div class="card-title">{{ ordem === 'mais_barato' ? 'Melhores Oportunidades' : 'Maiores Custos por Posto' }}</div>
       <div class="card-hint">mínimo 3 abastecimentos · por preço médio/L</div>
     </div>
     <div v-if="loading" class="skel" style="height:280px" />
-    <table v-else-if="data.length">
-      <thead>
-        <tr>
-          <th style="width:32px">#</th>
-          <th>Posto</th>
-          <th>Cidade</th>
-          <th class="right">R$/L</th>
-          <th class="right">Total R$</th>
-          <th class="right">Litros</th>
-          <th class="right">Abast.</th>
-          <th style="width:80px"></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="(p, i) in data" :key="p.razao_social_posto + i">
-          <td class="rank mono">{{ i + 1 }}</td>
-          <td class="name">{{ p.razao_social_posto || '—' }}</td>
-          <td class="city">{{ p.cidade_posto }}<span class="uf"> · {{ p.uf_posto }}</span></td>
-          <td class="right mono" :class="i === 0 ? (ordem === 'mais_barato' ? 'green' : 'red') : 'val'">
-            R$ {{ p.preco_medio.toFixed(4) }}
-          </td>
-          <td class="right mono dim">{{ fmtR(p.total_valor) }}</td>
-          <td class="right mono dim">{{ fmtN(p.total_litros) }}</td>
-          <td class="right mono dim">{{ p.qtd_abastecimentos }}</td>
-          <td>
-            <div class="bar-track">
-              <div class="bar-fill" :class="ordem === 'mais_barato' ? 'green-fill' : 'red-fill'"
-                :style="{ width: barWidth(p.preco_medio) + '%' }" />
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-    <div v-else class="empty">Sem dados suficientes</div>
+    <div v-else-if="data.length" class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:32px">#</th>
+            <th>Posto</th>
+            <th>Cidade</th>
+            <th class="right">R$/L médio</th>
+            <th class="right">Total R$</th>
+            <th class="right">Litros</th>
+            <th style="width:70px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(p, i) in data" :key="p.razao_social_posto + i">
+            <td class="rank mono">{{ i + 1 }}</td>
+            <td class="name-col">
+              <span class="name">{{ p.razao_social_posto || '—' }}</span>
+            </td>
+            <td class="city-col">
+              <span class="city">{{ p.cidade_posto }}</span>
+              <span class="uf-tag">{{ p.uf_posto }}</span>
+            </td>
+            <td class="right mono" :class="i === 0 ? (ordem === 'mais_barato' ? 'green' : 'red') : 'val'">
+              R$ {{ p.preco_medio.toFixed(3) }}
+            </td>
+            <td class="right mono dim">{{ fmtR(p.total_valor) }}</td>
+            <td class="right mono dim">{{ fmtN(p.total_litros) }}</td>
+            <td>
+              <div class="bar-track">
+                <div class="bar-fill" :class="ordem === 'mais_barato' ? 'green-fill' : 'red-fill'"
+                  :style="{ width: barWidth(p.preco_medio) + '%' }" />
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div v-else class="empty">Sem dados de postos suficientes</div>
   </div>
 </template>
 
@@ -66,35 +71,42 @@ const fmtN = v => Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 0 }
 </script>
 
 <style scoped>
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; overflow-x: auto; }
-.card-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 20px; }
-.card-title { font-size: 14px; font-weight: 600; color: var(--text); }
-.card-hint { font-size: 12px; color: var(--text-3); }
-.empty { height: 180px; display: flex; align-items: center; justify-content: center; color: var(--text-3); font-size: 13px; }
+.card { background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; }
+.card-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 24px; }
+.card-title { font-size: 14px; font-weight: 700; color: #0f172a; }
+.card-hint { font-size: 11px; color: #94a3b8; }
 
+.table-wrap { overflow-x: auto; margin: 0 -24px; padding: 0 24px; }
 table { width: 100%; border-collapse: collapse; }
-thead th { font-size: 11px; font-weight: 500; color: var(--text-3); text-align: left; padding: 0 12px 12px; border-bottom: 1px solid var(--border-subtle); white-space: nowrap; }
+thead th {
+  font-size: 11px; font-weight: 700; color: #94a3b8;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  text-align: left; padding: 12px 10px;
+  border-bottom: 1px solid #f1f5f9; white-space: nowrap;
+}
 th.right, td.right { text-align: right; }
-tbody tr { transition: background 0.1s; }
-tbody tr:hover { background: var(--surface-hover); }
-tbody td { font-size: 13px; color: var(--text-2); padding: 10px 12px; border-bottom: 1px solid var(--border-subtle); white-space: nowrap; }
+tbody td { font-size: 13px; color: #334155; padding: 12px 10px; border-bottom: 1px solid #f8fafc; white-space: nowrap; vertical-align: middle; }
 tbody tr:last-child td { border-bottom: none; }
 
-.rank { color: var(--text-3); font-size: 12px; }
-.name { color: var(--text); font-weight: 500; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
-.city { color: var(--text-3); font-size: 12px; }
-.uf { opacity: .6; }
-.val { color: var(--text); font-weight: 600; }
-.dim { color: var(--text-3); }
+.rank { color: #94a3b8; font-size: 12px; }
+.name-col { max-width: 180px; }
+.name { display: block; font-weight: 600; color: #0f172a; overflow: hidden; text-overflow: ellipsis; }
+.city-col { font-size: 12px; }
+.city { color: #64748b; margin-right: 4px; }
+.uf-tag { font-size: 10px; font-weight: 700; color: #94a3b8; background: #f1f5f9; padding: 1px 4px; border-radius: 3px; }
+
+.val { font-weight: 600; color: #0f172a; }
+.dim { color: #94a3b8; }
 .mono { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
-.green { color: var(--green); font-weight: 700; }
-.red   { color: var(--red);   font-weight: 700; }
+.green { color: #10b981; font-weight: 700; }
+.red   { color: #ef4444; font-weight: 700; }
 
-.bar-track { height: 4px; background: var(--border-subtle); border-radius: 2px; overflow: hidden; }
-.bar-fill { height: 100%; border-radius: 2px; opacity: .7; transition: width .6s ease; }
-.green-fill { background: var(--green); }
-.red-fill   { background: var(--red); }
+.bar-track { height: 4px; background: #f1f5f9; border-radius: 2px; overflow: hidden; width: 60px; margin-left: auto; }
+.bar-fill { height: 100%; border-radius: 2px; transition: width .6s ease; }
+.green-fill { background: #10b981; }
+.red-fill   { background: #ef4444; }
 
-.skel { background: var(--border); border-radius: 8px; animation: pulse 1.4s infinite; }
-@keyframes pulse { 0%,100%{opacity:.3} 50%{opacity:.7} }
+.empty { height: 180px; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 13px; font-style: italic; }
+.skel { background: #f1f5f9; border-radius: 12px; animation: pulse 1.4s infinite; }
+@keyframes pulse { 0%,100%{opacity:.6} 50%{opacity:.8} }
 </style>

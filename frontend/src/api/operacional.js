@@ -10,8 +10,9 @@ async function get(path, params = {}) {
   return res.json()
 }
 
-export function fetchKpisDiesel(params = {})         { return get('/api/operacional/kpis-diesel', params) }
-export function fetchCustoPorFilial(params = {})      { return get('/api/operacional/custo-por-filial', params) }
-export function fetchEvolucaoMensal(params = {})      { return get('/api/operacional/evolucao-mensal', params) }
-export function fetchVeiculosAcao(params = {})        { return get('/api/operacional/veiculos-acao', params) }
+export function fetchKpisOperacional(params = {})      { return get('/api/operacional/kpis', params) }
+export function fetchCustoPorGrupo(params = {})        { return get('/api/operacional/custo-por-grupo', params) }
+export function fetchCustoPorFilial(params = {})       { return get('/api/operacional/custo-por-filial', params) }
+export function fetchEvolucaoMensal(params = {})       { return get('/api/operacional/evolucao-mensal', params) }
+export function fetchVeiculosAcao(params = {})         { return get('/api/operacional/veiculos-acao', params) }
 export function fetchEtanolGasolinaFilial(params = {}) { return get('/api/operacional/etanol-gasolina-filial', params) }

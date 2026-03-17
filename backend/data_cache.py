@@ -6,7 +6,10 @@ from typing import Dict, Any, Optional
 import pandas as pd
 from db import get_engine
 from dotenv import load_dotenv
-from config import FUEL_GROUP_MAP, PALMAS_PLACAS, PALMAS_FILIAL, FILIAIS_MAP
+from config import (
+    FUEL_GROUP_MAP, PALMAS_PLACAS, PALMAS_FILIAL, FILIAIS_MAP, get_veiculo_group,
+    CWB_BASE_PLACAS, CWB_BASE_FILIAL, IGNORAR_PLACAS
+)
 
 load_dotenv()
 
@@ -35,7 +38,9 @@ _QUERY_TRANSACOES = """
         cidade_posto,
         uf_posto,
         transacao_estornada,
-        cnpj_cliente
+        cnpj_cliente,
+        transacao,
+        id
     FROM integration_truckpag_transacoes
     WHERE litragem > 0
       AND transacao_estornada = '0'
@@ -46,7 +51,7 @@ _QUERY_TRANSACOES = """
 class DataCache:
     def __init__(self):
         self._cache: Dict[str, Dict[str, Any]] = {
-            "transacoes": {"df": None, "ts": None, "ttl": TTL_TRANSACOES},
+            "transacoes": {"df": None, "kml_df": None, "ts": None, "ttl": TTL_TRANSACOES},
             "anp": {"df": None, "ts": None, "ttl": TTL_ANP},
             "veiculos": {"df": None, "ts": None, "ttl": TTL_VEICULOS},
         }
@@ -84,23 +89,46 @@ class DataCache:
             .fillna("Outros")
         )
 
+        # --- NOVO: Overrides de Combustível por Placa ---
+        from config import FUEL_PLATE_OVERRIDES
+        for p, fuel in FUEL_PLATE_OVERRIDES.items():
+            mask = df["placa"] == p
+            if mask.any():
+                df.loc[mask, "grupo_combustivel"] = fuel
+                # Opcional: ajustar nome_combustivel para manter coerência visual
+                df.loc[mask, "nome_combustivel"] = f"{fuel.lower()} (corrigido)"
+
         # ── Filial Gritsch via SQL Server (enriquecido pelo cache de veículos) ──
-        # Será preenchido após join com BlueFleet; por enquanto resolve Palmas
+        # Será preenchido após join com BlueFleet; por enquanto resolve Palmas e Curitiba Base
         # pelo hardcode de placas e mantém os demais como vazio para join posterior.
         placa_upper = df["placa"].str.upper().str.replace("-", "").str.strip()
-        df["filial_nome"]   = ""
+        
+        # Filtra placas ignoradas
+        ignore_mask = placa_upper.isin(IGNORAR_PLACAS)
+        if ignore_mask.any():
+            df = df[~ignore_mask]
+            placa_upper = placa_upper[~ignore_mask]
+
+        df["filial_nome"] = ""
         df["filial_estado"] = ""
         df["filial_regiao"] = ""
+        df["flag_venda"] = False
+        df["flag_combustivel_indevido"] = False
 
         palmas_mask = placa_upper.isin(PALMAS_PLACAS)
         df.loc[palmas_mask, "filial_nome"]   = PALMAS_FILIAL["nome"]
         df.loc[palmas_mask, "filial_estado"] = PALMAS_FILIAL["estado"]
         df.loc[palmas_mask, "filial_regiao"] = PALMAS_FILIAL["regiao"]
 
+        cwb_mask = placa_upper.isin(CWB_BASE_PLACAS)
+        df.loc[cwb_mask, "filial_nome"]   = CWB_BASE_FILIAL["nome"]
+        df.loc[cwb_mask, "filial_estado"] = CWB_BASE_FILIAL["estado"]
+        df.loc[cwb_mask, "filial_regiao"] = CWB_BASE_FILIAL["regiao"]
+
         logger.info(
             f"Cache: {len(df)} transações carregadas | "
             f"grupos: {df['grupo_combustivel'].value_counts().to_dict()} | "
-            f"Palmas: {palmas_mask.sum()} registros"
+            f"Palmas: {palmas_mask.sum()} registros | CWB Base: {cwb_mask.sum()} registros"
         )
         return df
 
@@ -116,15 +144,30 @@ class DataCache:
             veiculos["Placa"] = veiculos["Placa"].str.upper().str.replace("-", "").str.strip()
             veiculos = veiculos.drop_duplicates("Placa")
 
-            # Constrói lookup: placa → {nome, estado, regiao}
+            # Constrói lookup: placa → {nome, estado, regiao, original_sigla}
             filial_lookup = {}
             for _, row in veiculos.iterrows():
-                info = FILIAIS_MAP.get(row["FilialOperacional"])
+                filial_op = row["FilialOperacional"]
+                info = FILIAIS_MAP.get(filial_op)
                 if info:
-                    filial_lookup[row["Placa"]] = info
+                    # Cópia para não mutar o dict original do FILIAIS_MAP
+                    filial_lookup[row["Placa"]] = {**info, "original_sigla": filial_op}
+                elif filial_op:
+                    # Filial não mapeada — usa o nome bruto do SQL Server
+                    filial_lookup[row["Placa"]] = {
+                        "nome": filial_op, "estado": "?", "regiao": "?",
+                        "original_sigla": filial_op,
+                    }
 
-            # Aplica somente onde ainda não foi preenchido (Palmas já tem)
-            mask_vazio = df["filial_nome"] == ""
+            # Overrides de Filial Manual
+            from config import FILIAL_PLATE_OVERRIDES
+            for p, sigla in FILIAL_PLATE_OVERRIDES.items():
+                info = FILIAIS_MAP.get(sigla)
+                if info:
+                    filial_lookup[p.upper().replace("-","").strip()] = {**info, "original_sigla": sigla}
+
+            # Aplica onde ainda não foi preenchido (Palmas/CWB Base já têm)
+            mask_vazio = (df["filial_nome"] == "") | df["filial_nome"].isna()
             placa_upper = df["placa"].str.upper().str.replace("-", "").str.strip()
 
             df.loc[mask_vazio, "filial_nome"] = placa_upper[mask_vazio].map(
@@ -137,11 +180,41 @@ class DataCache:
                 lambda p: filial_lookup.get(p, {}).get("regiao", "")
             )
 
+            # --- NOVO: Flag de Venda ---
+            def check_venda(p):
+                sigla = filial_lookup.get(p, {}).get("original_sigla", "").upper()
+                return "VENDA" in sigla or "VENDIDO" in sigla
+            
+            df["flag_venda"] = placa_upper.map(check_venda)
+
             preenchidos = (df["filial_nome"] != "").sum()
             logger.info(f"Cache: {preenchidos}/{len(df)} transações com filial identificada")
         except Exception as e:
             logger.warning(f"Cache: não foi possível enriquecer filiais: {e}")
         return df
+
+    def _add_grupo(self, df: pd.DataFrame) -> pd.DataFrame:
+        df["grupo_veiculo"] = [
+            get_veiculo_group(str(m or ""), str(b or ""), str(p or ""))
+            for m, b, p in zip(df["modelo_veiculo"], df["marca_veiculo"], df["placa"])
+        ]
+        
+        # --- NOVO: Flag de Abastecimento Indevido ---
+        from config import is_fuel_incompatible
+        df["flag_combustivel_indevido"] = [
+            is_fuel_incompatible(gv, gc)
+            for gv, gc in zip(df["grupo_veiculo"], df["grupo_combustivel"])
+        ]
+        return df
+
+    def _calc_kml(self, df: pd.DataFrame) -> pd.DataFrame:
+        hodo = df[df["hodometro"].notna() & (df["hodometro"] > 0)].copy()
+        if hodo.empty:
+            return hodo
+        hodo = hodo.sort_values(["placa", "data_transacao"])
+        hodo["km_percorrido"] = hodo.groupby("placa")["hodometro"].diff()
+        hodo = hodo[(hodo["km_percorrido"] > 0) & (hodo["km_percorrido"] <= 2000)]
+        return hodo
 
     def get_df(self, key: str = "transacoes") -> pd.DataFrame:
         """Retorna o DataFrame do cache, atualizando-o se necessário."""
@@ -150,20 +223,28 @@ class DataCache:
                 if key == "transacoes":
                     df = self._fetch_transacoes()
                     df = self._enrich_filiais(df)
+                    df = self._add_grupo(df)
+                    kml_df = self._calc_kml(df)
+                    self._cache[key]["df"] = df
+                    self._cache[key]["kml_df"] = kml_df
                 elif key == "anp":
                     # Integrado via anp_client, mas mantido aqui para centralizar
                     from anp_client import get_anp_df
                     df = get_anp_df()
+                    self._cache[key]["df"] = df
                 else:
                     return pd.DataFrame()
 
-                self._cache[key]["df"] = df
                 self._cache[key]["ts"] = datetime.now()
             except Exception as e:
                 logger.error(f"Falha ao atualizar cache '{key}': {e}")
                 if self._cache[key]["df"] is None:
                     raise
         return self._cache[key]["df"]
+
+    def get_kml_df(self) -> pd.DataFrame:
+        self.get_df("transacoes")
+        return self._cache["transacoes"]["kml_df"]
 
     def force_refresh(self, key: str = "transacoes") -> None:
         """Força a limpeza do timestamp para obrigar atualização na próxima chamada."""

@@ -8,113 +8,133 @@ from typing import Optional
 import pandas as pd
 from fastapi import APIRouter, Query
 
-from config import get_veiculo_group, get_kml_referencia
+from config import get_kml_referencia
 from data_cache import cache
 
 router = APIRouter(prefix="/api/visao-geral", tags=["visao-geral"])
 
 
-# ---------------------------------------------------------------------------
-# Helpers internos
-# ---------------------------------------------------------------------------
-
-def _df_periodo(df: pd.DataFrame, mes: int, ano: int) -> pd.DataFrame:
-    return df[(df["data_transacao"].dt.month == mes) & (df["data_transacao"].dt.year == ano)]
-
-
-def _add_grupo(df: pd.DataFrame) -> pd.DataFrame:
-    """Adiciona coluna grupo_veiculo ao DataFrame (in-place safe, retorna cópia)."""
+def _apply_filters(
+    df: pd.DataFrame,
+    modo_tempo: str = "mes",
+    ano: Optional[int] = None,
+    mes: Optional[int] = None,
+    bimestre: Optional[int] = None,
+    semestre: Optional[int] = None,
+    data_inicio: Optional[str] = None,
+    data_fim: Optional[str] = None,
+    grupo: Optional[str] = None,
+    combustivel: Optional[str] = None,
+    estado: Optional[str] = None,
+    regiao: Optional[str] = None,
+    filial: Optional[str] = None,
+) -> pd.DataFrame:
     df = df.copy()
-    df["grupo_veiculo"] = [
-        get_veiculo_group(str(m or ""), str(b or ""))
-        for m, b in zip(df["modelo_veiculo"], df["marca_veiculo"])
-    ]
+    
+    # 1. Filtros Temporais
+    if modo_tempo == "mes" and mes and ano:
+        df = df[(df["data_transacao"].dt.month == mes) & (df["data_transacao"].dt.year == ano)]
+    elif modo_tempo == "bimestre" and bimestre and ano:
+        months = [bimestre * 2 - 1, bimestre * 2]
+        df = df[(df["data_transacao"].dt.month.isin(months)) & (df["data_transacao"].dt.year == ano)]
+    elif modo_tempo == "semestre" and semestre and ano:
+        months = list(range(1, 7)) if semestre == 1 else list(range(7, 13))
+        df = df[(df["data_transacao"].dt.month.isin(months)) & (df["data_transacao"].dt.year == ano)]
+    elif modo_tempo == "ano" and ano:
+        df = df[df["data_transacao"].dt.year == ano]
+    elif modo_tempo == "personalizado" and data_inicio and data_fim:
+        df = df[(df["data_transacao"] >= data_inicio) & (df["data_transacao"] <= data_fim)]
+    elif ano:
+        df = df[df["data_transacao"].dt.year == ano]
+
+    # 2. Filtros de Atributo
+    if grupo:
+        df = df[df["grupo_veiculo"] == grupo]
+    if combustivel:
+        df = df[df["grupo_combustivel"] == combustivel]
+    if estado:
+        df = df[df["filial_estado"] == estado]
+    if regiao:
+        df = df[df["filial_regiao"] == regiao]
+    if filial:
+        df = df[df["filial_nome"] == filial]
+                
     return df
 
 
-def _kml_table(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Para cada linha com hodômetro válido, calcula km percorrido (diff por placa).
-    Retorna df com colunas extras: km_percorrido.
-    Usa o df completo para ter a leitura anterior correta, mesmo que o abastecimento
-    anterior seja de outro mês.
-    """
-    hodo = df[df["hodometro"].notna() & (df["hodometro"] > 0)].copy()
-    if hodo.empty:
-        return hodo
-
-    hodo = hodo.sort_values(["placa", "data_transacao"])
-    hodo["km_percorrido"] = hodo.groupby("placa")["hodometro"].diff()
-    # filtra km inválidos
-    hodo = hodo[(hodo["km_percorrido"] > 0) & (hodo["km_percorrido"] <= 2000)]
-    return hodo
-
-
 # ---------------------------------------------------------------------------
-# Endpoint principal
-# ---------------------------------------------------------------------------
-
 @router.get("/dashboard")
 def get_dashboard(
-    mes: Optional[int] = Query(default=None),
-    ano: Optional[int] = Query(default=None),
-    grupo: Optional[str] = Query(default=None),
-    combustivel: Optional[str] = Query(default=None),
-    estado: Optional[str] = Query(default=None),
-    regiao: Optional[str] = Query(default=None),
-    filial: Optional[str] = Query(default=None),
+    modo_tempo: str = Query(default="mes"),
+    mes: Optional[int] = None,
+    ano: Optional[int] = None,
+    bimestre: Optional[int] = None,
+    semestre: Optional[int] = None,
+    data_inicio: Optional[str] = None,
+    data_fim: Optional[str] = None,
+    grupo: Optional[str] = None,
+    combustivel: Optional[str] = None,
+    estado: Optional[str] = None,
+    regiao: Optional[str] = None,
+    filial: Optional[str] = None,
 ):
     now = datetime.now()
     mes = mes or now.month
     ano = ano or now.year
     
-    df_all = _add_grupo(cache.get_df())
+    df_all = cache.get_df()
     
-    # Calcula totais do mês SEM filtro para ancorar as porcentagens
-    df_mes_unfiltered = _df_periodo(df_all, mes, ano)
-    gasto_total_mes_sem_filtro = float(df_mes_unfiltered["valor"].sum()) or 1
+    # Identifica se é o mês atual p/ MTD comparison (apenas no modo 'mes')
+    is_current_month = (modo_tempo == "mes" and mes == now.month and ano == now.year)
+    trend_label = "mesmo período" if is_current_month else "período anterior"
     
-    # ── Aplicar filtros dinâmicos ─────────────────────
-    if grupo:
-        df_all = df_all[df_all["grupo_veiculo"] == grupo]
-    if combustivel:
-        df_all = df_all[df_all["grupo_combustivel"] == combustivel]
-    if estado:
-        df_all = df_all[df_all["filial_estado"] == estado]
-    if regiao:
-        df_all = df_all[df_all["filial_regiao"] == regiao]
-    if filial:
-        df_all = df_all[df_all["filial_nome"] == filial]
+    # Filtros para o período atual
+    df_periodo = _apply_filters(df_all, modo_tempo, ano, mes, bimestre, semestre, data_inicio, data_fim, 
+                                grupo, combustivel, estado, regiao, filial)
 
-    df_mes = _df_periodo(df_all, mes, ano)
+    # Gasto Total sem filtros de atributo (para mix e por_grupo)
+    df_periodo_unfiltered = _apply_filters(df_all, modo_tempo, ano, mes, bimestre, semestre, data_inicio, data_fim)
+    gasto_total_periodo_sem_filtro = float(df_periodo_unfiltered["valor"].sum()) or 1
 
     # ── Hero KPIs ────────────────────────────────────────────────────────────
-    gasto_mes    = float(df_mes["valor"].sum())
-    litros_mes   = float(df_mes["litragem"].sum())
-    total_abs    = int(len(df_mes))
-    total_veic   = int(df_mes["placa"].nunique())
+    gasto_mes    = float(df_periodo["valor"].sum())
+    litros_mes   = float(df_periodo["litragem"].sum())
+    total_abs    = int(len(df_periodo))
+    total_veic   = int(df_periodo["placa"].nunique())
     preco_medio  = round(gasto_mes / litros_mes, 4) if litros_mes > 0 else None
 
-    # Variação vs mês anterior
-    m_ant = mes - 1 if mes > 1 else 12
-    a_ant = ano if mes > 1 else ano - 1
-    gasto_ant = float(_df_periodo(df_all, m_ant, a_ant)["valor"].sum())
-    var_pct = round((gasto_mes - gasto_ant) / gasto_ant * 100, 1) if gasto_ant > 0 else None
+    # Variação vs período anterior
+    # Simplificação: Para meses, usa M-1. Para outros modos, compara com o mesmo período do ano anterior (ou apenas o ano anterior completo)
+    # Aqui vamos manter a lógica de mês para compatibilidade se modo_tempo for 'mes'
+    gasto_ant = None
+    if modo_tempo == "mes":
+        m_ant = mes - 1 if mes > 1 else 12
+        a_ant = ano if mes > 1 else ano - 1
+        df_ant = _apply_filters(df_all, "mes", a_ant, m_ant, None, None, None, None, grupo, combustivel, estado, regiao, filial)
+        if is_current_month:
+            df_ant = df_ant[df_ant["data_transacao"].dt.day <= now.day]
+        gasto_ant = float(df_ant["valor"].sum())
+    elif modo_tempo == "ano":
+        df_ant = _apply_filters(df_all, "ano", ano - 1, None, None, None, None, None, grupo, combustivel, estado, regiao, filial)
+        gasto_ant = float(df_ant["valor"].sum())
 
-    # km/l e custo/km — calculado sobre o ano corrente com hodômetro
-    df_ano = df_all[df_all["data_transacao"].dt.year == ano]
-    kml_df  = _kml_table(df_all)            # diffs sobre o df completo
-    kml_ano = kml_df[kml_df["data_transacao"].dt.year == ano]
+    var_pct = round((gasto_mes - gasto_ant) / gasto_ant * 100, 1) if gasto_ant and gasto_ant > 0 else None
 
-    km_ano    = float(kml_ano["km_percorrido"].sum()) if not kml_ano.empty else 0
-    lit_kml   = float(kml_ano["litragem"].sum()) if not kml_ano.empty else 0
-    val_kml   = float(kml_ano["valor"].sum()) if not kml_ano.empty else 0
-    kml_medio = round(km_ano / lit_kml, 2)   if lit_kml > 0 else None
-    custo_km  = round(val_kml / km_ano, 4)   if km_ano  > 0 else None
+    # km/l e custo/km — calculado sobre o período filtrado com hodômetro
+    kml_df = cache.get_kml_df()
+    kml_periodo = _apply_filters(kml_df, modo_tempo, ano, mes, bimestre, semestre, data_inicio, data_fim, 
+                                 grupo, combustivel, estado, regiao, filial)
+
+    km_val    = float(kml_periodo["km_percorrido"].sum()) if not kml_periodo.empty else 0
+    lit_kml   = float(kml_periodo["litragem"].sum()) if not kml_periodo.empty else 0
+    val_kml   = float(kml_periodo["valor"].sum()) if not kml_periodo.empty else 0
+    kml_medio = round(km_val / lit_kml, 2)   if lit_kml > 0 else None
+    custo_km  = round(val_kml / km_val, 4)   if km_val  > 0 else None
 
     hero = {
         "gasto_mes":         round(gasto_mes, 2),
         "gasto_mes_var_pct": var_pct,
+        "trend_label":       trend_label,
         "litros_mes":        round(litros_mes, 1),
         "total_abastecimentos": total_abs,
         "total_veiculos":    total_veic,
@@ -167,7 +187,7 @@ def get_dashboard(
     ]
 
     grupos_data = {}
-    for grupo, g in df_mes.groupby("grupo_veiculo"):
+    for grupo, g in df_periodo.groupby("grupo_veiculo"):
         grupos_data[grupo] = {
             "grupo":    grupo,
             "gasto":    round(float(g["valor"].sum()), 2),
@@ -189,7 +209,7 @@ def get_dashboard(
 
     # Benchmark de referência: kml esperado pelo combustível predominante do grupo
     for hp_grupo, gd in grupos_data.items():
-        df_g = df_mes[df_mes["grupo_veiculo"] == hp_grupo]
+        df_g = df_periodo[df_periodo["grupo_veiculo"] == hp_grupo]
         if df_g.empty:
             gd["kml_ref"] = None
             gd["kml_status"] = None
@@ -209,26 +229,28 @@ def get_dashboard(
             gd["kml_variacao_pct"] = None
 
     por_grupo = []
-    for v in sorted(grupos_data.values(), key=lambda x: -x["gasto"]):
+    # Ordenar por nome (alfabética) em vez de gasto
+    for v in sorted(grupos_data.values(), key=lambda x: str(x["grupo"]).lower()):
         # A porcentagem é sempre em relação ao total GERAL do mês (sem filtro) 
         # para que o gráfico não preencha 100% à toa quando filtrado por si mesmo
-        v["pct_gasto"] = round(v["gasto"] / gasto_total_mes_sem_filtro * 100, 1)
+        v["pct_gasto"] = round(v["gasto"] / gasto_total_periodo_sem_filtro * 100, 1)
         por_grupo.append(v)
 
     # ── Mix de combustível (mês) ─────────────────────────────────────────────
     mix = []
-    for grp, g in df_mes.groupby("grupo_combustivel"):
+    for grp, g in df_periodo.groupby("grupo_combustivel"):
         mix.append({
             "grupo":  grp,
             "valor":  round(float(g["valor"].sum()), 2),
             "litros": round(float(g["litragem"].sum()), 1),
-            "pct":    round(float(g["valor"].sum()) / gasto_total_mes_sem_filtro * 100, 1),
+            "pct":    round(float(g["valor"].sum()) / gasto_total_periodo_sem_filtro * 100, 1),
         })
-    mix.sort(key=lambda x: -x["valor"])
+    # Ordenar por nome (alfabética)
+    mix.sort(key=lambda x: str(x["grupo"]).lower())
 
     # ── Filiais (mês) ────────────────────────────────────────────────────────
     filiais = []
-    for filial, g in df_mes.groupby("filial_nome"):
+    for filial, g in df_periodo.groupby("filial_nome"):
         if not filial:
             continue
         filiais.append({
@@ -239,9 +261,10 @@ def get_dashboard(
             "litros":   round(float(g["litragem"].sum()), 1),
             "veiculos": int(g["placa"].nunique()),
         })
-    filiais.sort(key=lambda x: -x["gasto"])
+    # Ordenar por nome (alfabética)
+    filiais.sort(key=lambda x: str(x["filial"]).lower())
 
-    sem_filial = df_mes[df_mes["filial_nome"] == ""]
+    sem_filial = df_periodo[df_periodo["filial_nome"] == ""]
     if not sem_filial.empty:
         filiais.append({
             "filial":   "Sem filial identificada",
@@ -250,6 +273,7 @@ def get_dashboard(
             "gasto":    round(float(sem_filial["valor"].sum()), 2),
             "litros":   round(float(sem_filial["litragem"].sum()), 1),
             "veiculos": int(sem_filial["placa"].nunique()),
+            "placas_pendentes": sem_filial["placa"].unique().tolist(),
         })
 
     return {
@@ -272,7 +296,7 @@ def get_dashboard(
 @router.get("/filtros-disponiveis")
 def get_filtros_disponiveis():
     """Retorna listas únicas para os dropdowns de filtro no frontend."""
-    df_all = _add_grupo(cache.get_df())
+    df_all = cache.get_df()
         
     def get_unique(col):
         if col not in df_all.columns: return []

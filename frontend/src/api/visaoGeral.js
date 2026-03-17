@@ -2,17 +2,13 @@ import { GRITSCH_CONFIG } from '../gritsch.config'
 
 const BASE = GRITSCH_CONFIG.URLS.BACKEND
 
-export async function fetchVisaoGeralDashboard({ mes, ano, grupo, combustivel, estado, regiao, filial } = {}) {
-  const params = new URLSearchParams()
-  if (mes) params.set('mes', mes)
-  if (ano) params.set('ano', ano)
-  if (grupo) params.set('grupo', grupo)
-  if (combustivel) params.set('combustivel', combustivel)
-  if (estado) params.set('estado', estado)
-  if (regiao) params.set('regiao', regiao)
-  if (filial) params.set('filial', filial)
+export async function fetchVisaoGeralDashboard(params = {}) {
+  const url = new URL(`${BASE}/api/visao-geral/dashboard`)
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== null && v !== undefined && v !== '') url.searchParams.set(k, v)
+  })
   
-  const r = await fetch(`${BASE}/api/visao-geral/dashboard?${params}`)
+  const r = await fetch(url)
   if (!r.ok) throw new Error('Falha ao buscar visão geral')
   return r.json()
 }

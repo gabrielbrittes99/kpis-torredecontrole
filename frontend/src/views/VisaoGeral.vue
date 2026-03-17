@@ -2,51 +2,11 @@
   <div class="page animate-in">
 
     <!-- Topbar -->
-    <header class="topbar">
-      <div class="topbar-left">
-        <span class="logo">GRITSCH <span class="divider">//</span>
-          <span class="subtitle">Visão Geral · Combustível</span>
-        </span>
-      </div>
-      <div class="topbar-right">
-        <div class="filter-group global-filters">
-          <select v-model="filtro.regiao" @change="load" class="select-filter global-select">
-            <option :value="null">Todas as Regiões</option>
-            <option v-for="r in opcoesFiltro.regioes" :key="r" :value="r">{{ r }}</option>
-          </select>
-          <select v-model="filtro.estado" @change="load" class="select-filter global-select">
-            <option :value="null">Todos os Estados</option>
-            <option v-for="e in opcoesFiltro.estados" :key="e" :value="e">{{ e }}</option>
-          </select>
-          <select v-model="filtro.filial" @change="load" class="select-filter global-select">
-            <option :value="null">Todas as Filiais</option>
-            <option v-for="f in opcoesFiltro.filiais" :key="f" :value="f">{{ f }}</option>
-          </select>
-          <select v-model="filtro.grupo" @change="load" class="select-filter global-select">
-            <option :value="null">Todos os Grupos</option>
-            <option v-for="g in opcoesFiltro.grupos_veiculo" :key="g" :value="g">{{ g }}</option>
-          </select>
-          <select v-model="filtro.combustivel" @change="load" class="select-filter global-select">
-            <option :value="null">Combustível (Todos)</option>
-            <option v-for="c in opcoesFiltro.combustiveis" :key="c" :value="c">{{ c }}</option>
-          </select>
-          
-          <button @click="limparFiltros" class="btn-clear-global" title="Limpar todos os filtros dinâmicos">
-            Limpar Filtros
-          </button>
-        </div>
-        
-        <div class="filter-group">
-          <select v-model="filtro.mes" @change="load" class="select-filter">
-            <option v-for="(m, i) in MESES" :key="i" :value="i + 1">{{ m }}</option>
-          </select>
-          <select v-model="filtro.ano" @change="load" class="select-filter">
-            <option v-for="y in anos" :key="y" :value="y">{{ y }}</option>
-          </select>
-        </div>
-        <div v-if="ultimaAtualiz" class="update-badge mono">{{ ultimaAtualiz }}</div>
-      </div>
-    </header>
+    <GlobalTopbar
+      title="Visão Geral"
+      subtitle="Indicadores Mensais de Combustível"
+      :ultima-atualizacao="ultimaAtualiz"
+    />
 
     <div v-if="carregando" class="loading-state">
       <div class="spinner"></div>
@@ -56,65 +16,46 @@
     <div v-else class="page-body">
 
       <!-- ══════════════════════════════════════════════════════════════════ -->
-      <!--  FAIXA HERO — KPIs Redesenhados (Moderno e Agradável)           -->
+      <!-- AVISO DE VEÍCULOS SEM FILIAL -->
       <!-- ══════════════════════════════════════════════════════════════════ -->
-      <div class="hero-grid">
-        <!-- Card 1: Gasto do Mês (Destaque Principal) -->
-        <div class="hero-card hero-primary">
-          <div class="hc-header">
-            <span class="hc-title">Gasto do Mês{{ filtroLabel }}</span>
-            <div class="hc-badge" :class="varClass(hero.gasto_mes_var_pct)">
-              {{ varIcon(hero.gasto_mes_var_pct) }} {{ Math.abs(hero.gasto_mes_var_pct ?? 0).toFixed(1) }}%
-            </div>
-          </div>
-          <div class="hc-value mono">{{ fmtR(hero.gasto_mes) }}</div>
-          <div class="hc-footer">
-            <div class="hc-sub">
-              <span class="hc-sub-label">Volume</span>
-              <span class="hc-sub-val mono">{{ fmtN(hero.litros_mes) }} L</span>
-            </div>
-            <div class="hc-sub">
-              <span class="hc-sub-label">Abastecimentos</span>
-              <span class="hc-sub-val mono">{{ fmtN(hero.total_abastecimentos) }}</span>
-            </div>
-          </div>
+      <div v-if="veiculosSemFilial.length" class="alert-box alert-warning" style="margin-bottom: 24px; padding: 16px; border-radius: 12px; border: 1px solid #f59e0b; background: #fffbeb; color: #b45309; display: flex; align-items: center; gap: 12px;">
+        <span style="font-size: 20px;">⚠️</span>
+        <div>
+          <div style="font-weight: 700; font-size: 13px; margin-bottom: 2px;">Atenção: Falta de Alocação de Filial para {{ veiculosSemFilial.length }} Veículos</div>
+          <div style="font-size: 12px; opacity: 0.9;">As seguintes placas registraram abastecimento mas estão sem filial definida na base: <span style="font-family: monospace; font-weight: 600;">{{ veiculosSemFilial.join(', ') }}</span></div>
         </div>
+      </div>
 
-        <!-- Card 2: Indicadores de Custo -->
-        <div class="hero-card">
-          <div class="hc-header">
-            <span class="hc-title">Variação de Custo</span>
-            <span class="hc-icon kpi-green">💲</span>
-          </div>
-          <div class="hc-metrics">
-            <div class="hc-metric">
-              <span class="hc-metric-label">Preço Médio/L</span>
-              <span class="hc-metric-val mono">{{ hero.preco_medio != null ? 'R$ ' + Number(hero.preco_medio).toFixed(3) : '—' }}</span>
-            </div>
-            <div class="hc-metric">
-              <span class="hc-metric-label">Custo/km (Ano)</span>
-              <span class="hc-metric-val mono">{{ hero.custo_km != null ? 'R$ ' + Number(hero.custo_km).toFixed(3) : '—' }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Card 3: Indicadores de Frota -->
-        <div class="hero-card">
-          <div class="hc-header">
-            <span class="hc-title">Desempenho da Frota</span>
-            <span class="hc-icon kpi-slate">🚛</span>
-          </div>
-          <div class="hc-metrics">
-            <div class="hc-metric">
-              <span class="hc-metric-label">Eficiência (Ano)</span>
-              <span class="hc-metric-val mono">{{ hero.kml_medio ?? '—' }} <span class="hc-unit">km/L</span></span>
-            </div>
-            <div class="hc-metric">
-              <span class="hc-metric-label">Frota Ativa</span>
-              <span class="hc-metric-val mono">{{ hero.total_veiculos ?? '—' }} <span class="hc-unit">veíc.</span></span>
-            </div>
-          </div>
-        </div>
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <!--  FAIXA HERO — KPIs Redesenhados (Moderno e Agradável)           -->
+      <div class="kpi-pro-grid">
+        <KpiCardPro
+          title="Gasto Total"
+          :value="hero.gasto_mes || 0"
+          format="currency"
+          :trendValue="hero.gasto_mes_var_pct"
+          :trendInvert="true"
+          theme="primary"
+          :description="hero.trend_label ? 'vs ' + hero.trend_label : ''"
+        />
+        <KpiCardPro
+          title="Volume (Litros)"
+          :value="hero.litros_mes || 0"
+          format="number"
+          unit="L"
+        />
+        <KpiCardPro
+          title="Preço Médio"
+          :value="hero.preco_medio || 0"
+          format="currency"
+          :decimals="3"
+          unit="/ L"
+        />
+        <KpiCardPro
+          title="Abastecimentos"
+          :value="hero.total_abastecimentos || 0"
+          format="number"
+        />
       </div>
 
       <!-- ══════════════════════════════════════════════════════════════════ -->
@@ -153,6 +94,9 @@
                       <div class="bd-bar-fill" :style="{ width: m.pct + '%', background: combustivelColor(m.grupo) }"></div>
                     </div>
                     <span class="bd-pct mono">{{ m.pct }}%</span>
+                    <button class="btn-drill" @click="irParaOperacionalCombustivel(m.grupo)" title="Ver placas deste combustível">
+                      <span class="icon-drill">→</span>
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -184,7 +128,6 @@
               <tr v-for="g in porGrupo" :key="g.grupo" class="bd-row">
                 <td><span class="bd-dot" :style="{ background: grupoColor(g.grupo) }"></span></td>
                 <td class="bd-name">
-                  <span class="bd-name-icon">{{ grupoIcon(g.grupo) }}</span>
                   {{ g.grupo }}
                 </td>
                 <td class="right mono bd-val">{{ fmtR(g.gasto) }}</td>
@@ -197,6 +140,9 @@
                       <div class="bd-bar-fill" :style="{ width: g.pct_gasto + '%', background: grupoColor(g.grupo) }"></div>
                     </div>
                     <span class="bd-pct mono">{{ g.pct_gasto }}%</span>
+                    <button class="btn-drill" @click="irParaOperacional(g.grupo)" title="Ver placas deste grupo">
+                      <span class="icon-drill">→</span>
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -220,6 +166,14 @@
       </div>
 
       <!-- ══════════════════════════════════════════════════════════════════ -->
+      <!--  PREÇO MÉDIO POR ESTADO (MIGRAÇÃO DE INTELIGÊNCIA DE PREÇOS)    -->
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <section class="v-block" style="margin-bottom: 24px;">
+        <div class="section-title">PREÇO MÉDIO POR ESTADO (UF){{ filtroLabel }}</div>
+        <GraficoPrecoPorUF :data="precoPorUF" :loading="lUF" />
+      </section>
+
+      <!-- ══════════════════════════════════════════════════════════════════ -->
       <!--  GRÁFICO DIÁRIO (30 dias)                                       -->
       <!-- ══════════════════════════════════════════════════════════════════ -->
       <div class="charts-grid-bottom">
@@ -237,9 +191,13 @@
         <div class="grupos-grid">
           <div v-for="g in porGrupo" :key="g.grupo" class="grupo-card">
             <div class="grupo-header">
-              <span class="grupo-icon">{{ grupoIcon(g.grupo) }}</span>
-              <span class="grupo-nome">{{ g.grupo }}</span>
-              <span class="grupo-pct mono">{{ g.pct_gasto }}%</span>
+              <div class="gh-main">
+                <span class="grupo-nome">{{ g.grupo }}</span>
+                <span class="grupo-pct mono">{{ g.pct_gasto }}%</span>
+              </div>
+              <button class="btn-drill-card" @click="irParaOperacional(g.grupo)" title="Monitorar Operacional deste grupo">
+                OPERACIONAL <span class="icon-drill">→</span>
+              </button>
             </div>
             <div class="grupo-bar-wrap">
               <div class="grupo-bar" :style="{ width: g.pct_gasto + '%', background: grupoColor(g.grupo) }"></div>
@@ -255,7 +213,7 @@
                 </span>
               </div>
               <div class="bench-track">
-                <div class="bench-fill" :style="{ width: g.kml && g.kml_ref ? Math.min(g.kml / g.kml_ref * 100, 120) + '%' : '0%', background: benchColor(g.kml_status) }"></div>
+                <div class="bench-fill" :style="{ width: g.kml && g.kml_ref ? Math.min(g.kml / g.kml_ref * 100, 100) + '%' : '0%', background: benchColor(g.kml_status) }"></div>
                 <div class="bench-marker" :style="{ left: '83.3%' }" title="80% ref"></div>
                 <div class="bench-marker ref-line" :style="{ left: '100%' }" title="100% ref"></div>
               </div>
@@ -296,6 +254,7 @@
               <tr>
                 <th>Filial</th><th>UF</th>
                 <th class="right">Gasto</th><th class="right">Litros</th><th class="right">Veíc.</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -305,6 +264,11 @@
                 <td class="right mono">{{ fmtR(f.gasto) }}</td>
                 <td class="right mono">{{ fmtN(f.litros) }}</td>
                 <td class="right mono">{{ f.veiculos }}</td>
+                <td class="right">
+                  <button class="btn-drill" @click="irParaOperacionalFilial(f.filial)" title="Ver placas desta filial">
+                    <span class="icon-drill">→</span>
+                  </button>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -315,57 +279,37 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import VueApexCharts from 'vue3-apexcharts'
-import { fetchVisaoGeralDashboard, fetchFiltrosDisponiveis } from '../api/visaoGeral.js'
+import GlobalTopbar from '../components/GlobalTopbar.vue'
+import GraficoPrecoPorUF from '../components/GraficoPrecoPorUF.vue'
+import KpiCardPro from '../components/KpiCardPro.vue'
+import { fetchVisaoGeralDashboard } from '../api/visaoGeral.js'
+import { fetchPrecoPorUF } from '../api/precos.js'
+import { useFiltrosStore } from '../stores/filtros'
 
 const apexchart = VueApexCharts
+const router = useRouter()
+const store = useFiltrosStore()
 
-const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
-               'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
-const anos  = [new Date().getFullYear(), new Date().getFullYear() - 1]
-
-const filtro = ref({ 
-  mes: new Date().getMonth() + 1, 
-  ano: new Date().getFullYear(),
-  estado: null,
-  regiao: null,
-  filial: null,
-  grupo: null,
-  combustivel: null
-})
-
-const opcoesFiltro = ref({
-  estados: [],
-  regioes: [],
-  filiais: [],
-  grupos_veiculo: [],
-  combustiveis: []
-})
-
-function limparFiltros() {
-  filtro.value.estado = null
-  filtro.value.regiao = null
-  filtro.value.filial = null
-  filtro.value.grupo = null
-  filtro.value.combustivel = null
-  load()
+function irParaOperacional(grupo) {
+  store.selecao.grupo = grupo
+  router.push({ name: 'operacional' })
 }
 
-async function loadFiltros() {
-  try {
-    const f = await fetchFiltrosDisponiveis()
-    opcoesFiltro.value = {
-      estados: f.estados || [],
-      regioes: f.regioes || [],
-      filiais: f.filiais || [],
-      grupos_veiculo: f.grupos_veiculo || [],
-      combustiveis: f.combustiveis || []
-    }
-  } catch (e) {
-    console.error('[VisaoGeral] Erro carregando filtros', e)
-  }
+function irParaOperacionalFilial(filial) {
+  store.selecao.filial = filial
+  router.push({ name: 'operacional' })
 }
+
+function irParaOperacionalCombustivel(comb) {
+  // Mapeia o grupo de combustivel para a familia operacional (ex: Diesel -> diesel)
+  const map = { 'Diesel': 'diesel', 'Gasolina': 'gasolina', 'Álcool': 'etanol' }
+  store.selecao.combustivel = comb
+  router.push({ name: 'operacional' })
+}
+
 const carregando   = ref(true)
 const ultimaAtualiz = ref('')
 const hero          = ref({})
@@ -376,18 +320,34 @@ const grafMensal     = ref([])
 const grafSemanal    = ref([])
 const grafDiario     = ref([])
 
-const mesMesLabel = computed(() =>
-  MESES[(filtro.value.mes ?? 1) - 1] + '/' + filtro.value.ano
-)
+const precoPorUF     = ref([])
+const lUF            = ref(true)
+
+const veiculosSemFilial = computed(() => {
+  const sf = filiais.value.find(f => f.filial === "Sem filial identificada")
+  return sf && sf.placas_pendentes ? sf.placas_pendentes : []
+})
+
+const mesMesLabel = computed(() => {
+  const s = store.selecao
+  if (s.modoTempo === 'mes') return store.opcoes.meses[(s.mes ?? 1) - 1] + '/' + s.ano
+  if (s.modoTempo === 'bimestre') return store.opcoes.bimestres[(s.bimestre ?? 1) - 1] + '/' + s.ano
+  if (s.modoTempo === 'semestre') return store.opcoes.semestres[(s.semestre ?? 1) - 1] + '/' + s.ano
+  if (s.modoTempo === 'ano') return 'Ano ' + s.ano
+  if (s.modoTempo === 'personalizado') return `${s.data_inicio} a ${s.data_fim}`
+  return '—'
+})
 
 const filtroLabel = computed(() => {
   let labels = []
-  if (filtro.value.filial) labels.push(filtro.value.filial.toUpperCase())
-  else if (filtro.value.estado) labels.push(filtro.value.estado.toUpperCase())
-  else if (filtro.value.regiao) labels.push(filtro.value.regiao.toUpperCase())
+  if (store.selecao.modoTempo !== 'mes') labels.push(store.selecao.modoTempo.toUpperCase())
   
-  if (filtro.value.grupo) labels.push(filtro.value.grupo.toUpperCase())
-  if (filtro.value.combustivel) labels.push(filtro.value.combustivel.toUpperCase())
+  if (store.selecao.filial) labels.push(store.selecao.filial.toUpperCase())
+  else if (store.selecao.estado) labels.push(store.selecao.estado.toUpperCase())
+  else if (store.selecao.regiao) labels.push(store.selecao.regiao.toUpperCase())
+  
+  if (store.selecao.grupo) labels.push(store.selecao.grupo.toUpperCase())
+  if (store.selecao.combustivel) labels.push(store.selecao.combustivel.toUpperCase())
   
   return labels.length > 0 ? ` — ${labels.join(' | ')}` : ''
 })
@@ -413,16 +373,8 @@ const FUEL_COLORS = {
   'Diesel': '#f97316', 'Gasolina': '#3b82f6',
   'Álcool': '#10b981', 'Arla': '#8b5cf6', 'Outros': '#6b7280',
 }
-const GRUPO_ICONS = {
-  'Caminhão17Ton': '🚛', 'Caminhão12Ton': '🚛', 'Caminhão10.5Ton': '🚚',
-  'Caminhão9Ton': '🚚', 'Caminhão7.5Ton': '🚚', 'Caminhão6Ton': '🚐',
-  'Caminhão5.5Ton': '🚐', 'Caminhão5Ton': '🚐', 'Caminhão4.2Ton': '🚐',
-  'Pesado': '🚌', 'Médio': '🛻', 'Leve': '🚗',
-  'Kombi': '🚐', 'Moto': '🏍️', 'Outros': '🚘',
-}
 const grupoColor      = g => GRUPO_COLORS[g] ?? '#6b7280'
 const combustivelColor = g => FUEL_COLORS[g] ?? '#6b7280'
-const grupoIcon       = g => GRUPO_ICONS[g] ?? '🚘'
 const benchColor      = s => s === 'ok' ? '#10b981' : s === 'alerta' ? '#f59e0b' : s === 'critico' ? '#ef4444' : '#6b7280'
 
 const chartBase = {
@@ -463,7 +415,7 @@ const seriesDiario = computed(() => [{ name: 'Gasto', data: grafDiario.value.map
 async function load() {
   carregando.value = true
   try {
-    const d = await fetchVisaoGeralDashboard(filtro.value)
+    const d = await fetchVisaoGeralDashboard(store.selecao)
     hero.value          = d.hero ?? {}
     porGrupo.value      = d.por_grupo_veiculo ?? []
     mixCombustivel.value = d.mix_combustivel ?? []
@@ -472,6 +424,22 @@ async function load() {
     grafSemanal.value    = d.grafico_semanal ?? []
     grafDiario.value     = d.grafico_diario ?? []
     ultimaAtualiz.value  = 'Atualizado ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+
+    // Busca o gráfico de estado separado
+    lUF.value = true
+    try {
+      const p = await fetchPrecoPorUF({
+        mes: store.selecao.mes,
+        ano: store.selecao.ano,
+        combustivel: store.selecao.combustivel,
+      })
+      precoPorUF.value = p
+    } catch (e) {
+      console.error('[VisaoGeral] Erro Preço UF', e)
+    } finally {
+      lUF.value = false
+    }
+
   } catch (e) {
     console.error('[VisaoGeral]', e)
   } finally {
@@ -479,8 +447,15 @@ async function load() {
   }
 }
 
+watch(
+  () => store.selecao,
+  () => {
+    load()
+  },
+  { deep: true }
+)
+
 onMounted(() => {
-  loadFiltros()
   load()
 })
 </script>
@@ -500,80 +475,6 @@ onMounted(() => {
 .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
 
 /* ═══ Topbar ══════════════════════════════════════════════════════════════ */
-.topbar {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 32px; height: 56px;
-  background: white; border-bottom: 1px solid #e2e8f0;
-  position: sticky; top: 0; z-index: 50;
-}
-.logo { font-size: 15px; font-weight: 800; letter-spacing: 0.05em; }
-.logo .divider { color: #f97316; }
-.logo .subtitle { color: #64748b; font-size: 11px; font-weight: 500; text-transform: uppercase; }
-.topbar-right {
-  display: flex; gap: 16px; align-items: center;
-}
-
-/* Base Topbar Global Filters */
-.global-filters {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  background: white;
-  padding: 4px;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.02);
-}
-
-.global-select {
-  border: none;
-  background: #f8fafc;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  color: #334155;
-  cursor: pointer;
-  outline: none;
-  transition: all 0.2s;
-  min-width: 140px;
-}
-
-.global-select:hover {
-  background: #f1f5f9;
-}
-
-.global-select:focus {
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
-}
-
-.btn-clear-global {
-  background: transparent;
-  border: 1px dashed #cbd5e1;
-  color: #64748b;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-clear-global:hover {
-  background: #fef2f2;
-  color: #dc2626;
-  border-color: #fca5a5;
-}
-
-.filter-group { display: flex; gap: 8px; }
-.select-filter {
-  padding: 6px 12px; border: 1px solid #e2e8f0; border-radius: 8px;
-  background: #f8fafc; color: #1e293b; font-size: 13px; font-weight: 600;
-  cursor: pointer; outline: none; transition: border-color 0.15s;
-}
-.select-filter:hover { border-color: #f97316; }
-.update-badge { font-size: 11px; color: #94a3b8; }
-
 /* ═══ Loading ═════════════════════════════════════════════════════════════ */
 .loading-state {
   flex: 1; display: flex; flex-direction: column; align-items: center;
@@ -587,161 +488,6 @@ onMounted(() => {
 
 .page-body { padding: 24px 32px; flex: 1; }
 
-/* ═══════════════════════════════════════════════════════════════════════════ */
-/*  HERO GRID — Cards Principais Redesenhados                                */
-/* ═══════════════════════════════════════════════════════════════════════════ */
-.hero-grid {
-  display: grid;
-  grid-template-columns: 1.5fr 1fr 1fr;
-  gap: 20px;
-  margin-bottom: 24px;
-}
-
-.hero-card {
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 20px;
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-.hero-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
-}
-
-.hero-primary {
-  background: linear-gradient(135deg, #ffedd5 0%, #ffffff 100%);
-  border-color: #fdba74;
-  position: relative;
-  overflow: hidden;
-}
-.hero-primary::before {
-  content: '';
-  position: absolute;
-  top: 0; right: 0; width: 150px; height: 150px;
-  background: radial-gradient(circle, rgba(249,115,22,0.1) 0%, rgba(255,255,255,0) 70%);
-  border-radius: 50%;
-  transform: translate(30%, -30%);
-}
-
-.hc-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-  position: relative;
-  z-index: 1;
-}
-
-.hc-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.hc-icon {
-  width: 36px; height: 36px;
-  border-radius: 12px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 18px;
-}
-
-.hc-badge {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 4px 12px; border-radius: 20px;
-  font-size: 13px; font-weight: 800;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-}
-.hero-primary .hc-title { color: #c2410c; }
-
-.badge-green { background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
-.badge-red   { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
-.badge-neutral { background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; }
-
-.hc-value {
-  font-size: 42px;
-  font-weight: 800;
-  color: #0f172a;
-  letter-spacing: -0.03em;
-  line-height: 1;
-  margin-bottom: 24px;
-  position: relative;
-  z-index: 1;
-}
-
-.hc-footer {
-  display: flex;
-  gap: 24px;
-  border-top: 1px solid rgba(249, 115, 22, 0.2);
-  padding-top: 16px;
-  position: relative;
-  z-index: 1;
-}
-
-.hc-sub {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.hc-sub-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: #9a3412;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.hc-sub-val {
-  font-size: 18px;
-  font-weight: 700;
-  color: #431407;
-}
-
-.hc-metrics {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  flex: 1;
-  justify-content: center;
-}
-
-.hc-metric {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #f1f5f9;
-}
-.hc-metric:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
-}
-
-.hc-metric-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: #475569;
-}
-
-.hc-metric-val {
-  font-size: 20px;
-  font-weight: 800;
-  color: #0f172a;
-}
-
-.hc-unit {
-  font-size: 12px;
-  font-weight: 600;
-  color: #94a3b8;
-}
-
 /* Icons reuse from old kpi */
 .kpi-blue   { background: #eff6ff; }
 .kpi-orange { background: #fff7ed; }
@@ -749,6 +495,13 @@ onMounted(() => {
 .kpi-teal   { background: #f0fdfa; }
 .kpi-purple { background: #f5f3ff; }
 .kpi-slate  { background: #f1f5f9; }
+
+.kpi-pro-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /*  BREAKDOWN — tabelas compactas                                           */
@@ -949,7 +702,7 @@ tbody.has-filter .bd-row.dimmed:hover {
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
 @media (max-width: 1200px) {
-  .kpi-strip { flex-wrap: wrap; }
+  .kpi-pro-grid { grid-template-columns: repeat(2, 1fr); }
   .kpi-sep:nth-child(n+6) { display: none; }
   .kpi-item:nth-child(n+8) { border-top: 1px solid #f1f5f9; }
   .breakdown-row { grid-template-columns: 1fr; }
@@ -957,11 +710,9 @@ tbody.has-filter .bd-row.dimmed:hover {
   .bottom-row { grid-template-columns: 1fr; }
 }
 @media (max-width: 768px) {
+  .kpi-pro-grid { grid-template-columns: 1fr; }
   .page-body { padding: 16px; }
   .topbar { padding: 0 16px; }
-  .kpi-strip { flex-direction: column; }
-  .kpi-sep { width: 100%; height: 1px; }
-  .kpi-hero-value { font-size: 28px; }
 }
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /*  RESTAURADAS: GRUPOS, MIX E FILIAIS (Módulos antigos)                       */
@@ -984,6 +735,26 @@ tbody.has-filter .bd-row.dimmed:hover {
 .grupo-pct { font-weight: 700; color: #64748b; font-size: 14px; }
 .grupo-bar-wrap { height: 6px; background: #f1f5f9; border-radius: 3px; overflow: hidden; margin-bottom: 16px; }
 .grupo-bar { height: 100%; border-radius: 3px; }
+
+.btn-drill {
+  background: none; border: none; padding: 0 4px; cursor: pointer;
+  color: #94a3b8; display: flex; align-items: center; justify-content: center;
+  margin-left: 4px; opacity: 0; transition: all 0.2s;
+}
+.bd-row:hover .btn-drill { opacity: 1; color: var(--orange); }
+
+.grupo-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+.gh-main { display: flex; flex-direction: column; gap: 2px; }
+
+.btn-drill-card {
+  background: rgba(249, 115, 22, 0.08); border: 1px solid rgba(249, 115, 22, 0.15);
+  padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: 700;
+  color: var(--orange); cursor: pointer; transition: all 0.2s;
+  letter-spacing: 0.05em;
+}
+.btn-drill-card:hover { background: var(--orange); color: white; border-color: var(--orange); }
+.icon-drill { font-size: 14px; line-height: 1; }
+
 .grupo-stats { display: flex; flex-wrap: wrap; gap: 12px; row-gap: 8px; border-top: 1px dashed #e2e8f0; padding-top: 12px; }
 .gs-item { display: flex; flex-direction: column; width: calc(33.3% - 12px); }
 .gs-label { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; }
@@ -1024,6 +795,8 @@ tbody.has-filter .bd-row.dimmed:hover {
 .filiais-table td { padding: 12px; font-size: 13px; border-bottom: 1px solid #f8fafc; color: #334155; }
 .filial-nome { font-weight: 600; color: #0f172a; }
 .uf { color: #64748b; }
+.filiais-table .btn-drill { opacity: 1; color: #cbd5e1; }
+.filiais-table tr:hover .btn-drill { color: var(--orange); }
 .empty-msg { font-size: 13px; color: #94a3b8; padding: 24px; text-align: center; border: 1px dashed #e2e8f0; border-radius: 8px; }
 
 </style>

@@ -1,104 +1,46 @@
 <template>
   <div class="page executive-theme animate-in">
 
-    <!-- Topbar: Minimalista e Executiva -->
-    <header class="topbar">
-      <div class="topbar-left">
-        <span class="logo">GRITSCH <span class="divider">//</span> <span class="subtitle">Estatísticas de Diretoria</span></span>
-      </div>
-      <div class="topbar-right">
-        <div class="filter-group">
-          <select v-model="filtro.mes" @change="refreshData" class="select-filter">
-            <option v-for="(m, i) in MESES" :key="i" :value="i + 1">{{ m }}</option>
-          </select>
-          <select v-model="filtro.ano" @change="refreshData" class="select-filter">
-            <option v-for="y in anosDisponiveis" :key="y" :value="y">{{ y }}</option>
-          </select>
-        </div>
-        <div class="status-badge" :style="{ background: getScoreColor(kpis.score_saude) + '20', color: getScoreColor(kpis.score_saude) }">
-          SAÚDE DA OPERAÇÃO: {{ kpis.score_saude }}%
-        </div>
-      </div>
-    </header>
+    <!-- Topbar: Padronizada -->
+    <GlobalTopbar
+      title="Diretoria"
+      subtitle="Visão estratégica de saúde e performance"
+      :show-period="true"
+      :show-filters="true"
+    />
 
     <div class="page-body">
       
       <!-- HERO SECTION: Os Números que Importam -->
-      <div class="hero-grid">
-        
-        <!-- CARD 1: SAVING (O valor que a diretoria mais ama) -->
-        <div class="card saving-card">
-          <div class="card-glow"></div>
-          <div class="card-icon">💰</div>
-          <div class="card-body">
-            <div class="card-label mono">SAVING REAL (MES)</div>
-            <div class="card-value">{{ fmtR(kpis.saving_acumulado_mes) }}</div>
-            <div class="card-desc">Redução de custo vs mercado (ANP)</div>
-          </div>
-          <div class="card-footer">
-            <span class="trend good">↑ Performance de Negociação</span>
-          </div>
-        </div>
-
-        <!-- CARD 2: CUSTO POR KM (Financeiro Mestre) -->
-        <div class="card cost-km-card">
-          <div class="card-icon">💸</div>
-          <div class="card-body">
-            <div class="card-label mono">CUSTO MÉDIO / KM</div>
-            <div class="card-value">{{ fmtRPrecise(kpis.custo_por_km) }}</div>
-            <div class="card-desc">Custo total ponderado por KM rodado</div>
-          </div>
-          <div class="card-footer">
-             <span class="mono">Gasto Year-to-Date</span>
-          </div>
-        </div>
-
-        <!-- CARD 3: EFICIÊNCIA (Performance Operacional) -->
-        <div class="card efficiency-card">
-          <div class="card-icon">🚛</div>
-          <div class="card-body">
-            <div class="card-label mono">EFICIÊNCIA MÉDIA (ANO)</div>
-            <div class="card-value">{{ kpis.kml_medio }} <span class="unit">km/L</span></div>
-            <div class="card-desc">Rendimento médio da frota</div>
-          </div>
-          <div class="card-footer">
-             <span class="mono">Autonomia Geral</span>
-          </div>
-        </div>
-
-        <!-- CARD 4: PROJEÇÃO MENSAL (Visão de Curto Prazo) -->
-        <div class="card projection-mes-card">
-          <div class="card-icon">📈</div>
-          <div class="card-body">
-            <div class="card-label mono">PROJEÇÃO FECHAMENTO MÊS</div>
-            <div class="card-value">{{ fmtR(kpis.projecao_mes_atual) }}</div>
-            <div class="card-desc">Estimativa total baseada no ritmo do dia {{ kpis.dia_referencia_proj }}</div>
-          </div>
-          <div class="card-footer">
-             <div class="footer-item" v-if="kpis.dia_referencia_proj">
-               <span>Real (dia 1 ao {{ kpis.dia_referencia_proj }}):</span>
-               <span class="mono">{{ fmtR(kpis.gasto_mes_atual_real) }}</span>
-             </div>
-             <div class="footer-item" v-if="kpis.proj_restante_mes">
-               <span>Est. Restante (restante do mês):</span>
-               <span class="mono">+ {{ fmtR(kpis.proj_restante_mes) }}</span>
-             </div>
-          </div>
-        </div>
-
-        <!-- CARD 5: PROJEÇÃO ANUAL (Visão de Longo Prazo) -->
-        <div class="card projection-card">
-          <div class="card-icon">📊</div>
-          <div class="card-body">
-            <div class="card-label mono">PROJEÇÃO EXERCÍCIO ANUAL</div>
-            <div class="card-value">{{ fmtR(kpis.projecao_anual) }}</div>
-            <div class="card-desc">Baseado no histórico de {{ kpis.meses_completos }} meses</div>
-          </div>
-          <div class="card-footer">
-             <span class="mono">Ref. Histórico Ponderado</span>
-          </div>
-        </div>
-
+      <div class="kpi-pro-grid">
+        <KpiCardPro
+          title="Saving Real (Mês)"
+          :value="kpis.saving_acumulado_mes || 0"
+          format="currency"
+          theme="primary"
+          description="Performance Negociação (vs ANP)"
+        />
+        <KpiCardPro
+          title="Saúde da Operação"
+          :value="kpis.score_saude || 100"
+          format="number"
+          unit="%"
+          :trendValue="0"
+          theme="dark"
+        />
+        <KpiCardPro
+          title="Projeção (Mês)"
+          :value="kpis.projecao_mes_atual || 0"
+          format="currency"
+          :description="'Baseado no Real até dia ' + (kpis.dia_referencia_proj || '—')"
+        />
+        <KpiCardPro
+          title="Custo/KM Global"
+          :value="kpis.custo_por_km || 0"
+          format="currency"
+          :decimals="3"
+          :description="'Gasto Year-to-Date'"
+        />
       </div>
 
       <!-- Performance Financeira (Comparativos Estratégicos) -->
@@ -253,6 +195,36 @@
             <div class="opp-footer mono">{{ economia.economia_pct }}% do gasto total</div>
           </div>
 
+          <!-- IA de Mercado (Migrado de Vigilância) -->
+          <div class="v-block side-block ia-block">
+            <div class="ia-header">
+              <div class="label-tiny mono" style="margin-bottom:0">INTELIGÊNCIA DE MERCADO <span class="ia-live-badge">IA AO VIVO</span></div>
+              <button class="btn-update mono" @click="fetchIntel" :disabled="iaLoading">
+                <span class="icon" :class="{ rotate: iaLoading }">⟳</span>
+                {{ iaLoading ? 'Consultando...' : 'Atualizar' }}
+              </button>
+            </div>
+            <div v-if="iaLoading" class="ia-loading mono">
+              Consultando inteligência...
+            </div>
+            <div v-else-if="intel" class="ia-content">
+              <div class="ia-resumo mono">
+                 <span class="trend-icon">{{ intel.tendencia === 'alta' ? '▲' : '→' }}</span>
+                 {{ intel.resumo }}
+              </div>
+              <div v-for="(n, i) in intel.noticias" :key="i" class="ia-card" :class="n.impacto">
+                <div class="ia-n-header">
+                  <span class="fonte mono">{{ n.fonte }}</span>
+                  <span class="impacto mono">{{ n.impacto }}</span>
+                </div>
+                <div class="ia-n-title">{{ n.titulo }}</div>
+                <div class="ia-n-market mono" v-if="n.brent_usd">
+                  Brent: {{ n.brent_usd }} · Câmbio: {{ n.cambio }}
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Mix de Operação Mês -->
           <div class="v-block">
              <div class="label-tiny mono">MIX DE COMBUSTÍVEL (ESTE MÊS)</div>
@@ -278,7 +250,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
+import { useFiltrosStore } from '../stores/filtros'
+import GlobalTopbar from '../components/GlobalTopbar.vue'
+import { useMercadoIA } from '../composables/useMercadoIA'
+import KpiCardPro from '../components/KpiCardPro.vue'
 import { 
   fetchKpisEstrategicos, 
   fetchTendencia12Meses, 
@@ -292,13 +268,12 @@ import GraficoTendencia       from '../components/GraficoTendencia.vue'
 import GraficoMixCombustiveis from '../components/GraficoMixCombustiveis.vue'
 import BenchmarkANP           from '../components/BenchmarkANP.vue'
 
+const { intel, loading: iaLoading, fetchIntel } = useMercadoIA()
+
 const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 const anosDisponiveis = [new Date().getFullYear(), new Date().getFullYear() - 1]
 
-const filtro = ref({
-  mes: new Date().getMonth() + 1,
-  ano: new Date().getFullYear()
-})
+const store = useFiltrosStore()
 
 const kpis           = ref({ score_saude: 100 })
 const tendencia      = ref([])
@@ -330,7 +305,7 @@ const getTrendClass = (val, threshold = 2) => {
 }
 
 async function refreshData() {
-  const p = { mes: filtro.value.mes, ano: filtro.value.ano }
+  const p = { mes: store.selecao.mes, ano: store.selecao.ano }
   lTendencia.value = true
   lComparativo.value = true
   lMix.value = true
@@ -348,8 +323,11 @@ async function refreshData() {
   ])
 }
 
+watch(() => store.selecao, () => refreshData(), { deep: true })
+
 onMounted(() => {
   refreshData()
+  fetchIntel()
 })
 </script>
 
@@ -363,68 +341,34 @@ onMounted(() => {
   flex-direction: column;
 }
 
-/* Theme */
+/* Theme - Padronizado com as outras telas */
 .executive-theme {
-  --accent: #3b82f6;
+  --accent: #f97316;
   --surface: #ffffff;
   --border: #e2e8f0;
   --text-dim: #64748b;
 }
 
-/* Topbar */
-.topbar {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 48px; height: 70px;
-  background: white; border-bottom: 1px solid var(--border);
-  position: sticky; top: 0; z-index: 100;
-}
-.logo { font-size: 18px; font-weight: 800; letter-spacing: 0.05em; }
-.logo .divider { color: #3b82f6; }
-.logo .subtitle { color: var(--text-dim); font-size: 12px; text-transform: uppercase; font-weight: 500; }
-
-.status-badge {
-  padding: 8px 16px; border-radius: 100px; font-size: 11px; font-weight: 800; text-transform: uppercase;
-  border: 1px solid currentColor;
-}
-.filter-group { display: flex; gap: 8px; margin-right: 24px; }
-.select-filter {
-  padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px;
-  background: #f8fafc; color: #1e293b; font-size: 12px; font-weight: 600; cursor: pointer;
-  outline: none; transition: border-color 0.2s;
-}
-.select-filter:hover { border-color: var(--accent); }
-.topbar-right { display: flex; align-items: center; }
+/* Topbar styles removed as they are now in GlobalTopbar */
 
 /* Body */
-.page-body { padding: 40px 48px; flex: 1; }
+.page-body { padding: 24px 32px; flex: 1; }
 
-.hero-grid {
+.kpi-pro-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 16px;
   margin-bottom: 40px;
 }
-
-.card {
-  background: white; border: 1px solid var(--border); border-radius: 20px;
-  padding: 20px; position: relative; overflow: hidden;
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-.card:hover { transform: translateY(-4px); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05); }
-
-.card-icon { font-size: 22px; margin-bottom: 12px; }
-.card-label { font-size: 8px; font-weight: 700; color: var(--text-dim); letter-spacing: 0.1em; }
-.card-value { font-size: 24px; font-weight: 800; margin: 4px 0; letter-spacing: -0.02em; }
-.card-value .unit { font-size: 12px; font-weight: 600; color: var(--text-dim); }
-.card-desc { font-size: 10px; color: var(--text-dim); line-height: 1.4; }
-.card-footer { margin-top: 16px; border-top: 1px solid #f1f5f9; padding-top: 10px; font-size: 9px; font-weight: 600; }
 
 .saving-card { border-left: 6px solid #10b981; }
 .saving-card .card-value { color: #10b981; }
 .cost-km-card { border-left: 6px solid #f97316; }
 .cost-km-card .card-value { color: #f97316; }
-.efficiency-card { border-left: 6px solid #3b82f6; }
+.efficiency-card { border-left: 6px solid #f97316; }
 .projection-mes-card { border-left: 6px solid #f43f5e; }
+.projection-card { border-left: 6px solid #8b5cf6; }
+
 .projection-card { border-left: 6px solid #8b5cf6; }
 
 /* Middle Layout */
@@ -438,11 +382,34 @@ onMounted(() => {
 }
 .section-title {
   font-size: 11px; font-weight: 700; color: var(--text-dim); letter-spacing: 0.08em;
-  margin-bottom: 24px; text-transform: uppercase; border-left: 3px solid var(--accent);
+  margin-bottom: 24px; text-transform: uppercase; border-left: 3px solid #f97316;
   padding-left: 12px;
 }
 
 .label-tiny { font-size: 9px; font-weight: 800; color: var(--text-dim); margin-bottom: 12px; }
+
+/* IA Block Styles */
+.ia-block { padding: 24px; background: linear-gradient(180deg, white 0%, #f8fafc 100%); }
+.ia-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.ia-live-badge { background: #f97316; color: white; padding: 2px 6px; border-radius: 4px; font-size: 8px; margin-left: 8px; }
+.btn-update { background: transparent; border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; font-size: 9px; cursor: pointer; color: var(--text-dim); display: flex; align-items: center; gap: 4px; }
+.btn-update:hover { background: #f1f5f9; }
+.btn-update .icon.rotate { animation: spin 1s linear infinite; }
+@keyframes spin { 100% { transform: rotate(360deg); } }
+.ia-loading { padding: 40px 0; text-align: center; font-size: 11px; color: var(--text-dim); }
+.ia-content { display: flex; flex-direction: column; gap: 16px; }
+.ia-resumo { font-size: 11px; color: #1e293b; background: white; padding: 12px; border-radius: 8px; border: 1px dashed var(--border); line-height: 1.5; }
+.trend-icon { font-weight: 800; margin-right: 4px; color: #f97316; }
+.ia-card { background: white; border: 1px solid var(--border); border-radius: 8px; padding: 16px; border-left: 3px solid var(--border); }
+.ia-card.ALTA { border-left-color: #ef4444; }
+.ia-card.BAIXA { border-left-color: #10b981; }
+.ia-n-header { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 9px; }
+.fonte { font-weight: 700; color: var(--text-dim); }
+.impacto { font-weight: 800; padding: 2px 6px; border-radius: 4px; background: #f1f5f9; }
+.ia-card.ALTA .impacto { color: #ef4444; background: #fef2f2; }
+.ia-card.BAIXA .impacto { color: #10b981; background: #ecfdf5; }
+.ia-n-title { font-size: 12px; font-weight: 600; color: #1e293b; margin-bottom: 12px; line-height: 1.4; }
+.ia-n-market { font-size: 10px; color: var(--text-dim); display: flex; gap: 12px; }
 
 /* Performance Section */
 .section-performance {
@@ -516,7 +483,7 @@ onMounted(() => {
 .trend.good { color: #10b981; }
 
 .footer {
-  padding: 32px 48px; border-top: 1px solid var(--border);
+  padding: 32px; border-top: 1px solid var(--border);
   display: flex; justify-content: space-between; font-size: 11px; color: var(--text-dim);
 }
 
@@ -524,7 +491,10 @@ onMounted(() => {
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
 @media (max-width: 1024px) {
-  .hero-grid { grid-template-columns: 1fr; }
+  .kpi-pro-grid { grid-template-columns: repeat(2, 1fr); }
   .middle-layout { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .kpi-pro-grid { grid-template-columns: 1fr; }
 }
 </style>

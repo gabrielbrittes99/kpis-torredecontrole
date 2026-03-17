@@ -18,7 +18,7 @@ def _apply_filters(
     placa: Optional[str],
 ) -> pd.DataFrame:
     if combustivel:
-        df = df[df["nome_combustivel"] == combustivel]
+        df = df[df["grupo_combustivel"] == combustivel]
     if placa:
         df = df[df["placa"] == placa.upper()]
     return df
@@ -45,7 +45,7 @@ def get_evolucao_por_tipo(
     df["ano_mes"] = df["data_transacao"].dt.to_period("M").astype(str)
 
     agg = (
-        df.groupby(["ano_mes", "nome_combustivel"])
+        df.groupby(["ano_mes", "grupo_combustivel"])
         .agg(total_valor=("valor", "sum"), total_litros=("litragem", "sum"))
         .reset_index()
     )
@@ -53,11 +53,11 @@ def get_evolucao_por_tipo(
 
     # Estrutura: lista de meses com preço por tipo
     meses = sorted(agg["ano_mes"].unique())
-    tipos = sorted(agg["nome_combustivel"].unique())
+    tipos = sorted(agg["grupo_combustivel"].unique())
 
     series = []
     for tipo in tipos:
-        sub = agg[agg["nome_combustivel"] == tipo].set_index("ano_mes")
+        sub = agg[agg["grupo_combustivel"] == tipo].set_index("ano_mes")
         pontos = []
         for mes in meses:
             if mes in sub.index:
@@ -101,7 +101,7 @@ def get_preco_por_uf(
         .reset_index()
     )
     agg["preco_medio"] = (agg["total_valor"] / agg["total_litros"]).round(4)
-    agg = agg.sort_values("preco_medio")
+    agg = agg.sort_values("uf_posto")
 
     return [
         {
@@ -234,7 +234,7 @@ def get_variacao_mensal(
     """Variação % do preço médio entre meses consecutivos por tipo."""
     df = cache.get_df().copy()
     if combustivel:
-        df = df[df["nome_combustivel"] == combustivel]
+        df = df[df["grupo_combustivel"] == combustivel]
 
     if df.empty:
         return []
@@ -242,19 +242,19 @@ def get_variacao_mensal(
     df["ano_mes"] = df["data_transacao"].dt.to_period("M").astype(str)
 
     agg = (
-        df.groupby(["ano_mes", "nome_combustivel"])
+        df.groupby(["ano_mes", "grupo_combustivel"])
         .agg(total_valor=("valor", "sum"), total_litros=("litragem", "sum"))
         .reset_index()
-        .sort_values(["nome_combustivel", "ano_mes"])
+        .sort_values(["grupo_combustivel", "ano_mes"])
     )
     agg["preco_medio"] = (agg["total_valor"] / agg["total_litros"]).round(4)
-    agg["variacao_pct"] = agg.groupby("nome_combustivel")["preco_medio"].pct_change() * 100
+    agg["variacao_pct"] = agg.groupby("grupo_combustivel")["preco_medio"].pct_change() * 100
     agg["variacao_pct"] = agg["variacao_pct"].round(2)
 
     return [
         {
             "ano_mes": row["ano_mes"],
-            "combustivel": row["nome_combustivel"],
+            "combustivel": row["grupo_combustivel"],
             "preco_medio": float(row["preco_medio"]),
             "variacao_pct": float(row["variacao_pct"]) if pd.notna(row["variacao_pct"]) else None,
         }
