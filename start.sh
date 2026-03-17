@@ -19,13 +19,14 @@ sleep 1
 echo "📦 Configurando Backend..."
 cd backend
 
-echo "   Instalando/Verificando dependências..."
-pip install -r requirements.txt --quiet
+# No Railway/Nixpacks, as dependências já foram instaladas no build phase.
+# Mas mantemos aqui como fallback usando o comando explícito:
+python3 -m pip install -r requirements.txt --quiet
 
 echo "   ✅ Backend pronto!"
 echo "   Iniciando servidor na porta 8000..."
 # No Railway, a porta é passada pela variável PORT
-uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} &
+python3 -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} &
 BACKEND_PID=$!
 
 cd ..
