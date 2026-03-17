@@ -6,7 +6,8 @@
 
 set -e
 
-echo "🚀 Iniciando KPIs Torre de Controle..."
+echo "🚀 Iniciando KPIs Torre de Controle (v2 - Railway Auto-Config)..."
+echo "📅 Rodando em: $(date)"
 echo ""
 
 # Limpa processos anteriores para evitar conflito de porta
