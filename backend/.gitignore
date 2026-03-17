@@ -3,3 +3,8 @@ __pycache__/
 *.pyo
 .venv/
 venv/
+
+# Credenciais — NUNCA commitar
+.env
+.env.*
+!.env.example
