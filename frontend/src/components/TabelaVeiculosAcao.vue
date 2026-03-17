@@ -21,6 +21,7 @@
           <tr>
             <th>Status</th>
             <th>Placa</th>
+            <th>Modelo</th>
             <th>Grupo</th>
             <th>Filial</th>
             <th class="right">Custo/km</th>
@@ -37,8 +38,9 @@
               </span>
             </td>
             <td class="mono placa">{{ v.placa }}</td>
+            <td class="modelo-td">{{ v.modelo || '—' }}</td>
             <td class="grupo-td">{{ formatGrupo(v.grupo) }}</td>
-            <td class="filial-td">{{ v.filial }}</td>
+            <td class="filial-td">{{ v.filial || '—' }}</td>
             <td class="right mono" :class="v.flag !== 'OK' ? 'red' : ''">
               {{ v.custo_km ? `R$ ${v.custo_km.toFixed(4)}` : '—' }}
             </td>
@@ -146,6 +148,7 @@ tbody tr.row-baixo   { background: rgba(245,158,11,0.01); }
 .green { color: #10b981; font-weight: 600; }
 .semibold { font-weight: 600; }
 .placa { font-weight: 700; color: #0f172a; }
+.modelo-td { font-size: 11px; font-weight: 500; color: #475569; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .grupo-td { font-size: 11px; font-weight: 600; color: #64748b; }
 .filial-td { font-weight: 500; font-size: 12px; color: #64748b; max-width: 130px; overflow: hidden; text-overflow: ellipsis; }
 

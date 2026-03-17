@@ -166,10 +166,22 @@
       </div>
 
       <!-- ══════════════════════════════════════════════════════════════════ -->
-      <!--  PREÇO MÉDIO POR ESTADO (MIGRAÇÃO DE INTELIGÊNCIA DE PREÇOS)    -->
+      <!--  PREÇO MÉDIO POR ESTADO POR COMBUSTÍVEL                        -->
       <!-- ══════════════════════════════════════════════════════════════════ -->
       <section class="v-block" style="margin-bottom: 24px;">
-        <div class="section-title">PREÇO MÉDIO POR ESTADO (UF){{ filtroLabel }}</div>
+        <div class="section-title-row">
+          <div class="section-title" style="margin-bottom:0">PREÇO MÉDIO POR ESTADO (UF)</div>
+          <div class="uf-comb-tabs">
+            <button :class="{ active: filtroUFComb === null }" @click="setFiltroUF(null)">Todos</button>
+            <button
+              v-for="c in opcoesUFComb"
+              :key="c"
+              :class="{ active: filtroUFComb === c }"
+              :style="filtroUFComb === c ? { background: combustivelColor(c), borderColor: combustivelColor(c), color: 'white' } : { borderColor: combustivelColor(c), color: combustivelColor(c) }"
+              @click="setFiltroUF(c)"
+            >{{ c }}</button>
+          </div>
+        </div>
         <GraficoPrecoPorUF :data="precoPorUF" :loading="lUF" />
       </section>
 
@@ -248,30 +260,38 @@
         </section>
         <section class="v-block filiais-block">
           <div class="section-title">GASTO POR FILIAL — {{ mesMesLabel }}</div>
-          <div v-if="filiais.length === 0" class="empty-msg">Dados de filial não disponíveis</div>
-          <table v-else class="filiais-table">
-            <thead>
-              <tr>
-                <th>Filial</th><th>UF</th>
-                <th class="right">Gasto</th><th class="right">Litros</th><th class="right">Veíc.</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="f in filiais" :key="f.filial">
-                <td class="filial-nome">{{ f.filial }}</td>
-                <td class="uf mono">{{ f.estado || '—' }}</td>
-                <td class="right mono">{{ fmtR(f.gasto) }}</td>
-                <td class="right mono">{{ fmtN(f.litros) }}</td>
-                <td class="right mono">{{ f.veiculos }}</td>
-                <td class="right">
-                  <button class="btn-drill" @click="irParaOperacionalFilial(f.filial)" title="Ver placas desta filial">
+          <div v-if="filiaisVisiveis.length === 0" class="empty-msg">Dados de filial não disponíveis</div>
+          <div v-else class="filiais-cards">
+            <div v-for="f in filiaisVisiveis" :key="f.filial" class="filial-row">
+              <div class="filial-row-top">
+                <div class="filial-info">
+                  <span class="filial-dot" :style="{ background: combustivelColor(f.combustivel_pred) }"></span>
+                  <span class="filial-nome">{{ f.filial.replace('Gritsch ', '') }}</span>
+                  <span class="filial-uf mono">{{ f.estado || '—' }}</span>
+                </div>
+                <div class="filial-nums">
+                  <span class="filial-gasto mono">{{ fmtR(f.gasto) }}</span>
+                  <span class="filial-pct mono">{{ filiaisTotalGasto > 0 ? (f.gasto / filiaisTotalGasto * 100).toFixed(1) + '%' : '—' }}</span>
+                  <button class="btn-drill" @click="irParaOperacionalFilial(f.filial)" title="Ver operacional desta filial">
                     <span class="icon-drill">→</span>
                   </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                </div>
+              </div>
+              <div class="filial-bar-wrap">
+                <div
+                  class="filial-bar-fill"
+                  :style="{
+                    width: filiaisTotalGasto > 0 ? Math.min((f.gasto / filiaisTotalGasto * 100), 100) + '%' : '0%',
+                    background: combustivelColor(f.combustivel_pred)
+                  }"
+                ></div>
+              </div>
+              <div class="filial-meta mono">
+                {{ fmtN(f.litros) }} L · {{ f.veiculos }} veíc.
+                <span v-if="f.combustivel_pred" class="comb-badge" :style="{ color: combustivelColor(f.combustivel_pred) }">{{ f.combustivel_pred }}</span>
+              </div>
+            </div>
+          </div>
         </section>
       </div>
     </div>
@@ -304,10 +324,8 @@ function irParaOperacionalFilial(filial) {
 }
 
 function irParaOperacionalCombustivel(comb) {
-  // Mapeia o grupo de combustivel para a familia operacional (ex: Diesel -> diesel)
   const map = { 'Diesel': 'diesel', 'Gasolina': 'gasolina', 'Álcool': 'etanol' }
-  store.selecao.combustivel = comb
-  router.push({ name: 'operacional' })
+  router.push({ name: 'operacional', query: { familia: map[comb] || 'todos' } })
 }
 
 const carregando   = ref(true)
@@ -322,6 +340,31 @@ const grafDiario     = ref([])
 
 const precoPorUF     = ref([])
 const lUF            = ref(true)
+const filtroUFComb   = ref(null)
+
+// Combustíveis disponíveis para os tabs do gráfico UF (fixos pois são os grupos padrão)
+const opcoesUFComb = ['Diesel', 'Gasolina', 'Álcool', 'Arla']
+
+async function setFiltroUF(comb) {
+  filtroUFComb.value = comb
+  lUF.value = true
+  try {
+    precoPorUF.value = await fetchPrecoPorUF({
+      combustivel: comb ?? store.selecao.combustivel ?? undefined,
+    })
+  } finally {
+    lUF.value = false
+  }
+}
+
+// Filiais — exclui "Sem filial identificada" da tabela (já aparece no alerta)
+const filiaisVisiveis = computed(() =>
+  filiais.value.filter(f => f.filial !== 'Sem filial identificada')
+)
+
+const filiaisTotalGasto = computed(() =>
+  filiaisVisiveis.value.reduce((s, f) => s + (f.gasto || 0), 0)
+)
 
 const veiculosSemFilial = computed(() => {
   const sf = filiais.value.find(f => f.filial === "Sem filial identificada")
@@ -425,15 +468,13 @@ async function load() {
     grafDiario.value     = d.grafico_diario ?? []
     ultimaAtualiz.value  = 'Atualizado ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 
-    // Busca o gráfico de estado separado
+    // Busca o gráfico de estado — reseta tab local ao trocar filtro global
+    filtroUFComb.value = null
     lUF.value = true
     try {
-      const p = await fetchPrecoPorUF({
-        mes: store.selecao.mes,
-        ano: store.selecao.ano,
-        combustivel: store.selecao.combustivel,
+      precoPorUF.value = await fetchPrecoPorUF({
+        combustivel: store.selecao.combustivel ?? undefined,
       })
-      precoPorUF.value = p
     } catch (e) {
       console.error('[VisaoGeral] Erro Preço UF', e)
     } finally {
@@ -789,14 +830,40 @@ tbody.has-filter .bd-row.dimmed:hover {
 .mix-bar { height: 100%; border-radius: 3px; }
 .mix-vals { font-size: 12px; color: #64748b; text-align: right; }
 
-.filiais-table { width: 100%; border-collapse: collapse; background: white; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
-.filiais-table th { font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; padding: 12px; border-bottom: 1px solid #f1f5f9; text-align: left; }
-.filiais-table th.right { text-align: right; }
-.filiais-table td { padding: 12px; font-size: 13px; border-bottom: 1px solid #f8fafc; color: #334155; }
-.filial-nome { font-weight: 600; color: #0f172a; }
-.uf { color: #64748b; }
-.filiais-table .btn-drill { opacity: 1; color: #cbd5e1; }
-.filiais-table tr:hover .btn-drill { color: var(--orange); }
+/* ── Tabs UF Combustível ─────────────────────────────────────────────────── */
+.section-title-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px; gap: 16px; flex-wrap: wrap;
+}
+.uf-comb-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.uf-comb-tabs button {
+  background: transparent; border: 1.5px solid #e2e8f0; color: #64748b;
+  font-size: 11px; font-weight: 700; padding: 4px 14px; border-radius: 20px;
+  cursor: pointer; font-family: 'Inter', sans-serif; transition: all .15s;
+  letter-spacing: 0.03em;
+}
+.uf-comb-tabs button.active { color: white; }
+.uf-comb-tabs button:not(.active):hover { border-color: #94a3b8; }
+
+/* ── Filiais Cards ───────────────────────────────────────────────────────── */
+.filiais-cards { display: flex; flex-direction: column; gap: 10px; }
+.filial-row { padding: 10px 0; border-bottom: 1px solid #f1f5f9; }
+.filial-row:last-child { border-bottom: none; }
+.filial-row-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.filial-info { display: flex; align-items: center; gap: 8px; }
+.filial-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.filial-nome { font-size: 13px; font-weight: 600; color: #1e293b; }
+.filial-uf { font-size: 11px; color: #94a3b8; margin-left: 2px; }
+.filial-nums { display: flex; align-items: center; gap: 12px; }
+.filial-gasto { font-size: 13px; font-weight: 700; color: #0f172a; }
+.filial-pct { font-size: 12px; color: #64748b; min-width: 36px; text-align: right; }
+.filial-bar-wrap { height: 5px; background: #f1f5f9; border-radius: 3px; overflow: hidden; margin-bottom: 5px; }
+.filial-bar-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+.filial-meta { font-size: 11px; color: #94a3b8; display: flex; align-items: center; gap: 8px; }
+.comb-badge { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 10px; background: #f8fafc; }
+.filiais-block .btn-drill { opacity: 0.4; }
+.filial-row:hover .btn-drill { opacity: 1; }
+
 .empty-msg { font-size: 13px; color: #94a3b8; padding: 24px; text-align: center; border: 1px dashed #e2e8f0; border-radius: 8px; }
 
 </style>

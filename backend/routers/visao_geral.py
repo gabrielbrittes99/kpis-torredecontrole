@@ -143,12 +143,26 @@ def get_dashboard(
         "custo_km":          custo_km,
     }
 
-    # ── Gráfico mensal (últimos 12 meses) ────────────────────────────────────
-    df_all["ym"] = df_all["data_transacao"].dt.to_period("M")
-    ultimos_12 = sorted(df_all["ym"].unique())[-12:]
+    # ── Gráfico mensal (últimos 12 meses) — aplica filtros de atributo ──────
+    # Aplica apenas filtros de atributo (sem recorte temporal) para os gráficos históricos
+    df_graf = df_all.copy()
+    if grupo:
+        df_graf = df_graf[df_graf["grupo_veiculo"] == grupo]
+    if combustivel:
+        df_graf = df_graf[df_graf["grupo_combustivel"] == combustivel]
+    if estado:
+        df_graf = df_graf[df_graf["filial_estado"] == estado]
+    if regiao:
+        df_graf = df_graf[df_graf["filial_regiao"] == regiao]
+    if filial:
+        df_graf = df_graf[df_graf["filial_nome"] == filial]
+
+    df_graf = df_graf.copy()
+    df_graf["ym"] = df_graf["data_transacao"].dt.to_period("M")
+    ultimos_12 = sorted(df_all["data_transacao"].dt.to_period("M").unique())[-12:]
     grafico_mensal = []
     for p in ultimos_12:
-        d = df_all[df_all["ym"] == p]
+        d = df_graf[df_graf["ym"] == p]
         grafico_mensal.append({
             "label": p.strftime("%b/%y"),
             "valor": round(float(d["valor"].sum()), 2),
@@ -156,11 +170,11 @@ def get_dashboard(
         })
 
     # ── Gráfico semanal (últimas 8 semanas) ─────────────────────────────────
-    df_all["yw"] = df_all["data_transacao"].dt.to_period("W")
-    ultimas_8w = sorted(df_all["yw"].unique())[-8:]
+    df_graf["yw"] = df_graf["data_transacao"].dt.to_period("W")
+    ultimas_8w = sorted(df_all["data_transacao"].dt.to_period("W").unique())[-8:]
     grafico_semanal = []
     for p in ultimas_8w:
-        d = df_all[df_all["yw"] == p]
+        d = df_graf[df_graf["yw"] == p]
         label = "Sem " + p.start_time.strftime("%d/%m")
         grafico_semanal.append({
             "label": label,
@@ -169,11 +183,11 @@ def get_dashboard(
         })
 
     # ── Gráfico diário (últimos 30 dias) ─────────────────────────────────────
-    df_all["dia"] = df_all["data_transacao"].dt.date
-    ultimos_dias = sorted(df_all["dia"].unique())[-30:]
+    df_graf["dia"] = df_graf["data_transacao"].dt.date
+    ultimos_dias = sorted(df_all["data_transacao"].dt.date.unique())[-30:]
     grafico_diario = []
     for dia in ultimos_dias:
-        d = df_all[df_all["dia"] == dia]
+        d = df_graf[df_graf["dia"] == dia]
         grafico_diario.append({
             "label": dia.strftime("%d/%m"),
             "valor": round(float(d["valor"].sum()), 2),
@@ -187,9 +201,9 @@ def get_dashboard(
     ]
 
     grupos_data = {}
-    for grupo, g in df_periodo.groupby("grupo_veiculo"):
-        grupos_data[grupo] = {
-            "grupo":    grupo,
+    for grp_nome, g in df_periodo.groupby("grupo_veiculo"):
+        grupos_data[grp_nome] = {
+            "grupo":    grp_nome,
             "gasto":    round(float(g["valor"].sum()), 2),
             "litros":   round(float(g["litragem"].sum()), 1),
             "veiculos": int(g["placa"].nunique()),
@@ -229,8 +243,10 @@ def get_dashboard(
             gd["kml_variacao_pct"] = None
 
     por_grupo = []
-    # Ordenar por nome (alfabética) em vez de gasto
+    # Ordenar por nome (alfabética) em vez de gasto; exclui grupos sem classificação
     for v in sorted(grupos_data.values(), key=lambda x: str(x["grupo"]).lower()):
+        if v["grupo"] in ("Outros", ""):
+            continue
         # A porcentagem é sempre em relação ao total GERAL do mês (sem filtro) 
         # para que o gráfico não preencha 100% à toa quando filtrado por si mesmo
         v["pct_gasto"] = round(v["gasto"] / gasto_total_periodo_sem_filtro * 100, 1)
@@ -250,19 +266,22 @@ def get_dashboard(
 
     # ── Filiais (mês) ────────────────────────────────────────────────────────
     filiais = []
-    for filial, g in df_periodo.groupby("filial_nome"):
-        if not filial:
+    for filial_nome, g in df_periodo.groupby("filial_nome"):
+        if not filial_nome:
             continue
+        comb_vals = g.groupby("grupo_combustivel")["valor"].sum()
+        comb_pred = comb_vals.idxmax() if not comb_vals.empty else None
         filiais.append({
-            "filial":   filial,
-            "estado":   g["filial_estado"].iloc[0] if len(g) else "",
-            "regiao":   g["filial_regiao"].iloc[0] if len(g) else "",
-            "gasto":    round(float(g["valor"].sum()), 2),
-            "litros":   round(float(g["litragem"].sum()), 1),
-            "veiculos": int(g["placa"].nunique()),
+            "filial":           filial_nome,
+            "estado":           g["filial_estado"].iloc[0] if len(g) else "",
+            "regiao":           g["filial_regiao"].iloc[0] if len(g) else "",
+            "gasto":            round(float(g["valor"].sum()), 2),
+            "litros":           round(float(g["litragem"].sum()), 1),
+            "veiculos":         int(g["placa"].nunique()),
+            "combustivel_pred": comb_pred,
         })
-    # Ordenar por nome (alfabética)
-    filiais.sort(key=lambda x: str(x["filial"]).lower())
+    # Ordenar por gasto decrescente
+    filiais.sort(key=lambda x: x["gasto"], reverse=True)
 
     sem_filial = df_periodo[df_periodo["filial_nome"] == ""]
     if not sem_filial.empty:

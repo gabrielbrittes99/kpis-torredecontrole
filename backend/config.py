@@ -230,9 +230,10 @@ VEICULO_RULES: list[tuple[str, str | None, str]] = [
     # Fallbacks genéricos para caminhões (se não bateu acima)
     ("accelo",          None,       "Caminhão5.5Ton"),  # Accelo genérico → 5.5T
     ("atego",           None,       "Caminhão10.5Ton"), # Atego genérico → 10.5T
-    ("20.480",          "vw",       "Caminhão12Ton"),
+    ("20.480",          None,       "Caminhão12Ton"),   # VW Constellation 20.480 (marca "VOLKSWAGEN" no banco)
     ("constellation",   None,       "Caminhão12Ton"),   # Constellation genérico → 12T
-    ("constelation",    None,       "Caminhão12Ton"),
+    ("constelation",    None,       "Caminhão12Ton"),   # typo c/ 1 L
+    ("costellation",    None,       "Caminhão12Ton"),   # typo no banco (COStellation)
     ("vm",              "volvo",    "Caminhão12Ton"),    # Volvo VM genérico → 12T
 
     # ══════════════════════════════════════════════════════════════════════════

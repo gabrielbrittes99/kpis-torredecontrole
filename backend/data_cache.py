@@ -76,7 +76,7 @@ class DataCache:
         # Normaliza texto
         text_cols = [
             "nome_combustivel", "tipo_abastecimento", "placa",
-            "razao_social_posto", "cidade_posto", "uf_posto", "motorista"
+            "razao_social_posto", "nome_fantasia_posto", "cidade_posto", "uf_posto", "motorista"
         ]
         for col in text_cols:
             df[col] = df[col].fillna("").astype(str).str.strip()

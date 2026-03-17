@@ -17,22 +17,12 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/operacional", tags=["operacional"])
 
-# ── Famílias de combustível ──────────────────────────────────────────────────
-_DIESEL   = ["diesel s10", "diesel s-10", "diesel s500", "diesel"]
-_GASOLINA = ["gasolina", "gasolina comum", "gasolina aditivada", "gasolina c",
-             "gasolina podium", "gasolina v-power"]
-_ETANOL   = ["etanol", "álcool", "alcool", "etanol hidratado"]
-
-
-def _familia(nome: str) -> Optional[str]:
-    n = nome.lower()
-    if any(k in n for k in _DIESEL):
-        return "diesel"
-    if any(k in n for k in _GASOLINA):
-        return "gasolina"
-    if any(k in n for k in _ETANOL):
-        return "etanol"
-    return None
+# ── Mapa família (frontend) → grupo_combustivel (cache) ─────────────────────
+_FAMILIA_MAP = {
+    "diesel":   "Diesel",
+    "gasolina": "Gasolina",
+    "etanol":   "Álcool",
+}
 
 
 # ── Cálculo de KM rodado ────────────────────────────────────────────────────
@@ -121,10 +111,12 @@ def _apply_filters(
 
 
 def _filter_familia(df: pd.DataFrame, familia: str) -> pd.DataFrame:
-    """Aplica filtro de família de combustível."""
-    df["familia"] = df["nome_combustivel"].apply(_familia)
-    if familia != "todos":
-        return df[df["familia"] == familia].copy()
+    """Filtra pelo grupo_combustivel já normalizado no cache."""
+    if familia == "todos":
+        return df.copy()
+    grupo = _FAMILIA_MAP.get(familia)
+    if grupo:
+        return df[df["grupo_combustivel"] == grupo].copy()
     return df.copy()
 
 
@@ -521,8 +513,7 @@ def get_etanol_gasolina_filial(
     df = _apply_filters(raw_df, modo_tempo, ano, mes, bimestre, semestre,
                         data_inicio, data_fim, None, None, estado, regiao)
 
-    df["familia"] = df["nome_combustivel"].apply(_familia)
-    df = df[df["familia"].isin(["gasolina", "etanol"])].copy()
+    df = df[df["grupo_combustivel"].isin(["Gasolina", "Álcool"])].copy()
 
     if df.empty:
         return []
@@ -530,15 +521,16 @@ def get_etanol_gasolina_filial(
     df = _calcular_km(df)
 
     resultado = []
-    col_filial = "filial_nome" if "filial_nome" in df.columns else "placa"
+    _FAM_KEYS = {"gasolina": "Gasolina", "etanol": "Álcool"}
 
     for filial, gf in df.groupby("filial_nome"):
         if not filial or filial == "":
             filial = "Sem filial"
         row = {"filial": filial}
 
-        for fam in ["gasolina", "etanol"]:
-            g = gf[gf["familia"] == fam]
+        for fam_key, fam_grp in _FAM_KEYS.items():
+            g = gf[gf["grupo_combustivel"] == fam_grp]
+            fam = fam_key
             if g.empty:
                 row[f"custo_km_{fam}"] = None
                 row[f"km_litro_{fam}"] = None

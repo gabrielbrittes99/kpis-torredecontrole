@@ -126,13 +126,19 @@ def get_ranking_postos_preco(
     combustivel: Optional[str] = Query(None),
     placa: Optional[str] = Query(None),
 ):
-    """Postos mais baratos ou mais caros por preço médio/L (mínimo 3 abastecimentos)."""
+    """Postos ordenados por preço médio/L, maior volume ou maior custo total (mínimo 3 abastecimentos)."""
     df = _apply_filters(cache.get_df(), combustivel, placa)
     if df.empty:
         return []
 
+    # Nome de exibição: usa nome_fantasia_posto se disponível, senão razao_social_posto
+    df = df.copy()
+    df["nome_exibicao"] = df["nome_fantasia_posto"].where(
+        df["nome_fantasia_posto"].str.len() > 0, df["razao_social_posto"]
+    )
+
     agg = (
-        df.groupby(["razao_social_posto", "cidade_posto", "uf_posto"])
+        df.groupby(["nome_exibicao", "razao_social_posto", "cidade_posto", "uf_posto"])
         .agg(
             total_valor=("valor", "sum"),
             total_litros=("litragem", "sum"),
@@ -144,12 +150,21 @@ def get_ranking_postos_preco(
     agg = agg[agg["qtd"] >= 3].copy()
     agg["preco_medio"] = (agg["total_valor"] / agg["total_litros"]).round(4)
 
-    ascending = ordem == "mais_barato"
-    agg = agg.sort_values("preco_medio", ascending=ascending).head(limit)
+    if ordem == "mais_barato":
+        agg = agg.sort_values("preco_medio", ascending=True).head(limit)
+    elif ordem == "mais_caro":
+        agg = agg.sort_values("preco_medio", ascending=False).head(limit)
+    elif ordem == "maior_volume":
+        agg = agg.sort_values("total_litros", ascending=False).head(limit)
+    elif ordem == "maior_custo":
+        agg = agg.sort_values("total_valor", ascending=False).head(limit)
+    else:
+        agg = agg.sort_values("preco_medio", ascending=True).head(limit)
 
     return [
         {
-            "razao_social_posto": row["razao_social_posto"],
+            "razao_social_posto": row["nome_exibicao"],   # exibe nome fantasia se disponível
+            "razao_social_juridica": row["razao_social_posto"],
             "cidade_posto": row["cidade_posto"],
             "uf_posto": row["uf_posto"],
             "preco_medio": float(row["preco_medio"]),
