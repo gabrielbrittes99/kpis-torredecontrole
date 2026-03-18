@@ -20,6 +20,11 @@ const routes = [
     name: 'diretoria',
     component: () => import('./views/DashboardDiretoria.vue')
   },
+  {
+    path: '/sumario',
+    name: 'sumario',
+    component: () => import('./views/SistemaLegenda.vue')
+  },
 
 ]
 

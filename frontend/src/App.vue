@@ -44,6 +44,18 @@
         <span v-show="!collapsed" class="nav-label font-syne">Visão da Diretoria</span>
       </button>
 
+      <div class="sidebar-spacer"></div>
+      <div v-show="!collapsed" class="nav-section-label font-syne" style="margin-top:16px">Referência</div>
+      <button
+        class="nav-item"
+        :class="{ active: activeSection === 'sumario' }"
+        @click="goTo('sumario')"
+        :title="collapsed ? 'Sumário' : ''"
+      >
+        <span class="nav-icon-bullet"></span>
+        <span v-show="!collapsed" class="nav-label font-syne">Sumário do Sistema</span>
+      </button>
+
       <div class="sidebar-footer">
         <span v-show="!collapsed" class="sidebar-version mono">v2.0 · TruckPag</span>
       </div>
