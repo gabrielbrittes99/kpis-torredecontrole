@@ -261,8 +261,22 @@ def get_dashboard(
             "litros": round(float(g["litragem"].sum()), 1),
             "pct":    round(float(g["valor"].sum()) / gasto_total_periodo_sem_filtro * 100, 1),
         })
-    # Ordenar por nome (alfabética)
     mix.sort(key=lambda x: str(x["grupo"]).lower())
+
+    # ── Por região ────────────────────────────────────────────────────────────
+    por_regiao = []
+    for reg, g in df_periodo.groupby("filial_regiao"):
+        if not reg or reg in ("", "?"):
+            continue
+        por_regiao.append({
+            "regiao":   reg,
+            "valor":    round(float(g["valor"].sum()), 2),
+            "litros":   round(float(g["litragem"].sum()), 1),
+            "veiculos": int(g["placa"].nunique()),
+            "filiais":  int(g["filial_nome"].nunique()),
+            "pct":      round(float(g["valor"].sum()) / gasto_total_periodo_sem_filtro * 100, 1),
+        })
+    por_regiao.sort(key=lambda x: x["valor"], reverse=True)
 
     # ── Filiais (mês) ────────────────────────────────────────────────────────
     filiais = []
@@ -304,6 +318,7 @@ def get_dashboard(
         "grafico_diario":  grafico_diario,
         "por_grupo_veiculo": por_grupo,
         "mix_combustivel":   mix,
+        "por_regiao":        por_regiao,
         "filiais":           filiais,
     }
 

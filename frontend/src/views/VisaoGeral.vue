@@ -196,6 +196,63 @@
       </div>
 
       <!-- ══════════════════════════════════════════════════════════════════ -->
+      <!--  INSIGHTS POR DIMENSÃO — Combustível · Região · Grupo · Filial  -->
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <div class="insights-donut-row">
+        <!-- Donut: Combustível -->
+        <section class="v-block insights-card">
+          <div class="section-title">GASTO POR COMBUSTÍVEL — {{ mesMesLabel }}</div>
+          <apexchart
+            v-if="mixCombustivel.length"
+            type="donut"
+            height="260"
+            :options="optDonutComb"
+            :series="seriesDonutComb"
+          />
+          <div v-else class="empty-msg">Sem dados</div>
+        </section>
+
+        <!-- Donut: Região -->
+        <section class="v-block insights-card">
+          <div class="section-title">GASTO POR REGIÃO — {{ mesMesLabel }}</div>
+          <apexchart
+            v-if="porRegiao.length"
+            type="donut"
+            height="260"
+            :options="optDonutRegiao"
+            :series="seriesDonutRegiao"
+          />
+          <div v-else class="empty-msg">Sem dados</div>
+        </section>
+      </div>
+
+      <!-- Barra horizontal: Grupo de Veículo -->
+      <section class="v-block" style="margin-bottom: 24px;">
+        <div class="section-title">GASTO POR GRUPO DE VEÍCULO — {{ mesMesLabel }}</div>
+        <apexchart
+          v-if="porGrupoChartSeries.length"
+          type="bar"
+          height="320"
+          :options="optBarGrupo"
+          :series="porGrupoChartSeries"
+        />
+        <div v-else class="empty-msg">Sem dados</div>
+      </section>
+
+      <!-- Barra horizontal: Filial (top 15) -->
+      <section class="v-block" style="margin-bottom: 24px;">
+        <div class="section-title">GASTO POR FILIAL — {{ mesMesLabel }}</div>
+        <apexchart
+          v-if="filialChartSeries.length"
+          type="bar"
+          :height="Math.max(280, filiaisVisiveis.slice(0,15).length * 32 + 60)"
+          :options="optBarFilial"
+          :series="filialChartSeries"
+        />
+        <div v-else class="empty-msg">Sem dados</div>
+      </section>
+
+      <!-- ══════════════════════════════════════════════════════════════════ -->
       <!--  SEÇÕES RESTAURADAS A PEDIDO DO USUÁRIO                           -->
       <!-- ══════════════════════════════════════════════════════════════════ -->
       <section class="v-block">
@@ -333,6 +390,7 @@ const ultimaAtualiz = ref('')
 const hero          = ref({})
 const porGrupo      = ref([])
 const mixCombustivel = ref([])
+const porRegiao      = ref([])
 const filiais        = ref([])
 const grafMensal     = ref([])
 const grafSemanal    = ref([])
@@ -420,6 +478,136 @@ const grupoColor      = g => GRUPO_COLORS[g] ?? '#6b7280'
 const combustivelColor = g => FUEL_COLORS[g] ?? '#6b7280'
 const benchColor      = s => s === 'ok' ? '#10b981' : s === 'alerta' ? '#f59e0b' : s === 'critico' ? '#ef4444' : '#6b7280'
 
+const REGIAO_COLORS = {
+  'Sul':          '#3b82f6',
+  'Centro-Oeste': '#f97316',
+  'Sudeste':      '#8b5cf6',
+  'Nordeste':     '#10b981',
+  'Norte':        '#ec4899',
+}
+const regiaoColor = r => REGIAO_COLORS[r] ?? '#6b7280'
+
+const fmtRShort = v => {
+  if (v == null) return '—'
+  if (v >= 1e6) return 'R$ ' + (v / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + 'M'
+  if (v >= 1e3) return 'R$ ' + (v / 1e3).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) + 'k'
+  return 'R$ ' + v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
+}
+
+// ── Donut: Combustível ────────────────────────────────────────────────────
+const seriesDonutComb = computed(() => mixCombustivel.value.map(m => m.valor))
+const optDonutComb = computed(() => ({
+  chart: { background: 'transparent', fontFamily: 'Inter, sans-serif' },
+  theme: { mode: 'light' },
+  labels: mixCombustivel.value.map(m => m.grupo),
+  colors: mixCombustivel.value.map(m => FUEL_COLORS[m.grupo] ?? '#6b7280'),
+  legend: { position: 'bottom', fontSize: '12px', fontFamily: 'Inter, sans-serif' },
+  dataLabels: { enabled: true, formatter: (val) => val.toFixed(1) + '%', style: { fontSize: '11px' } },
+  plotOptions: { pie: { donut: { size: '60%', labels: {
+    show: true,
+    total: { show: true, label: 'Total', fontSize: '12px',
+      formatter: () => fmtRShort(mixCombustivel.value.reduce((s, m) => s + m.valor, 0)) }
+  } } } },
+  tooltip: { y: { formatter: v => 'R$ ' + Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) } },
+  stroke: { width: 2 },
+}))
+
+// ── Donut: Região ─────────────────────────────────────────────────────────
+const seriesDonutRegiao = computed(() => porRegiao.value.map(r => r.valor))
+const optDonutRegiao = computed(() => ({
+  chart: { background: 'transparent', fontFamily: 'Inter, sans-serif' },
+  theme: { mode: 'light' },
+  labels: porRegiao.value.map(r => r.regiao),
+  colors: porRegiao.value.map(r => REGIAO_COLORS[r.regiao] ?? '#6b7280'),
+  legend: { position: 'bottom', fontSize: '12px', fontFamily: 'Inter, sans-serif' },
+  dataLabels: { enabled: true, formatter: (val) => val.toFixed(1) + '%', style: { fontSize: '11px' } },
+  plotOptions: { pie: { donut: { size: '60%', labels: {
+    show: true,
+    total: { show: true, label: 'Regiões', fontSize: '12px',
+      formatter: () => porRegiao.value.length + ' regiões' }
+  } } } },
+  tooltip: {
+    y: {
+      formatter: (v, { seriesIndex }) => {
+        const r = porRegiao.value[seriesIndex]
+        return 'R$ ' + Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) +
+          (r ? ` · ${r.filiais} filiais · ${r.veiculos} veíc.` : '')
+      }
+    }
+  },
+  stroke: { width: 2 },
+}))
+
+// ── Barra horizontal: Grupo de Veículo ────────────────────────────────────
+const porGrupoOrdenado = computed(() =>
+  [...porGrupo.value].sort((a, b) => b.gasto - a.gasto)
+)
+const porGrupoChartSeries = computed(() =>
+  porGrupoOrdenado.value.length ? [{ name: 'Gasto', data: porGrupoOrdenado.value.map(g => g.gasto) }] : []
+)
+const optBarGrupo = computed(() => ({
+  chart: { background: 'transparent', toolbar: { show: false }, fontFamily: 'Inter, sans-serif' },
+  theme: { mode: 'light' },
+  plotOptions: { bar: { horizontal: true, borderRadius: 4, distributed: true, barHeight: '70%' } },
+  colors: porGrupoOrdenado.value.map(g => GRUPO_COLORS[g.grupo] ?? '#6b7280'),
+  legend: { show: false },
+  dataLabels: {
+    enabled: true,
+    formatter: (v) => fmtRShort(v),
+    style: { fontSize: '11px', fontFamily: 'JetBrains Mono, monospace' },
+    offsetX: 4,
+  },
+  xaxis: {
+    categories: porGrupoOrdenado.value.map(g => g.grupo),
+    labels: { formatter: v => fmtRShort(v), style: { colors: '#64748b', fontSize: '10px' } },
+  },
+  yaxis: { labels: { style: { colors: '#374151', fontSize: '12px', fontFamily: 'Inter, sans-serif' } } },
+  grid: { borderColor: '#e2e8f0', xaxis: { lines: { show: true } }, yaxis: { lines: { show: false } } },
+  tooltip: {
+    y: {
+      formatter: (v, { dataPointIndex }) => {
+        const g = porGrupoOrdenado.value[dataPointIndex]
+        return 'R$ ' + Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) +
+          (g ? ` · ${g.veiculos} veíc. · ${g.pct_gasto}%` : '')
+      }
+    }
+  },
+}))
+
+// ── Barra horizontal: Filial (top 15) ────────────────────────────────────
+const filiaisTop15 = computed(() => filiaisVisiveis.value.slice(0, 15))
+const filialChartSeries = computed(() =>
+  filiaisTop15.value.length ? [{ name: 'Gasto', data: filiaisTop15.value.map(f => f.gasto) }] : []
+)
+const optBarFilial = computed(() => ({
+  chart: { background: 'transparent', toolbar: { show: false }, fontFamily: 'Inter, sans-serif' },
+  theme: { mode: 'light' },
+  plotOptions: { bar: { horizontal: true, borderRadius: 4, distributed: true, barHeight: '65%' } },
+  colors: filiaisTop15.value.map(f => FUEL_COLORS[f.combustivel_pred] ?? '#6b7280'),
+  legend: { show: false },
+  dataLabels: {
+    enabled: true,
+    formatter: (v) => fmtRShort(v),
+    style: { fontSize: '11px', fontFamily: 'JetBrains Mono, monospace' },
+    offsetX: 4,
+  },
+  xaxis: {
+    categories: filiaisTop15.value.map(f => f.filial.replace('Gritsch ', '')),
+    labels: { formatter: v => fmtRShort(v), style: { colors: '#64748b', fontSize: '10px' } },
+  },
+  yaxis: { labels: { style: { colors: '#374151', fontSize: '12px', fontFamily: 'Inter, sans-serif' } } },
+  grid: { borderColor: '#e2e8f0', xaxis: { lines: { show: true } }, yaxis: { lines: { show: false } } },
+  tooltip: {
+    y: {
+      formatter: (v, { dataPointIndex }) => {
+        const f = filiaisTop15.value[dataPointIndex]
+        return 'R$ ' + Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) +
+          (f ? ` · ${f.veiculos} veíc. · ${filiaisTotalGasto.value > 0 ? (f.gasto/filiaisTotalGasto.value*100).toFixed(1) : 0}%` : '')
+      }
+    }
+  },
+}))
+
 const chartBase = {
   chart: { background: 'transparent', toolbar: { show: false }, fontFamily: 'Inter, sans-serif' },
   theme: { mode: 'light' },
@@ -462,6 +650,7 @@ async function load() {
     hero.value          = d.hero ?? {}
     porGrupo.value      = d.por_grupo_veiculo ?? []
     mixCombustivel.value = d.mix_combustivel ?? []
+    porRegiao.value      = d.por_regiao ?? []
     filiais.value        = d.filiais ?? []
     grafMensal.value     = d.grafico_mensal ?? []
     grafSemanal.value    = d.grafico_semanal ?? []
@@ -749,6 +938,7 @@ tbody.has-filter .bd-row.dimmed:hover {
   .breakdown-row { grid-template-columns: 1fr; }
   .charts-row { grid-template-columns: 1fr; }
   .bottom-row { grid-template-columns: 1fr; }
+  .insights-donut-row { grid-template-columns: 1fr; }
 }
 @media (max-width: 768px) {
   .kpi-pro-grid { grid-template-columns: 1fr; }
@@ -818,6 +1008,10 @@ tbody.has-filter .bd-row.dimmed:hover {
 .bench-fill { height: 100%; border-radius: 3px; }
 .bench-marker { position: absolute; top: -2px; bottom: -2px; width: 2px; background: #cbd5e1; }
 .bench-marker.ref-line { background: #64748b; z-index: 2; }
+
+/* ── Insights dimensão ───────────────────────────────────────────────────── */
+.insights-donut-row { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+.insights-card { margin-bottom: 0 !important; }
 
 .bottom-row { display: flex; gap: 24px; align-items: flex-start; }
 .mix-block, .filiais-block { flex: 1; }
