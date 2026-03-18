@@ -260,7 +260,6 @@ import GraficoVariacaoMensal from '../components/GraficoVariacaoMensal.vue'
 import TabelaVeiculosAcao from '../components/TabelaVeiculosAcao.vue'
 import TabelaRankingPostos from '../components/TabelaRankingPostos.vue'
 import KpiCardPro from '../components/KpiCardPro.vue'
-
 import {
   fetchKpisOperacional, fetchCustoPorGrupo, fetchCustoPorFilial,
   fetchEvolucaoMensal, fetchVeiculosAcao,

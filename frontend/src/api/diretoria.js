@@ -34,23 +34,6 @@ export function fetchGastosFiliais(params = {}) {
   return get('/api/diretoria/gastos-filiais', params)
 }
 
-// Benchmark ANP
-const BASE_BENCH = import.meta.env.VITE_API_URL
-
-async function getBench(path, params = {}) {
-  const url = new URL(`${BASE_BENCH}${path}`)
-  Object.entries(params).forEach(([k, v]) => {
-    if (v !== null && v !== undefined && v !== '') url.searchParams.set(k, v)
-  })
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`${res.status}`)
-  return res.json()
-}
-
 export function fetchBenchmarkComparativo(params = {}) {
-  return getBench('/api/benchmark/comparativo-frota', params)
-}
-
-export function fetchBenchmarkResumo(params = {}) {
-  return getBench('/api/benchmark/resumo', params)
+  return get('/api/benchmark/comparativo-frota', params)
 }

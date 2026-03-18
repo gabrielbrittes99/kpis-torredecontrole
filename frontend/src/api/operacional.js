@@ -15,4 +15,3 @@ export function fetchCustoPorGrupo(params = {})        { return get('/api/operac
 export function fetchCustoPorFilial(params = {})       { return get('/api/operacional/custo-por-filial', params) }
 export function fetchEvolucaoMensal(params = {})       { return get('/api/operacional/evolucao-mensal', params) }
 export function fetchVeiculosAcao(params = {})         { return get('/api/operacional/veiculos-acao', params) }
-export function fetchEtanolGasolinaFilial(params = {}) { return get('/api/operacional/etanol-gasolina-filial', params) }
