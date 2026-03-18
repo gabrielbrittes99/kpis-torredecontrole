@@ -5,6 +5,7 @@ com estatísticas reais da frota para exibição na página de referência.
 """
 from datetime import datetime
 
+import pandas as pd
 from fastapi import APIRouter
 
 from config import (
