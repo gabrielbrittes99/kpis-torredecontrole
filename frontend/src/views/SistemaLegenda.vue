@@ -148,22 +148,6 @@
         </div>
       </section>
 
-      <!-- ── Distribuição de idade da frota ───────────────────────────────── -->
-      <section v-if="idadeFrota.length" class="sl-section">
-        <h2 class="sl-section-title font-syne">Idade da Frota</h2>
-        <div class="sl-idade-grid">
-          <div v-for="faixa in idadeFrota" :key="faixa.label" class="sl-idade-bar-row">
-            <span class="sl-idade-label">{{ faixa.label }}</span>
-            <div class="sl-bar-track">
-              <div
-                class="sl-bar-fill"
-                :style="{ width: faixa.pct + '%', background: faixa.color }"
-              ></div>
-            </div>
-            <span class="sl-idade-count mono">{{ faixa.count }} veíc.</span>
-          </div>
-        </div>
-      </section>
     </template>
   </div>
 </template>
