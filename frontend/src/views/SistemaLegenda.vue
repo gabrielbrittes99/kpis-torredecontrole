@@ -164,10 +164,6 @@
             </div>
           </div>
         </div>
-        <div v-if="palmasPlacas.length" class="sl-palmas-note">
-          <span class="dim">Palmas (TO) identificada por placas hardcoded:</span>
-          <span v-for="p in palmasPlacas" :key="p" class="sl-filial-tag mono">{{ p }}</span>
-        </div>
       </section>
 
       <!-- ── Distribuição de idade da frota ───────────────────────────────── -->
