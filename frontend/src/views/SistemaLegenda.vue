@@ -53,24 +53,6 @@
               <div class="sl-rule-desc mono">{{ stats?.calculo_kml }}</div>
             </div>
           </div>
-          <div class="sl-rule-card">
-            <div class="sl-rule-icon">⊕</div>
-            <div>
-              <div class="sl-rule-name">Fonte de filiais</div>
-              <div class="sl-rule-desc mono">{{ stats?.fonte_filiais }}</div>
-            </div>
-          </div>
-          <div class="sl-rule-card" v-if="placasRenomeadas.length">
-            <div class="sl-rule-icon">⇄</div>
-            <div>
-              <div class="sl-rule-name">Placas renomeadas</div>
-              <div class="sl-rule-desc mono">
-                <span v-for="r in placasRenomeadas" :key="r.antiga">
-                  {{ r.antiga }} → {{ r.nova }}&nbsp;
-                </span>
-              </div>
-            </div>
-          </div>
         </div>
       </section>
 
