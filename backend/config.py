@@ -64,6 +64,11 @@ def get_fuel_group(nome_combustivel: str) -> str:
 
 # Sigla SQL Server → (nome_exibicao, estado, regiao)
 FILIAIS_MAP: dict[str, dict] = {
+    # ── Referências (veículos de uso interno / base) ───────────────────────
+    "REFERÊNCIA CURITIBA":       {"nome": "Referência Curitiba",       "estado": "PR", "regiao": "Sul"},
+    "REFERÊNCIA BRASILIA":       {"nome": "Referência Brasília",       "estado": "DF", "regiao": "Centro-Oeste"},
+    "REFERÊNCIA SÃO PAULO":      {"nome": "Referência São Paulo",      "estado": "SP", "regiao": "Sudeste"},
+    "REFERÊNCIA SINOP":          {"nome": "Referência Sinop",          "estado": "MT", "regiao": "Centro-Oeste"},
     # ── Sul / PR ──────────────────────────────────────────────────────────
     "GRITSCH - CWB (BASE)":      {"nome": "Gritsch Curitiba",         "estado": "PR", "regiao": "Sul"},
     "GRITSCH - CWB (DIR)":       {"nome": "Gritsch Curitiba",         "estado": "PR", "regiao": "Sul"},
@@ -111,16 +116,19 @@ PALMAS_PLACAS: set[str] = {
     "SDX2J14", "SEN1C55", "SEN1C56", "SFL1E46", "UAV5J75",
 }
 
-# Placas para Curitiba (Base) que não sobem no sistema ou tem exceção
-CWB_BASE_FILIAL = {"nome": "Gritsch Curitiba", "estado": "PR", "regiao": "Sul"}
-CWB_BASE_PLACAS: set[str] = {
-    "TBU9D20",
+# TBU9D20 agora está em "REFERÊNCIA CURITIBA" no SQL Server — removida do hardcode
+# CWB_BASE_PLACAS mantido como set vazio para compatibilidade com data_cache.py
+CWB_BASE_FILIAL = {"nome": "Referência Curitiba", "estado": "PR", "regiao": "Sul"}
+CWB_BASE_PLACAS: set[str] = set()
+
+# Placas renomeadas: placa antiga → placa nova
+# As transações históricas da placa antiga são reindexadas para a nova,
+# permitindo lookup de filial e continuidade dos dados.
+PLACAS_RENOMEADAS: dict[str, str] = {
+    "TBI2068": "UBO0E91",  # Placa trocada — nova: UBO-0E91 (GRITSCH - MATRIZ)
 }
 
-# Placas que não acharam no sistema e o usuário quer ignorar e excluir dos KPIs
-IGNORAR_PLACAS: set[str] = {
-    "TBI2068",
-}
+IGNORAR_PLACAS: set[str] = set()
 
 
 def get_filial_info(sigla_sqlserver: str) -> dict:
@@ -312,15 +320,11 @@ VEICULO_PLATE_OVERRIDES: dict[str, str] = {
     "SEN1C55": "Leve",  # Cadastrado como Master, mas é um Polo (confirmado pelo usuário)
 }
 
-# Exceções manuais de combustível por placa (Placa -> Grupo Combustível esperado)
-# Corrige erros de lançamento ou cadastros onde o combustível real difere do registrado.
-FUEL_PLATE_OVERRIDES: dict[str, str] = {
-    "BCQ7B53": "Diesel",
-    "BCQ7B55": "Diesel",
-    "SDP5J32": "Diesel",
-    "RHE2E95": "Diesel",
-    "BAJ7269": "Diesel",
-}
+# Exceções manuais de combustível por placa — removidas.
+# Todos os veículos afetados (Sprinter, Master, caminhões VW) são confirmados como Diesel
+# no SQL Server. Qualquer registro com combustível errado será capturado automaticamente
+# pelo flag_combustivel_indevido (is_fuel_incompatible) e nos abastecimentos suspeitos.
+FUEL_PLATE_OVERRIDES: dict[str, str] = {}
 
 # Exceções manuais de filial por placa (Placa -> Sigla Filial BlueFleet)
 FILIAL_PLATE_OVERRIDES: dict[str, str] = {
@@ -332,56 +336,58 @@ FILIAL_PLATE_OVERRIDES: dict[str, str] = {
 # ---------------------------------------------------------------------------
 # KM/L DE REFERÊNCIA POR GRUPO DE VEÍCULO
 # ---------------------------------------------------------------------------
-# Fonte: tabela de referência Gritsch (Mar/2026)
-# Estrutura: grupo → combustível → (kml_rodoviario, kml_urbano)
-# None = não aplicável para aquela combinação.
-# Para comparação usamos a média simples (rodo + urbano) / 2 quando ambos disponíveis.
+# Fonte: calculado a partir dos dados reais da frota Gritsch (TruckPag, Mar/2026).
+# Meta = percentil 75 da frota atual (o que um veículo bem mantido consegue).
+# Estrutura: grupo → combustível → (kml_meta, kml_alerta)
+#   kml_meta    = p75 da frota (meta de eficiência)
+#   kml_alerta  = p25 da frota (abaixo disso = preocupante)
+# Grupos sem dados reais suficientes mantêm estimativas de mercado.
 
 KML_REFERENCIA: dict[str, dict[str, tuple]] = {
-    "Leve": {
-        "Gasolina": (15.70, 12.43),
-        "Álcool":   (11.40,  9.60),
+    "Leve": {                        # n=891 registros, 60 veículos
+        "Gasolina": (13.69, 10.83),
+        "Álcool":   (11.14,  7.86),
     },
-    "Médio": {
-        "Gasolina": (11.80, 10.43),
-        "Álcool":   ( 9.58,  7.80),
+    "Médio": {                       # n=3635 registros, 143 veículos
+        "Gasolina": (11.72,  9.23),
+        "Álcool":   ( 8.44,  6.99),
     },
-    "Kombi": {
+    "Kombi": {                       # sem dados suficientes — estimativa
         "Gasolina": (None,   9.60),
         "Álcool":   ( 8.95,  8.90),
     },
-    "Moto": {
+    "Moto": {                        # sem dados suficientes — estimativa
         "Gasolina": (None,  31.00),
     },
-    "Pesado": {              # Sprinter / Master / Transit / Ducato
-        "Diesel": (10.01,  8.50),
+    "Pesado": {                      # n=4033 registros, 174 veículos
+        "Diesel": (10.18,  8.14),    # Sprinter / Master / Transit / Ducato
     },
-    "Caminhão4.2Ton": {      # Cargo 816, Accelo 815, HD80, 8-160
-        "Diesel":  ( 5.90,  5.69),
+    "Caminhão4.2Ton": {              # n=152 registros, 19 veículos
+        "Diesel":  ( 6.07,  5.13),   # Cargo 816, Accelo 815, HD80, 8-160
     },
-    "Caminhão5Ton": {        # VW 9-170
-        "Diesel":  ( 5.50,  5.30),
+    "Caminhão5Ton": {                # n=94 registros, 6 veículos
+        "Diesel":  ( 6.83,  5.51),   # VW 9-170
     },
-    "Caminhão5.5Ton": {      # Accelo 1016/1017
-        "Diesel":  ( 5.50,  5.20),
+    "Caminhão5.5Ton": {              # n=369 registros, 15 veículos
+        "Diesel":  ( 5.95,  4.87),   # Accelo 1016/1017
     },
-    "Caminhão6Ton": {        # VW 11-180
-        "Diesel":  ( 5.11,  4.80),
+    "Caminhão6Ton": {                # n=210 registros, 8 veículos
+        "Diesel":  ( 5.89,  4.74),   # VW 11-180
     },
-    "Caminhão7.5Ton": {      # VW 14-190/14-210
-        "Diesel":  ( 4.80,  4.40),
+    "Caminhão7.5Ton": {              # sem dados — estimativa de mercado
+        "Diesel":  ( 4.80,  4.40),   # VW 14-190/14-210
     },
-    "Caminhão9Ton": {        # Atego 1419, 13-180
-        "Diesel":  ( 4.50,  4.10),
+    "Caminhão9Ton": {                # sem dados — estimativa de mercado
+        "Diesel":  ( 4.50,  4.10),   # Atego 1419, 13-180
     },
-    "Caminhão10.5Ton": {     # VW 17-230/17-210, Atego 1719
-        "Diesel":  ( 4.20,  3.80),
+    "Caminhão10.5Ton": {             # n=249 registros, 7 veículos
+        "Diesel":  ( 4.66,  4.05),   # VW 17-230/17-210, Atego 1719
     },
-    "Caminhão12Ton": {       # Cargo 2423, 24-280, VM 290, Atego 2429
-        "Diesel":  ( 3.80,  3.50),
+    "Caminhão12Ton": {               # n=407 registros, 21 veículos
+        "Diesel":  ( 3.77,  3.23),   # Cargo 2423, 24-280, VM 290, Atego 2429
     },
-    "Caminhão17Ton": {       # 30-330, 30-280, VM 330
-        "Diesel":  ( 3.60,  3.30),
+    "Caminhão17Ton": {               # n=295 registros, 9 veículos
+        "Diesel":  ( 3.21,  2.91),   # 30-330, 30-280, VM 330
     },
 }
 
@@ -416,20 +422,38 @@ def get_veiculo_group(modelo: str, marca: str = "", placa: str = "") -> str:
 
 
 def get_kml_referencia(grupo_veiculo: str, grupo_combustivel: str) -> Optional[float]:
-    """Retorna o KM/L de referência (média simples) para o par grupo/combustível."""
+    """Retorna o KM/L meta (p75 da frota) para o par grupo/combustível."""
     grupo_data = KML_REFERENCIA.get(grupo_veiculo)
     if not grupo_data:
         return None
-    
-    # Normaliza nome do combustível para os campos da tabela (Gasolina, Álcool, Diesel)
+
     fuel_norm = (grupo_combustivel or "").capitalize().strip()
     if fuel_norm in ["Etanol", "Alcool"]:
         fuel_norm = "Álcool"
-        
+
     ref_tuple = grupo_data.get(fuel_norm)
     if not ref_tuple:
         return None
-    
-    # Média simples dos valores disponíveis (Rodoviário e Urbano)
-    vals = [v for v in ref_tuple if v is not None]
-    return round(sum(vals) / len(vals), 2) if vals else None
+
+    # Retorna a meta (primeiro valor = p75); ignora None
+    meta = ref_tuple[0]
+    return round(float(meta), 2) if meta is not None else None
+
+
+def get_kml_alerta(grupo_veiculo: str, grupo_combustivel: str) -> Optional[float]:
+    """Retorna o KM/L de alerta (p25 da frota) — abaixo disso é preocupante."""
+    grupo_data = KML_REFERENCIA.get(grupo_veiculo)
+    if not grupo_data:
+        return None
+
+    fuel_norm = (grupo_combustivel or "").capitalize().strip()
+    if fuel_norm in ["Etanol", "Alcool"]:
+        fuel_norm = "Álcool"
+
+    ref_tuple = grupo_data.get(fuel_norm)
+    if not ref_tuple:
+        return None
+
+    # Alerta = segundo valor (p25)
+    alerta = ref_tuple[1]
+    return round(float(alerta), 2) if alerta is not None else None

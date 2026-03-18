@@ -8,7 +8,7 @@ from db import get_engine
 from dotenv import load_dotenv
 from config import (
     FUEL_GROUP_MAP, PALMAS_PLACAS, PALMAS_FILIAL, FILIAIS_MAP, get_veiculo_group,
-    CWB_BASE_PLACAS, CWB_BASE_FILIAL, IGNORAR_PLACAS
+    CWB_BASE_PLACAS, CWB_BASE_FILIAL, IGNORAR_PLACAS, PLACAS_RENOMEADAS
 )
 
 load_dotenv()
@@ -89,20 +89,17 @@ class DataCache:
             .fillna("Outros")
         )
 
-        # --- NOVO: Overrides de Combustível por Placa ---
-        from config import FUEL_PLATE_OVERRIDES
-        for p, fuel in FUEL_PLATE_OVERRIDES.items():
-            mask = df["placa"] == p
-            if mask.any():
-                df.loc[mask, "grupo_combustivel"] = fuel
-                # Opcional: ajustar nome_combustivel para manter coerência visual
-                df.loc[mask, "nome_combustivel"] = f"{fuel.lower()} (corrigido)"
-
         # ── Filial Gritsch via SQL Server (enriquecido pelo cache de veículos) ──
-        # Será preenchido após join com BlueFleet; por enquanto resolve Palmas e Curitiba Base
-        # pelo hardcode de placas e mantém os demais como vazio para join posterior.
         placa_upper = df["placa"].str.upper().str.replace("-", "").str.strip()
-        
+
+        # Renomeia placas antigas → novas (ex: TBI2068 → UBO0E91)
+        # Mantém o histórico mas usa a nova placa para lookup de filial/grupo
+        if PLACAS_RENOMEADAS:
+            df["placa"] = placa_upper.map(
+                lambda p: PLACAS_RENOMEADAS.get(p, p)
+            )
+            placa_upper = df["placa"]
+
         # Filtra placas ignoradas
         ignore_mask = placa_upper.isin(IGNORAR_PLACAS)
         if ignore_mask.any():
@@ -134,15 +131,18 @@ class DataCache:
 
     def _enrich_filiais(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Cruza as transações com o cache de veículos do BlueFleet para
-        preencher filial_nome, filial_estado e filial_regiao.
+        Cruza as transações com o cache de veículos do BlueFleet para preencher:
+        - filial_nome, filial_estado, filial_regiao
+        - ano_modelo, idade_anos (para análise de custo x idade do veículo)
         Placas Palmas já vêm preenchidas do _fetch_transacoes.
         """
         try:
             from db_sqlserver import get_veiculos_df
-            veiculos = get_veiculos_df()[["Placa", "FilialOperacional"]].copy()
-            veiculos["Placa"] = veiculos["Placa"].str.upper().str.replace("-", "").str.strip()
-            veiculos = veiculos.drop_duplicates("Placa")
+            veiculos_raw = get_veiculos_df()[
+                ["Placa", "FilialOperacional", "AnoModelo"]
+            ].copy()
+            veiculos_raw["Placa"] = veiculos_raw["Placa"].str.upper().str.replace("-", "").str.strip()
+            veiculos = veiculos_raw.drop_duplicates("Placa")
 
             # Constrói lookup: placa → {nome, estado, regiao, original_sigla}
             filial_lookup = {}
@@ -166,7 +166,7 @@ class DataCache:
                 if info:
                     filial_lookup[p.upper().replace("-","").strip()] = {**info, "original_sigla": sigla}
 
-            # Aplica onde ainda não foi preenchido (Palmas/CWB Base já têm)
+            # Aplica onde ainda não foi preenchido (Palmas já têm)
             mask_vazio = (df["filial_nome"] == "") | df["filial_nome"].isna()
             placa_upper = df["placa"].str.upper().str.replace("-", "").str.strip()
 
@@ -180,17 +180,30 @@ class DataCache:
                 lambda p: filial_lookup.get(p, {}).get("regiao", "")
             )
 
-            # --- NOVO: Flag de Venda ---
+            # Flag de Venda
             def check_venda(p):
                 sigla = filial_lookup.get(p, {}).get("original_sigla", "").upper()
                 return "VENDA" in sigla or "VENDIDO" in sigla
-            
+
             df["flag_venda"] = placa_upper.map(check_venda)
 
+            # ── Enriquece ano do modelo e idade do veículo ──────────────────
+            ano_map = veiculos.set_index("Placa")["AnoModelo"].to_dict()
+            ano_atual = datetime.now().year
+            df["ano_modelo"] = placa_upper.map(ano_map).astype("Int64")
+            df["idade_anos"] = df["ano_modelo"].apply(
+                lambda a: (ano_atual - int(a)) if pd.notna(a) else None
+            )
+
             preenchidos = (df["filial_nome"] != "").sum()
-            logger.info(f"Cache: {preenchidos}/{len(df)} transações com filial identificada")
+            logger.info(f"Cache: {preenchidos}/{len(df)} transações com filial | "
+                        f"ano_modelo preenchido: {df['ano_modelo'].notna().sum()}")
         except Exception as e:
-            logger.warning(f"Cache: não foi possível enriquecer filiais: {e}")
+            logger.warning(f"Cache: não foi possível enriquecer filiais/veículos: {e}")
+            # Garante que as colunas existam mesmo sem SQL Server
+            if "ano_modelo" not in df.columns:
+                df["ano_modelo"] = None
+                df["idade_anos"] = None
         return df
 
     def _add_grupo(self, df: pd.DataFrame) -> pd.DataFrame:
