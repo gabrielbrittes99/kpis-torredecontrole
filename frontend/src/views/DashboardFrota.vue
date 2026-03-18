@@ -81,6 +81,12 @@
         <GraficoCustoFrota :data="custoMensal" :loading="lCustoMensal" />
       </section>
 
+      <!-- Tendência de km/L por veículo -->
+      <section>
+        <div class="section-heading">Tendência de km/L por veículo</div>
+        <GraficoTendenciaKml :data="tendenciaKml" :loading="lTendenciaKml" />
+      </section>
+
       <!-- Frota por filial (BlueFleet) -->
       <section>
         <div class="section-heading">Distribuição por filial operacional</div>
@@ -103,11 +109,12 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { fetchEficienciaKmLitro, fetchCustoPorPlaca, fetchRankingMotoristas, fetchAbastecimentosSuspeitos, fetchCustoMensalFrota, fetchVeiculosPorFilial } from '../api/frota.js'
+import { fetchEficienciaKmLitro, fetchCustoPorPlaca, fetchRankingMotoristas, fetchAbastecimentosSuspeitos, fetchCustoMensalFrota, fetchVeiculosPorFilial, fetchTendenciaKml } from '../api/frota.js'
 import { fetchFiltros } from '../api/combustivel.js'
 import TabelaCustoPorPlaca from '../components/TabelaCustoPorPlaca.vue'
 import TabelaEficiencia    from '../components/TabelaEficiencia.vue'
 import GraficoMotoristas   from '../components/GraficoMotoristas.vue'
+import GraficoTendenciaKml from '../components/GraficoTendenciaKml.vue'
 import GraficoCustoFrota   from '../components/GraficoCustoFrota.vue'
 import TabelaAlertas       from '../components/TabelaAlertas.vue'
 import FrotaPorFilial      from '../components/FrotaPorFilial.vue'
@@ -121,13 +128,15 @@ const motoristas    = ref([])
 const alertas       = ref([])
 const custoMensal   = ref([])
 const frotaFilial   = ref([])
+const tendenciaKml  = ref([])
 
 const lCusto       = ref(true)
 const lEficiencia  = ref(true)
 const lMotoristas  = ref(true)
 const lAlertas     = ref(true)
-const lCustoMensal = ref(true)
-const lFilial      = ref(true)
+const lCustoMensal  = ref(true)
+const lFilial       = ref(true)
+const lTendenciaKml = ref(true)
 
 const fmtR = v => v != null ? Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }) : '—'
 
@@ -137,7 +146,7 @@ function getF() {
 
 async function loadAll() {
   const f = getF()
-  lCusto.value = lEficiencia.value = lMotoristas.value = lAlertas.value = lCustoMensal.value = true
+  lCusto.value = lEficiencia.value = lMotoristas.value = lAlertas.value = lCustoMensal.value = lTendenciaKml.value = true
 
   await Promise.allSettled([
     fetchCustoPorPlaca(f).then(d => custoPorPlaca.value = d).finally(() => lCusto.value = false),
@@ -146,6 +155,7 @@ async function loadAll() {
     fetchAbastecimentosSuspeitos().then(d => alertas.value = d).finally(() => lAlertas.value = false),
     fetchCustoMensalFrota(f).then(d => custoMensal.value = d).finally(() => lCustoMensal.value = false),
     fetchVeiculosPorFilial().then(d => frotaFilial.value = d).finally(() => lFilial.value = false),
+    fetchTendenciaKml().then(d => tendenciaKml.value = d).finally(() => lTendenciaKml.value = false),
   ])
 }
 

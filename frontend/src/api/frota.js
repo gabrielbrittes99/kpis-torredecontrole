@@ -37,3 +37,7 @@ export function fetchVeiculosPorFilial() {
 export function fetchResumoFrota() {
   return get('/api/veiculos/resumo')
 }
+
+export function fetchTendenciaKml(params = {}) {
+  return get('/api/frota/tendencia-kml', params)
+}

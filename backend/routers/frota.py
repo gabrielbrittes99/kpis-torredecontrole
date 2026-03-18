@@ -338,6 +338,84 @@ def get_abastecimentos_suspeitos(
 
 
 # ---------------------------------------------------------------------------
+# Tendência de km/L por veículo (mensal)
+# ---------------------------------------------------------------------------
+
+@router.get("/tendencia-kml")
+def get_tendencia_kml(
+    limite: int = Query(default=10, le=30),
+    meses: int = Query(default=6, le=12),
+):
+    """
+    Retorna a evolução mensal de km/L por veículo.
+    Só considera veículos com hodômetro preenchido e pelo menos 3 meses de dados.
+    """
+    df = cache.get_df().copy()
+    df = df[df["hodometro"].notna() & (df["hodometro"] > 0)]
+
+    if df.empty:
+        return []
+
+    df = df.sort_values(["placa", "data_transacao"])
+    df["km_percorrido"] = df.groupby("placa")["hodometro"].diff()
+    df = df[(df["km_percorrido"] > 0) & (df["km_percorrido"] <= 2000)]
+
+    df["ano_mes"] = df["data_transacao"].dt.to_period("M").astype(str)
+
+    # Filtra só os últimos N meses
+    meses_disponiveis = sorted(df["ano_mes"].unique())
+    meses_corte = meses_disponiveis[-meses:] if len(meses_disponiveis) > meses else meses_disponiveis
+    df = df[df["ano_mes"].isin(meses_corte)]
+
+    resultados = []
+    for placa, grupo in df.groupby("placa"):
+        mensal = (
+            grupo.groupby("ano_mes")
+            .apply(lambda g: round(g["km_percorrido"].sum() / g["litragem"].sum(), 2) if g["litragem"].sum() > 0 else None)
+            .reset_index()
+        )
+        mensal.columns = ["mes", "km_litro"]
+        mensal = mensal[mensal["km_litro"].notna()]
+
+        if len(mensal) < 3:
+            continue
+
+        pontos = mensal.to_dict(orient="records")
+        valores = mensal["km_litro"].tolist()
+
+        # Tendência: compara primeira e segunda metade
+        mid = len(valores) // 2
+        media_ini = float(np.mean(valores[:mid])) if mid > 0 else valores[0]
+        media_fim = float(np.mean(valores[mid:]))
+        variacao_pct = round((media_fim - media_ini) / media_ini * 100, 1) if media_ini > 0 else 0
+
+        if variacao_pct <= -5:
+            tendencia = "queda"
+        elif variacao_pct >= 5:
+            tendencia = "melhora"
+        else:
+            tendencia = "estavel"
+
+        modelo = grupo["modelo_veiculo"].dropna().mode()
+        grupo_veiculo = grupo["grupo_veiculo"].dropna().mode()
+
+        resultados.append({
+            "placa": placa,
+            "modelo": modelo.iloc[0] if not modelo.empty else "",
+            "grupo": grupo_veiculo.iloc[0] if not grupo_veiculo.empty else "",
+            "pontos": pontos,
+            "tendencia": tendencia,
+            "variacao_pct": variacao_pct,
+            "media_geral": round(float(np.mean(valores)), 2),
+            "meses_com_dados": len(pontos),
+        })
+
+    # Prioriza veículos com queda (mais relevantes para gestão)
+    resultados.sort(key=lambda x: (x["tendencia"] != "queda", x["variacao_pct"]))
+    return resultados[:limite]
+
+
+# ---------------------------------------------------------------------------
 # Evolução mensal de custo da frota
 # ---------------------------------------------------------------------------
 
