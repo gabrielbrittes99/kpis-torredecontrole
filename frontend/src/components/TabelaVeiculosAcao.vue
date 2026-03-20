@@ -116,7 +116,7 @@ function exportarCSV() {
   font-size: 11px; font-weight: 600; padding: 6px 12px; border-radius: 8px;
   cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.2s;
 }
-.btn-csv:hover { border-color: #f97316; color: #f97316; }
+.btn-csv:hover { border-color: #C41230; color: #C41230; }
 
 .table-wrap { overflow-x: auto; margin: 0 -24px; padding: 0 24px; }
 table { width: 100%; border-collapse: collapse; }

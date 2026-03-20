@@ -8,3 +8,4 @@ psycopg2-binary>=2.9.11
 sqlalchemy==2.0.36
 pymssql>=2.3.2
 numpy>=1.26.4
+pyxlsb>=1.0.10

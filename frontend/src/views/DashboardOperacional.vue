@@ -401,11 +401,11 @@ const chartBaseOpt = {
 
 const optCustoKm = computed(() => ({
   ...chartBaseOpt,
-  colors: ['#f97316'],
+  colors: ['#C41230'],
   xaxis: { ...chartBaseOpt.xaxis, categories: evolucao.value.map(d => fmtMes(d.ano_mes)) },
   yaxis: {
     labels: {
-      style: { colors: '#f97316', fontSize: '11px', fontFamily: 'JetBrains Mono, monospace' },
+      style: { colors: '#C41230', fontSize: '11px', fontFamily: 'JetBrains Mono, monospace' },
       formatter: v => v != null ? `R$ ${Number(v).toFixed(2)}` : '',
     },
     min: 0,

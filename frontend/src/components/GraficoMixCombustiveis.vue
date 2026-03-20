@@ -30,7 +30,7 @@ const props = defineProps({
   loading: { type: Boolean, default: false },
 })
 
-const palette = ['#f97316','#3b82f6','#22c55e','#a855f7','#eab308','#06b6d4','#ec4899','#84cc16','#f43f5e']
+const palette = ['#C41230','#3b82f6','#22c55e','#a855f7','#eab308','#06b6d4','#ec4899','#84cc16','#f43f5e']
 
 const series  = computed(() => props.data.map(d => d.total_valor))
 const options = computed(() => ({

@@ -174,7 +174,7 @@ onMounted(() => filtrosState.loadOpcoesFiltros())
 
 .topbar-left { flex-shrink: 0; width: 300px; }
 .logo { font-size: 16px; font-weight: 800; letter-spacing: 0.05em; color: #0f172a; display: flex; align-items: center; white-space: nowrap; }
-.logo .divider { color: #f97316; margin: 0 12px; font-weight: 400; opacity: 0.5; }
+.logo .divider { color: #C41230; margin: 0 12px; font-weight: 400; opacity: 0.5; }
 .title-group { display: flex; flex-direction: column; line-height: 1.2; }
 .logo .subtitle { color: #64748b; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; }
 .page-subtitle { color: #94a3b8; font-size: 10px; font-weight: 500; text-transform: none; letter-spacing: 0; }
@@ -203,10 +203,10 @@ onMounted(() => filtrosState.loadOpcoesFiltros())
   display: flex; align-items: center; gap: 8px; background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px 16px; 
   font-size: 12px; font-weight: 700; color: #475569; cursor: pointer; transition: all 0.2s; position: relative;
 }
-.btn-advanced:hover { border-color: #f97316; color: #f97316; }
-.btn-advanced.active { background: #fff7ed; border-color: #f97316; color: #f97316; }
+.btn-advanced:hover { border-color: #C41230; color: #C41230; }
+.btn-advanced.active { background: #fff7ed; border-color: #C41230; color: #C41230; }
 .btn-advanced .badge {
-  position: absolute; top: -8px; right: -8px; background: #f97316; color: white; font-size: 10px; width: 18px; height: 18px; 
+  position: absolute; top: -8px; right: -8px; background: #C41230; color: white; font-size: 10px; width: 18px; height: 18px; 
   display: flex; items: center; justify-content: center; border-radius: 50%; box-shadow: 0 2px 4px rgba(249,115,22,0.3);
 }
 
@@ -222,8 +222,8 @@ onMounted(() => filtrosState.loadOpcoesFiltros())
 .filter-item select {
   min-width: 140px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; font-size: 12px; font-weight: 600; color: #1e293b; outline: none; transition: 0.2s;
 }
-.filter-item select:focus { border-color: #f97316; box-shadow: 0 0 0 3px rgba(249,115,22,0.1); }
-.filter-item .comb-select { color: #f97316; }
+.filter-item select:focus { border-color: #C41230; box-shadow: 0 0 0 3px rgba(249,115,22,0.1); }
+.filter-item .comb-select { color: #C41230; }
 
 .btn-clear {
   background: #fee2e2; border: none; color: #ef4444; padding: 10px 16px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; transition: 0.2s;

@@ -42,7 +42,7 @@ const chartHeight = computed(() => Math.max(240, dataComKm.value.length * 46))
 function interpolateColor(idx, total) {
   if (total <= 1) return '#10b981'
   const t = idx / (total - 1) // 0 = menor (verde), 1 = maior (laranja/vermelho)
-  // Verde #10b981 → Laranja #f97316
+  // Verde #10b981 → Laranja #C41230
   const r = Math.round(16  + t * (249 - 16))
   const g = Math.round(185 + t * (115 - 185))
   const b = Math.round(129 + t * (22  - 129))

@@ -171,7 +171,7 @@ const stats            = computed(() => data.value?.estatisticas      ?? null)
 const IDADE_COLORS = {
   '0–2 anos': '#22c55e',
   '3–5 anos': '#3b82f6',
-  '6–10 anos': '#f97316',
+  '6–10 anos': '#C41230',
   '> 10 anos': '#ef4444',
 }
 
@@ -191,7 +191,7 @@ const idadeFrota = computed(() => {
 })
 
 const GRUPO_COLORS = {
-  'Caminhão17Ton':  '#f97316',
+  'Caminhão17Ton':  '#C41230',
   'Caminhão12Ton':  '#fb923c',
   'Caminhão10.5Ton':'#fdba74',
   'Caminhão9Ton':   '#fcd34d',
@@ -208,7 +208,7 @@ const GRUPO_COLORS = {
 }
 
 const FUEL_COLORS = {
-  'Diesel':   '#f97316',
+  'Diesel':   '#C41230',
   'Gasolina': '#3b82f6',
   'Álcool':   '#10b981',
   'Arla':     '#8b5cf6',

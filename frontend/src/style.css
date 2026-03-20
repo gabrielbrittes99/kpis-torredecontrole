@@ -1,43 +1,52 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-  /* Gritsch v3.2 Soft Light Gray (Lighter but not pure white) */
-  --void:    #F8FAFC;   /* Background Slate 50 - Extremamente suave e limpo */
-  --deep:    #FFFFFF;   /* Sidebar / Header - Branco limpo */
-  --s1:      #FFFFFF;   /* Cards - Brancos */
-  --s2:      #E2E8F0;   /* Hover / Slate 200 */
-  --s3:      #F8FAFC;   /* Elementos Internos */
-  --s4:      #CBD5E1;   /* Separadores */
+  /* ── Gritsch Transportes — Brand System ─────────────────────────────── */
+  --brand:      #C41230;   /* Vermelho Gritsch — cor primária */
+  --brand-dark: #9E0E26;   /* Vermelho escuro (hover / estados ativos) */
+  --brand-bg:   #FDF2F4;   /* Fundo vermelho suave */
+  --brand-mid:  #FCCDD4;   /* Vermelho médio (badges, destaques) */
 
-  --border:  rgba(0, 0, 0, 0.05); /* Bordas muito sutis */
+  /* ── Superfícies ───────────────────────────────────────────────────── */
+  --void:    #EAECF0;
+  --deep:    #FFFFFF;
+  --s1:      #FFFFFF;
+  --s2:      #E2E8F0;
+  --s3:      #F8FAFC;
+  --s4:      #CBD5E1;
+
+  --border:  rgba(0, 0, 0, 0.05);
   --border2: rgba(0, 0, 0, 0.08);
 
-  --red:     #EF4444;   /* Vermelho padrão legível */
-  --red2:    #FEE2E2;   /* Fundo vermelho suave */
+  /* ── Semânticas ────────────────────────────────────────────────────── */
+  --red:     #EF4444;
+  --red2:    #FEE2E2;
   --red3:    #FECACA;
 
-  --yellow:  #F59E0B;   /* Amarelo */
+  --yellow:  #F59E0B;
   --yellow2: #FEF3C7;
 
-  --green:   #10B981;   /* Verde */
+  --green:   #10B981;
   --green2:  #D1FAE5;
 
-  --blue:    #3B82F6;   /* Azul */
+  --blue:    #3B82F6;
   --blue2:   #DBEAFE;
 
-  --orange:  #F97316;   /* Gritsch Color */
-  --orange-bg: #FFEDD5;
-  
-  --text:    #1E293B;   /* Texto Slate 800 - Leitura clara */
-  --text2:   #475569;   /* Slate 600 */
-  --text3:   #94A3B8;   /* Slate 400 */
+  /* ── Compatibilidade (mantém --orange apontando para brand) ────────── */
+  --orange:    var(--brand);
+  --orange-bg: var(--brand-bg);
 
-  /* Compatibilidade */
-  --accent:      var(--orange);
-  --accent-bg:   var(--orange-bg);
-  --bg:          var(--void);
-  --text-2:      var(--text2);
-  --text-3:      var(--text3);
+  /* ── Tipografia ────────────────────────────────────────────────────── */
+  --text:  #1E293B;
+  --text2: #475569;
+  --text3: #94A3B8;
+
+  /* ── Aliases ────────────────────────────────────────────────────────── */
+  --accent:        var(--brand);
+  --accent-bg:     var(--brand-bg);
+  --bg:            var(--void);
+  --text-2:        var(--text2);
+  --text-3:        var(--text3);
   --border-subtle: var(--border);
 }
 
