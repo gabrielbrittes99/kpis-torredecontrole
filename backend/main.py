@@ -6,6 +6,8 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 load_dotenv()
 
@@ -101,3 +103,21 @@ def health():
             cache.last_updated.isoformat() if cache.last_updated else None
         ),
     }
+
+
+# ── Serve frontend (Vue SPA) ─────────────────────────────────────────────────
+_here = os.path.dirname(os.path.abspath(__file__))
+_dist = os.path.join(_here, "..", "frontend", "dist")
+
+if os.path.isdir(_dist):
+    _assets = os.path.join(_dist, "assets")
+    if os.path.isdir(_assets):
+        app.mount("/assets", StaticFiles(directory=_assets), name="assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    def spa_catch_all(full_path: str):
+        # Serve arquivos estáticos da raiz do dist (favicon, etc.)
+        candidate = os.path.join(_dist, full_path)
+        if full_path and os.path.isfile(candidate):
+            return FileResponse(candidate)
+        return FileResponse(os.path.join(_dist, "index.html"))

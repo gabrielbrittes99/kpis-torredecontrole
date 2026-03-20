@@ -1,6 +1,6 @@
 export const GRITSCH_CONFIG = {
   URLS: {
-    BACKEND: import.meta.env.VITE_API_URL || 'http://localhost:8000',
+    BACKEND: import.meta.env.VITE_API_URL ?? '',
   },
   TTLS: {
     TRANSACOES: 1 * 60 * 1000,    // Reduzido para 1 min para maior frescor em teste

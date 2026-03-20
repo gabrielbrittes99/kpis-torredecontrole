@@ -3,7 +3,7 @@ import { GRITSCH_CONFIG } from '../gritsch.config'
 const BASE = GRITSCH_CONFIG.URLS.BACKEND
 
 export async function fetchVisaoGeralDashboard(params = {}) {
-  const url = new URL(`${BASE}/api/visao-geral/dashboard`)
+  const url = new URL(`${BASE}/api/visao-geral/dashboard`, location.origin)
   Object.entries(params).forEach(([k, v]) => {
     if (v !== null && v !== undefined && v !== '') url.searchParams.set(k, v)
   })
