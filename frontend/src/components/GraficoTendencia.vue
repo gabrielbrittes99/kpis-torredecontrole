@@ -31,12 +31,12 @@ const series = computed(() => [{
 const options = computed(() => ({
   chart: { background: 'transparent', toolbar: { show: false }, fontFamily: 'Inter, sans-serif', animations: { speed: 700 } },
   theme: { mode: 'dark' },
-  colors: ['#f97316'],
+  colors: ['#C41230'],
   stroke: { curve: 'smooth', width: 2 },
   fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.15, opacityTo: 0.0, stops: [0, 100] } },
   markers: {
     size: props.data.map((_, i) => i === props.data.length - 1 ? 5 : 0),
-    colors: ['#f97316'], strokeColors: '#09090b', strokeWidth: 2,
+    colors: ['#C41230'], strokeColors: '#09090b', strokeWidth: 2,
   },
   dataLabels: { enabled: false },
   xaxis: {
@@ -62,7 +62,7 @@ const options = computed(() => ({
         <div style="color:#71717a;margin-bottom:8px;font-size:11px">${d.ano_mes}</div>
         <div style="display:flex;justify-content:space-between;gap:16px;margin-bottom:4px">
           <span style="color:#a1a1aa">Total</span>
-          <span style="color:#f97316;font-weight:600">R$ ${Number(d.total_valor).toLocaleString('pt-BR',{maximumFractionDigits:0})}</span>
+          <span style="color:#C41230;font-weight:600">R$ ${Number(d.total_valor).toLocaleString('pt-BR',{maximumFractionDigits:0})}</span>
         </div>
         <div style="display:flex;justify-content:space-between;gap:16px;margin-bottom:4px">
           <span style="color:#a1a1aa">Litros</span>

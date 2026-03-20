@@ -463,29 +463,49 @@ const fmtN = v => v != null
 const varClass = v => v == null ? 'badge-neutral' : v > 0 ? 'badge-red' : 'badge-green'
 const varIcon  = v => v == null ? '' : v > 0 ? '▲' : '▼'
 
-const GRUPO_COLORS = {
-  'Caminhão17Ton': '#991b1b', 'Caminhão12Ton': '#ef4444', 'Caminhão10.5Ton': '#f97316',
-  'Caminhão9Ton': '#ea580c', 'Caminhão7.5Ton': '#d97706', 'Caminhão6Ton': '#eab308',
-  'Caminhão5.5Ton': '#ca8a04', 'Caminhão5Ton': '#65a30d', 'Caminhão4.2Ton': '#16a34a',
-  'Pesado': '#3b82f6', 'Médio': '#8b5cf6', 'Leve': '#10b981',
-  'Kombi': '#06b6d4', 'Moto': '#ec4899', 'Outros': '#6b7280',
-}
+// ── Paleta categorial — hues distintos, sem vermelho (brand/alerta) nem verde (positivo)
 const FUEL_COLORS = {
-  'Diesel': '#f97316', 'Gasolina': '#3b82f6',
-  'Álcool': '#10b981', 'Arla': '#8b5cf6', 'Outros': '#6b7280',
+  'Diesel':   '#2563EB',  // azul
+  'Gasolina': '#7C3AED',  // violeta
+  'Álcool':   '#0891B2',  // teal
+  'Arla':     '#64748B',  // slate — aditivo, neutro
+  'Outros':   '#94A3B8',
 }
-const grupoColor      = g => GRUPO_COLORS[g] ?? '#6b7280'
-const combustivelColor = g => FUEL_COLORS[g] ?? '#6b7280'
-const benchColor      = s => s === 'ok' ? '#10b981' : s === 'alerta' ? '#f59e0b' : s === 'critico' ? '#ef4444' : '#6b7280'
+
+const GRUPO_COLORS = {
+  // Caminhões — azul a índigo, variando hue para diferenciar
+  'Caminhão17Ton':   '#1E3A5F',  // azul marinho
+  'Caminhão12Ton':   '#1D4ED8',  // azul
+  'Caminhão10.5Ton': '#0891B2',  // teal
+  'Caminhão9Ton':    '#0284C7',  // sky
+  'Caminhão7.5Ton':  '#4338CA',  // índigo
+  'Caminhão6Ton':    '#7C3AED',  // violeta
+  'Caminhão5.5Ton':  '#A21CAF',  // fúcsia
+  'Caminhão5Ton':    '#EA580C',  // laranja (distinto de vermelho)
+  'Caminhão4.2Ton':  '#B45309',  // âmbar escuro
+  // Categorias genéricas
+  'Pesado':  '#1D4ED8',  // azul
+  'Médio':   '#0891B2',  // teal
+  'Leve':    '#7C3AED',  // violeta
+  'Kombi':   '#EA580C',  // laranja
+  'Moto':    '#A21CAF',  // fúcsia
+  'Outros':  '#64748B',  // slate
+}
 
 const REGIAO_COLORS = {
-  'Sul':          '#3b82f6',
-  'Centro-Oeste': '#f97316',
-  'Sudeste':      '#8b5cf6',
-  'Nordeste':     '#10b981',
-  'Norte':        '#ec4899',
+  'Sul':          '#1D4ED8',  // azul
+  'Centro-Oeste': '#EA580C',  // laranja
+  'Sudeste':      '#7C3AED',  // violeta
+  'Nordeste':     '#0891B2',  // teal
+  'Norte':        '#A21CAF',  // fúcsia
 }
-const regiaoColor = r => REGIAO_COLORS[r] ?? '#6b7280'
+
+const grupoColor       = g => GRUPO_COLORS[g] ?? '#94A3B8'
+const combustivelColor = g => FUEL_COLORS[g]  ?? '#94A3B8'
+const regiaoColor      = r => REGIAO_COLORS[r] ?? '#94A3B8'
+
+// Semântica preservada: verde = bom · amarelo = atenção · vermelho = crítico
+const benchColor = s => s === 'ok' ? '#10b981' : s === 'alerta' ? '#f59e0b' : s === 'critico' ? '#ef4444' : '#94A3B8'
 
 const fmtRShort = v => {
   if (v == null) return '—'
@@ -620,7 +640,7 @@ const chartBase = {
 
 const optMensal = computed(() => ({
   ...chartBase,
-  colors: ['#f97316'],
+  colors: ['#1D4ED8'],
   xaxis: { ...chartBase.xaxis, categories: grafMensal.value.map(d => d.label) },
   plotOptions: { bar: { borderRadius: 6 } },
 }))
@@ -628,7 +648,7 @@ const seriesMensal = computed(() => [{ name: 'Gasto', data: grafMensal.value.map
 
 const optSemanal = computed(() => ({
   ...chartBase,
-  colors: ['#3b82f6'],
+  colors: ['#1D4ED8'],
   xaxis: { ...chartBase.xaxis, categories: grafSemanal.value.map(d => d.label) },
   plotOptions: { bar: { borderRadius: 6 } },
 }))
@@ -636,7 +656,7 @@ const seriesSemanal = computed(() => [{ name: 'Gasto', data: grafSemanal.value.m
 
 const optDiario = computed(() => ({
   ...chartBase,
-  colors: ['#10b981'],
+  colors: ['#1D4ED8'],
   xaxis: { ...chartBase.xaxis, categories: grafDiario.value.map(d => d.label) },
   fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0 } },
   stroke: { width: 2 },
@@ -712,7 +732,7 @@ onMounted(() => {
 }
 .spinner {
   width: 32px; height: 32px; border: 3px solid #e2e8f0;
-  border-top-color: #f97316; border-radius: 50%; animation: spin 0.8s linear infinite;
+  border-top-color: #C41230; border-radius: 50%; animation: spin 0.8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -814,7 +834,7 @@ tbody.has-filter .bd-row.dimmed:hover {
 }
 .bd-row.active {
   background: #f1f5f9;
-  box-shadow: inset 2px 0 0 #f97316;
+  box-shadow: inset 2px 0 0 #C41230;
 }
 .bd-row.active:hover {
   background: #e2e8f0;
@@ -841,8 +861,9 @@ tbody.has-filter .bd-row.dimmed:hover {
 
 .bd-dot {
   display: inline-block;
-  width: 10px; height: 10px;
-  border-radius: 3px;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 .bd-name {
   font-size: 13px;
@@ -920,7 +941,7 @@ tbody.has-filter .bd-row.dimmed:hover {
 .section-title {
   font-size: 11px; font-weight: 700; color: #64748b;
   letter-spacing: 0.08em; text-transform: uppercase;
-  border-left: 3px solid #f97316;
+  border-left: 3px solid #C41230;
   padding-left: 10px;
   margin-bottom: 20px;
 }

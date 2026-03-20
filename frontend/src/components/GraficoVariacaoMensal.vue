@@ -62,7 +62,7 @@ const props = defineProps({
 
 const FUEL_ORDER = ['Diesel', 'Gasolina', 'Álcool', 'Arla']
 const FUEL_COLORS = {
-  'Diesel': '#f97316', 'Gasolina': '#3b82f6',
+  'Diesel': '#C41230', 'Gasolina': '#3b82f6',
   'Álcool': '#10b981', 'Arla': '#8b5cf6',
 }
 const combColor = c => FUEL_COLORS[c] ?? '#94a3b8'

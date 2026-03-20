@@ -107,7 +107,7 @@ const trendIcon = computed(() => {
 
 /* Themes */
 .kpi-pro-card.primary {
-  border-left: 4px solid #f97316;
+  border-left: 4px solid #C41230;
 }
 .kpi-pro-card.dark {
   background: #0f172a;
