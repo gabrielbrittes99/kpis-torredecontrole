@@ -33,7 +33,7 @@ fi
 echo "   ✅ Backend pronto!"
 echo "   Iniciando servidor na porta 8000..."
 # No Railway, a porta é passada pela variável PORT
-python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} &
+python3 -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} &
 BACKEND_PID=$!
 
 cd ..
@@ -46,10 +46,10 @@ cd frontend
 echo "   ✅ Frontend pronto!"
 if [ -n "$RAILWAY_ENVIRONMENT" ] || [ -n "$RAILWAY_SERVICE_NAME" ]; then
   # Railway: serve o build de produção gerado no build phase
-  npx vite preview --host 0.0.0.0 --port ${FRONTEND_PORT:-4173} &
+  ./node_modules/.bin/vite preview --host 0.0.0.0 --port ${FRONTEND_PORT:-4173} &
 else
   # Local: dev server com hot reload
-  npx vite --host 0.0.0.0 &
+  ./node_modules/.bin/vite --host 0.0.0.0 &
 fi
 FRONTEND_PID=$!
 
