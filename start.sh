@@ -23,14 +23,14 @@ if [ -z "$RAILWAY_ENVIRONMENT" ] && [ -z "$RAILWAY_SERVICE_NAME" ]; then
   # Local: usa venv
   if [ ! -d "venv" ]; then
     echo "   Criando virtual environment..."
-    python3 -m venv venv
+    python3 -m venv venv || python -m venv venv
   fi
   source venv/bin/activate
   pip install -r requirements.txt --quiet
 fi
 
 echo "   Iniciando servidor na porta ${PORT:-8000}..."
-python3 -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} &
+uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} &
 BACKEND_PID=$!
 
 cd ..
