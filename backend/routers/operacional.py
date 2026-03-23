@@ -25,43 +25,59 @@ _FAMILIA_MAP = {
 }
 
 
-# ── Cálculo de KM rodado ────────────────────────────────────────────────────
-def _calcular_km(df: pd.DataFrame) -> pd.DataFrame:
-    """km_rodado = diff hodômetro entre abastecimentos consecutivos por placa."""
-    df = df.copy()
-    if "hodometro" not in df.columns:
-        df["km_rodado"] = None
-        return df
-    df = df.sort_values(["placa", "data_transacao"])
-    df["km_rodado"] = df.groupby("placa")["hodometro"].diff()
-    invalido = df["km_rodado"].isna() | (df["km_rodado"] <= 0) | (df["km_rodado"] > 2000)
-    df.loc[invalido, "km_rodado"] = None
-    return df
-
-
-# ── Agregação de métricas ───────────────────────────────────────────────────
+# ── Agregação de métricas (range por veículo) ───────────────────────────────
 def _agg_km(grupo: pd.DataFrame):
     """
     Retorna: total_valor, total_litros, total_km, custo_km, km_litro, preco_litro
-    custo_km e km_litro só consideram registros com hodômetro válido.
+
+    Usa range (max - min hodômetro) por veículo no período.
+    Vantagem vs diff: não perde o primeiro abastecimento nem registros com
+    hodômetro NULL intermediário — basta ter ≥ 2 leituras válidas no período.
     """
     total_valor = float(grupo["valor"].sum())
     total_litros = float(grupo["litragem"].sum())
-
-    km_valido = grupo[grupo["km_rodado"].notna()].copy()
-    total_km = float(km_valido["km_rodado"].sum()) if not km_valido.empty else None
-
-    if total_km and total_km > 0:
-        valor_para_km = float(km_valido["valor"].sum())
-        litros_para_km = float(km_valido["litragem"].sum())
-        custo_km = round(valor_para_km / total_km, 4)
-        km_litro = round(total_km / litros_para_km, 2) if litros_para_km > 0 else None
-    else:
-        custo_km = None
-        km_litro = None
-
     preco_litro = round(total_valor / total_litros, 4) if total_litros > 0 else None
+
+    if "hodometro" not in grupo.columns:
+        return total_valor, total_litros, None, None, None, preco_litro
+
+    hodo = grupo[grupo["hodometro"].notna() & (grupo["hodometro"] > 0)]
+    if hodo.empty:
+        return total_valor, total_litros, None, None, None, preco_litro
+
+    per_veh = hodo.groupby("placa").agg(
+        km_min=("hodometro", "min"),
+        km_max=("hodometro", "max"),
+        litros=("litragem", "sum"),
+        valor=("valor", "sum"),
+        cnt=("hodometro", "count"),
+    )
+    # Precisa de ≥ 2 leituras válidas para calcular range; range máximo 500 mil km
+    per_veh = per_veh[per_veh["cnt"] >= 2].copy()
+    per_veh["km_range"] = per_veh["km_max"] - per_veh["km_min"]
+    per_veh = per_veh[(per_veh["km_range"] > 0) & (per_veh["km_range"] <= 500_000)]
+
+    if per_veh.empty:
+        return total_valor, total_litros, None, None, None, preco_litro
+
+    total_km = float(per_veh["km_range"].sum())
+    litros_para_km = float(per_veh["litros"].sum())
+    valor_para_km = float(per_veh["valor"].sum())
+
+    custo_km = round(valor_para_km / total_km, 4) if total_km > 0 else None
+    km_litro = round(total_km / litros_para_km, 2) if litros_para_km > 0 else None
+
     return total_valor, total_litros, total_km, custo_km, km_litro, preco_litro
+
+
+def _qtd_com_km(df: pd.DataFrame) -> int:
+    """Veículos com ≥ 2 leituras válidas de hodômetro (conseguem calcular range)."""
+    if "hodometro" not in df.columns:
+        return 0
+    hodo = df[df["hodometro"].notna() & (df["hodometro"] > 0)]
+    if hodo.empty:
+        return 0
+    return int((hodo.groupby("placa")["hodometro"].count() >= 2).sum())
 
 
 # ── Filtros (usa colunas já enriquecidas pelo cache) ────────────────────────
@@ -152,11 +168,10 @@ def get_kpis_operacional(
     if df.empty:
         return {}
 
-    df = _calcular_km(df)
     tv, tl, tk, ck, kl, pl = _agg_km(df)
 
     qtd_veiculos = int(df["placa"].nunique())
-    qtd_com_km = int(df[df["km_rodado"].notna()]["placa"].nunique()) if tk else 0
+    qtd_com_km = _qtd_com_km(df)
 
     # Economia vs ANP (só faz sentido para família específica)
     economia_anp = None
@@ -215,7 +230,6 @@ def get_custo_por_grupo(
     if df.empty:
         return []
 
-    df = _calcular_km(df)
 
     resultado = []
     for grp, g in df.groupby("grupo_veiculo"):
@@ -274,7 +288,6 @@ def get_custo_por_filial(
     if df.empty:
         return {"filiais": [], "media_geral": None}
 
-    df = _calcular_km(df)
 
     # Agrupa por filial (usa filial_nome do cache enriquecido)
     resultado = []
@@ -348,7 +361,6 @@ def get_evolucao_mensal(
     if df.empty:
         return []
 
-    df = _calcular_km(df)
     df["ano_mes"] = df["data_transacao"].dt.to_period("M").astype(str)
 
     resultado = []
@@ -399,7 +411,6 @@ def get_veiculos_acao(
     if df.empty:
         return {"veiculos": [], "resumo": {}}
 
-    df = _calcular_km(df)
 
     # 1. Agrega por placa
     veiculos = []
@@ -518,7 +529,6 @@ def get_etanol_gasolina_filial(
     if df.empty:
         return []
 
-    df = _calcular_km(df)
 
     resultado = []
     _FAM_KEYS = {"gasolina": "Gasolina", "etanol": "Álcool"}

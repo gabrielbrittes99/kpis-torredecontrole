@@ -2,7 +2,7 @@
 Visão Geral — Combustível
 Dashboard consolidado com KPIs agrupados por grupo de veículo.
 """
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from typing import Optional
 
 import pandas as pd
@@ -12,6 +12,63 @@ from config import get_kml_referencia
 from data_cache import cache
 
 router = APIRouter(prefix="/api/visao-geral", tags=["visao-geral"])
+
+
+# ── Feriados Nacionais Brasileiros ───────────────────────────────────────────
+def _easter(year: int) -> date:
+    """Algoritmo de Butcher para Páscoa."""
+    a = year % 19
+    b, c = divmod(year, 100)
+    d, e = divmod(b, 4)
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i, k = divmod(c, 4)
+    l = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l) // 451
+    month, day = divmod(114 + h + l - 7 * m, 31)
+    return date(year, month, day + 1)
+
+
+def _feriados_ano(year: int) -> set:
+    easter = _easter(year)
+    moveis = {
+        easter - timedelta(days=48),  # Carnaval (segunda)
+        easter - timedelta(days=47),  # Carnaval (terça)
+        easter - timedelta(days=2),   # Sexta-feira Santa
+        easter,                        # Páscoa
+        easter + timedelta(days=60),  # Corpus Christi
+    }
+    fixos = {
+        date(year, 1, 1),   # Ano Novo
+        date(year, 4, 21),  # Tiradentes
+        date(year, 5, 1),   # Dia do Trabalho
+        date(year, 9, 7),   # Independência
+        date(year, 10, 12), # Nossa Senhora Aparecida
+        date(year, 11, 2),  # Finados
+        date(year, 11, 15), # Proclamação da República
+        date(year, 11, 20), # Consciência Negra
+        date(year, 12, 25), # Natal
+    }
+    return moveis | fixos
+
+
+_FERIADOS_CACHE: dict = {}
+
+
+def _is_feriado(d: date) -> bool:
+    if d.year not in _FERIADOS_CACHE:
+        _FERIADOS_CACHE[d.year] = _feriados_ano(d.year)
+    return d in _FERIADOS_CACHE[d.year]
+
+
+def _tipo_dia(d: date) -> str:
+    """Classifica o dia: 'feriado', 'fds' ou 'util'."""
+    if _is_feriado(d):
+        return "feriado"
+    if d.weekday() >= 5:  # 5=Sáb, 6=Dom
+        return "fds"
+    return "util"
 
 
 def _apply_filters(
@@ -182,16 +239,23 @@ def get_dashboard(
             "litros": round(float(d["litragem"].sum()), 1),
         })
 
-    # ── Gráfico diário (últimos 30 dias) ─────────────────────────────────────
+    # ── Gráfico diário (últimos 30 dias corridos) ────────────────────────────
     df_graf["dia"] = df_graf["data_transacao"].dt.date
-    ultimos_dias = sorted(df_all["data_transacao"].dt.date.unique())[-30:]
+    if df_all.empty:
+        ultimos_dias = []
+    else:
+        max_date = df_all["data_transacao"].dt.date.max()
+        ultimos_dias = [max_date - timedelta(days=i) for i in range(29, -1, -1)]
+
     grafico_diario = []
     for dia in ultimos_dias:
         d = df_graf[df_graf["dia"] == dia]
         grafico_diario.append({
-            "label": dia.strftime("%d/%m"),
-            "valor": round(float(d["valor"].sum()), 2),
-            "litros": round(float(d["litragem"].sum()), 1),
+            "label":    dia.strftime("%d/%m"),
+            "iso_date": dia.isoformat(),
+            "tipo_dia": _tipo_dia(dia),
+            "valor":    round(float(d["valor"].sum()), 2),
+            "litros":   round(float(d["litragem"].sum()), 1),
         })
 
     # ── KPIs por grupo de veículo (mês selecionado) ──────────────────────────
@@ -208,6 +272,7 @@ def get_dashboard(
             "litros":   round(float(g["litragem"].sum()), 1),
             "veiculos": int(g["placa"].nunique()),
             "abs_count": int(len(g)),
+            "km_rodado": 0.0,
             "kml":      None,
             "custo_km": None,
         }
@@ -218,6 +283,7 @@ def get_dashboard(
         lit_g = float(gk["litragem"].sum())
         val_g = float(gk["valor"].sum())
         if hp_grupo in grupos_data:
+            grupos_data[hp_grupo]["km_rodado"] = round(km_g, 1)
             grupos_data[hp_grupo]["kml"]      = round(km_g / lit_g, 2) if lit_g > 0 else None
             grupos_data[hp_grupo]["custo_km"] = round(val_g / km_g, 4) if km_g  > 0 else None
 
@@ -344,4 +410,119 @@ def get_filtros_disponiveis():
         "filiais": get_unique("filial_nome"),
         "grupos_veiculo": get_unique("grupo_veiculo"),
         "combustiveis": get_unique("grupo_combustivel")
+    }
+
+
+# ---------------------------------------------------------------------------
+# Agressores por grupo de veículo
+# ---------------------------------------------------------------------------
+
+@router.get("/agressores")
+def get_agressores(
+    grupo: str = Query(...),
+    modo_tempo: str = Query(default="mes"),
+    mes: Optional[int] = None,
+    ano: Optional[int] = None,
+    bimestre: Optional[int] = None,
+    semestre: Optional[int] = None,
+    data_inicio: Optional[str] = None,
+    data_fim: Optional[str] = None,
+):
+    """Retorna veículos abaixo da média do grupo, ordenados por desperdício."""
+    now = datetime.now()
+    mes = mes or now.month
+    ano = ano or now.year
+
+    kml_df = cache.get_kml_df()
+    df_periodo = _apply_filters(kml_df, modo_tempo, ano, mes, bimestre, semestre, data_inicio, data_fim)
+    df_grupo = df_periodo[df_periodo["grupo_veiculo"] == grupo]
+
+    if df_grupo.empty:
+        return {"grupo": grupo, "agressores": [], "destaques": [], "total_desperdicio": 0, "total_economia": 0, "total_agressores": 0, "total_destaques": 0, "kml_meta": None, "kml_grupo_avg": None, "veiculos_examinados": 0}
+
+    # Combustivel predominante do grupo para buscar a meta
+    comb_pred = df_grupo.groupby("grupo_combustivel")["valor"].sum().idxmax()
+    kml_meta = get_kml_referencia(grupo, comb_pred)
+
+    # Média real do grupo inteiro (comparação com precisão total)
+    km_total = float(df_grupo["km_percorrido"].sum())
+    lit_total = float(df_grupo["litragem"].sum())
+    val_total = float(df_grupo["valor"].sum())
+
+    if lit_total <= 0 or km_total <= 0:
+        return {"grupo": grupo, "agressores": [], "destaques": [], "total_desperdicio": 0, "total_economia": 0, "total_agressores": 0, "total_destaques": 0, "kml_meta": None, "kml_grupo_avg": None, "veiculos_examinados": 0}
+
+    kml_grupo_avg_exact = km_total / lit_total       # precisão total p/ comparação
+    kml_grupo_avg       = round(kml_grupo_avg_exact, 2)  # arredondado p/ exibição
+
+    # O "alvo" é a meta configurada (se existir), senão a média do grupo
+    kml_alvo = kml_meta if kml_meta else kml_grupo_avg
+
+    # Preço médio do litro no período para o grupo
+    preco_medio = val_total / lit_total
+
+    # Busca modelo de cada placa (do df completo de transações)
+    df_all = cache.get_df()
+    modelo_map = (
+        df_all[df_all["grupo_veiculo"] == grupo]
+        .drop_duplicates("placa")
+        .set_index("placa")["modelo_veiculo"]
+        .to_dict()
+    )
+
+    # Calcula km/L por placa — usa precisão total para a comparação
+    agressores = []
+    destaques = []
+    veiculos_examinados = 0
+    for placa, gp in df_grupo.groupby("placa"):
+        km  = float(gp["km_percorrido"].sum())
+        lit = float(gp["litragem"].sum())
+        val = float(gp["valor"].sum())
+        if km <= 0 or lit <= 0:
+            continue
+        veiculos_examinados += 1
+        kml_real_exact = km / lit
+        kml_real = round(kml_real_exact, 2)
+
+        # Litros se estivesse na meta/alvo
+        litros_na_alvo = km / kml_alvo
+        delta_litros = lit - litros_na_alvo
+        impacto = round(abs(delta_litros * preco_medio), 2)
+
+        item = {
+            "placa":       placa,
+            "modelo":      modelo_map.get(placa, "—"),
+            "kml_real":    kml_real,
+            "kml_meta":    kml_alvo,
+            "delta_kml":   round(kml_real_exact - kml_alvo, 2),
+            "km_rodado":   round(km, 1),
+            "litros":      round(lit, 1),
+            "gasto":       round(val, 2),
+        }
+
+        if kml_real_exact < kml_grupo_avg_exact:
+            item["desperdicio"] = round(max(delta_litros * preco_medio, 0), 2)
+            agressores.append(item)
+        else:
+            item["economia"] = round(max(-delta_litros * preco_medio, 0), 2)
+            destaques.append(item)
+
+    agressores.sort(key=lambda x: x["desperdicio"], reverse=True)
+    destaques.sort(key=lambda x: x["economia"], reverse=True)
+    total_desperdicio = round(sum(a["desperdicio"] for a in agressores), 2)
+    total_economia    = round(sum(d["economia"] for d in destaques), 2)
+
+    return {
+        "grupo":              grupo,
+        "kml_meta":           kml_alvo,
+        "kml_grupo_avg":      kml_grupo_avg,
+        "combustivel_pred":   comb_pred,
+        "preco_medio_litro":  round(preco_medio, 4),
+        "total_desperdicio":  total_desperdicio,
+        "total_economia":     total_economia,
+        "total_agressores":   len(agressores),
+        "total_destaques":    len(destaques),
+        "veiculos_examinados": veiculos_examinados,
+        "agressores":         agressores[:15],
+        "destaques":          destaques[:15],
     }

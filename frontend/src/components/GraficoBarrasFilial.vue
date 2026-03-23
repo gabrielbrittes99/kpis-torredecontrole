@@ -108,7 +108,7 @@ const options = computed(() => {
       theme: 'light',
       custom: ({ dataPointIndex: i }) => {
         const r = [...dataComKm.value].reverse()[i]
-        const nome = r.filial.replace('Gritsch ', '')
+        const nome = r.filial
         const composicaoHtml = r.composicao_grupos?.length
           ? `<div style="border-top:1px solid #f1f5f9;margin-top:8px;padding-top:8px">
                <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Composição da frota</div>

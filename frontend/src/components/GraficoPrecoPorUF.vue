@@ -24,6 +24,7 @@ const apexchart = VueApexCharts
 const props = defineProps({
   data:    { type: Array,   default: () => [] },
   loading: { type: Boolean, default: false },
+  color:   { type: String,  default: '#3b82f6' },
 })
 
 // Pega os top 12 estados em volume (para não poluir se houver 27 estados) e ordena por preço.
@@ -58,7 +59,7 @@ const chartOptions = computed(() => {
         barHeight: '70%'
       }
     },
-    colors: ['#3b82f6'],
+    colors: [props.color],
     dataLabels: {
       enabled: true,
       textAnchor: 'start',

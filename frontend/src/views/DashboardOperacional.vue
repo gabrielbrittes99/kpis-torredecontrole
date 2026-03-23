@@ -306,7 +306,8 @@ const fmtN = v => v != null ? Number(v).toLocaleString('pt-BR', { maximumFractio
 const filialData = computed(() => custoPorFilial.value.filiais || [])
 
 function formatGrupo(g) {
-  return g.replace('Caminhão', 'Caminhão ').replace('Ton', 'T').replace('10.5', '10,5').replace('4.2', '4,2').replace('5.5', '5,5').replace('7.5', '7,5')
+  if (!g) return '—'
+  return g
 }
 
 const maxCustoGrupo = computed(() => {

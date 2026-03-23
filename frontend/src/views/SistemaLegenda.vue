@@ -191,20 +191,15 @@ const idadeFrota = computed(() => {
 })
 
 const GRUPO_COLORS = {
-  'Caminhão17Ton':  '#C41230',
-  'Caminhão12Ton':  '#fb923c',
-  'Caminhão10.5Ton':'#fdba74',
-  'Caminhão9Ton':   '#fcd34d',
-  'Caminhão7.5Ton': '#fbbf24',
-  'Caminhão6Ton':   '#f59e0b',
-  'Caminhão5.5Ton': '#d97706',
-  'Caminhão5Ton':   '#b45309',
-  'Caminhão4.2Ton': '#92400e',
-  'Pesado':         '#3b82f6',
-  'Médio':          '#60a5fa',
-  'Leve':           '#93c5fd',
-  'Kombi':          '#6366f1',
-  'Moto':           '#8b5cf6',
+  'Bitruck': '#1E3A5F',
+  'Truck':   '#1D4ED8',
+  'Toco':    '#0891B2',
+  '3/4':     '#4338CA',
+  'Pesado':  '#7C3AED',
+  'Médio':   '#A21CAF',
+  'Leve':    '#EA580C',
+  'Moto':    '#B45309',
+  'Outros':  '#64748B',
 }
 
 const FUEL_COLORS = {

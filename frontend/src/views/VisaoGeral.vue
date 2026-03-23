@@ -91,9 +91,9 @@
                 <td>
                   <div class="bd-bar-cell">
                     <div class="bd-bar-track">
-                      <div class="bd-bar-fill" :style="{ width: m.pct + '%', background: combustivelColor(m.grupo) }"></div>
+                      <div class="bd-bar-fill" :style="{ width: (m.pct_local || m.pct) + '%', background: combustivelColor(m.grupo) }"></div>
                     </div>
-                    <span class="bd-pct mono">{{ m.pct }}%</span>
+                    <span class="bd-pct mono">{{ m.pct_local || m.pct }}%</span>
                     <button class="btn-drill" @click="irParaOperacionalCombustivel(m.grupo)" title="Ver placas deste combustível">
                       <span class="icon-drill">→</span>
                     </button>
@@ -154,6 +154,18 @@
       <!-- ══════════════════════════════════════════════════════════════════ -->
       <!--  GRÁFICOS (Mensal 12m e Semanal 8w)                             -->
       <!-- ══════════════════════════════════════════════════════════════════ -->
+      <div class="section-title-row" style="margin-bottom: 12px;">
+        <span class="section-hint">Tendência de gasto ao longo do tempo</span>
+        <div class="uf-comb-tabs">
+          <button :class="{ active: filtroCombTendencia === null }" :style="filtroCombTendencia === null ? { background: TODOS_COLOR, borderColor: TODOS_COLOR, color: 'white' } : { borderColor: TODOS_COLOR, color: TODOS_COLOR }" @click="setFiltroCombTendencia(null)">Todos</button>
+          <button
+            v-for="c in opcoesUFComb" :key="c"
+            :class="{ active: filtroCombTendencia === c }"
+            :style="filtroCombTendencia === c ? { background: combustivelColor(c), borderColor: combustivelColor(c), color: 'white' } : { borderColor: combustivelColor(c), color: combustivelColor(c) }"
+            @click="setFiltroCombTendencia(c)"
+          >{{ c }}</button>
+        </div>
+      </div>
       <div class="charts-grid-top">
         <section class="v-block charts-block">
           <div class="section-title">GASTO MENSAL (12 MESES){{ filtroLabel }}</div>
@@ -172,26 +184,51 @@
         <div class="section-title-row">
           <div class="section-title" style="margin-bottom:0">PREÇO MÉDIO POR ESTADO (UF)</div>
           <div class="uf-comb-tabs">
-            <button :class="{ active: filtroUFComb === null }" @click="setFiltroUF(null)">Todos</button>
+            <button :class="{ active: filtroUFComb === null }" :style="filtroUFComb === null ? { background: TODOS_COLOR, borderColor: TODOS_COLOR, color: 'white' } : { borderColor: TODOS_COLOR, color: TODOS_COLOR }" @click="setFiltroUF(null)">Todos</button>
             <button
-              v-for="c in opcoesUFComb"
-              :key="c"
+              v-for="c in opcoesUFComb" :key="c"
               :class="{ active: filtroUFComb === c }"
               :style="filtroUFComb === c ? { background: combustivelColor(c), borderColor: combustivelColor(c), color: 'white' } : { borderColor: combustivelColor(c), color: combustivelColor(c) }"
               @click="setFiltroUF(c)"
             >{{ c }}</button>
           </div>
         </div>
-        <GraficoPrecoPorUF :data="precoPorUF" :loading="lUF" />
+        <GraficoPrecoPorUF :data="precoPorUF" :loading="lUF" :color="filtroUFComb ? combustivelColor(filtroUFComb) : '#3b82f6'" />
       </section>
 
       <!-- ══════════════════════════════════════════════════════════════════ -->
-      <!--  GRÁFICO DIÁRIO (30 dias)                                       -->
+      <!--  GRÁFICO DIÁRIO — Dias Úteis · Fim de Semana · Feriados        -->
       <!-- ══════════════════════════════════════════════════════════════════ -->
-      <div class="charts-grid-bottom">
+      <div class="section-title-row" style="margin-bottom: 12px;">
+        <span class="section-hint">Gasto diário nos últimos 30 dias</span>
+        <div class="uf-comb-tabs">
+          <button :class="{ active: filtroCombDiario === null }" :style="filtroCombDiario === null ? { background: TODOS_COLOR, borderColor: TODOS_COLOR, color: 'white' } : { borderColor: TODOS_COLOR, color: TODOS_COLOR }" @click="setFiltroCombDiario(null)">Todos</button>
+          <button
+            v-for="c in opcoesUFComb" :key="c"
+            :class="{ active: filtroCombDiario === c }"
+            :style="filtroCombDiario === c ? { background: combustivelColor(c), borderColor: combustivelColor(c), color: 'white' } : { borderColor: combustivelColor(c), color: combustivelColor(c) }"
+            @click="setFiltroCombDiario(c)"
+          >{{ c }}</button>
+        </div>
+      </div>
+      <div :class="grafDiarioFeriado.length ? 'charts-grid-three' : 'charts-grid-top'" style="margin-bottom: 24px;">
         <section class="v-block charts-block" style="margin-bottom: 0;">
-          <div class="section-title">GASTO DIÁRIO (30 DIAS){{ filtroLabel }}</div>
-          <apexchart type="area" height="220" :options="optDiario" :series="seriesDiario" />
+          <div class="section-title" style="color: #1D4ED8;">GASTO DIAS ÚTEIS (30 DIAS)</div>
+          <div v-if="grafDiarioUtil.length">
+            <apexchart type="area" height="200" :options="optDiarioUtil" :series="seriesDiarioUtil" />
+          </div>
+          <div v-else class="empty-msg">Sem dados no período</div>
+        </section>
+        <section class="v-block charts-block" style="margin-bottom: 0;">
+          <div class="section-title" style="color: #7C3AED;">GASTO FIM DE SEMANA (30 DIAS)</div>
+          <div v-if="grafDiarioFDS.length">
+            <apexchart type="area" height="200" :options="optDiarioFDS" :series="seriesDiarioFDS" />
+          </div>
+          <div v-else class="empty-msg">Sem dados no período</div>
+        </section>
+        <section v-if="grafDiarioFeriado.length" class="v-block charts-block" style="margin-bottom: 0;">
+          <div class="section-title" style="color: #EA580C;">GASTO FERIADOS (30 DIAS)</div>
+          <apexchart type="area" height="200" :options="optDiarioFeriado" :series="seriesDiarioFeriado" />
         </section>
       </div>
 
@@ -201,7 +238,18 @@
       <div class="insights-donut-row">
         <!-- Donut: Combustível -->
         <section class="v-block insights-card">
-          <div class="section-title">GASTO POR COMBUSTÍVEL — {{ mesMesLabel }}</div>
+          <div class="section-title-row" style="margin-bottom: 10px;">
+            <div class="section-title" style="margin-bottom:0">GASTO POR COMBUSTÍVEL — {{ mesMesLabel }}</div>
+            <div class="uf-comb-tabs" style="flex-wrap: wrap; justify-content: flex-end;">
+              <button :class="{ active: filtroRegiaoMix === null }" :style="filtroRegiaoMix === null ? { background: TODOS_COLOR, borderColor: TODOS_COLOR, color: 'white' } : { borderColor: TODOS_COLOR, color: TODOS_COLOR }" @click="setFiltroRegiaoMix(null)">Todos</button>
+              <button
+                v-for="r in opcoesRegiao" :key="r"
+                :class="{ active: filtroRegiaoMix === r }"
+                :style="filtroRegiaoMix === r ? { background: regiaoColor(r), borderColor: regiaoColor(r), color: 'white' } : { borderColor: regiaoColor(r), color: regiaoColor(r) }"
+                @click="setFiltroRegiaoMix(r)"
+              >{{ r }}</button>
+            </div>
+          </div>
           <apexchart
             v-if="mixCombustivel.length"
             type="donut"
@@ -214,11 +262,22 @@
 
         <!-- Donut: Região -->
         <section class="v-block insights-card">
-          <div class="section-title">GASTO POR REGIÃO — {{ mesMesLabel }}</div>
+          <div class="section-title-row" style="margin-bottom: 10px;">
+            <div class="section-title" style="margin-bottom:0">GASTO POR REGIÃO — {{ mesMesLabel }}</div>
+            <div class="uf-comb-tabs">
+              <button :class="{ active: filtroCombRegiao === null }" :style="filtroCombRegiao === null ? { background: TODOS_COLOR, borderColor: TODOS_COLOR, color: 'white' } : { borderColor: TODOS_COLOR, color: TODOS_COLOR }" @click="setFiltroCombRegiao(null)">Todos</button>
+              <button
+                v-for="c in opcoesUFComb" :key="c"
+                :class="{ active: filtroCombRegiao === c }"
+                :style="filtroCombRegiao === c ? { background: combustivelColor(c), borderColor: combustivelColor(c), color: 'white' } : { borderColor: combustivelColor(c), color: combustivelColor(c) }"
+                @click="setFiltroCombRegiao(c)"
+              >{{ c }}</button>
+            </div>
+          </div>
           <apexchart
             v-if="porRegiao.length"
             type="donut"
-            height="260"
+            height="240"
             :options="optDonutRegiao"
             :series="seriesDonutRegiao"
           />
@@ -228,7 +287,18 @@
 
       <!-- Barra horizontal: Grupo de Veículo -->
       <section class="v-block" style="margin-bottom: 24px;">
-        <div class="section-title">GASTO POR GRUPO DE VEÍCULO — {{ mesMesLabel }}</div>
+        <div class="section-title-row">
+          <div class="section-title" style="margin-bottom:0">GASTO POR GRUPO DE VEÍCULO — {{ mesMesLabel }}</div>
+          <div class="uf-comb-tabs">
+            <button :class="{ active: filtroCombGrupo === null }" :style="filtroCombGrupo === null ? { background: TODOS_COLOR, borderColor: TODOS_COLOR, color: 'white' } : { borderColor: TODOS_COLOR, color: TODOS_COLOR }" @click="setFiltroCombGrupo(null)">Todos</button>
+            <button
+              v-for="c in opcoesUFComb" :key="c"
+              :class="{ active: filtroCombGrupo === c }"
+              :style="filtroCombGrupo === c ? { background: combustivelColor(c), borderColor: combustivelColor(c), color: 'white' } : { borderColor: combustivelColor(c), color: combustivelColor(c) }"
+              @click="setFiltroCombGrupo(c)"
+            >{{ c }}</button>
+          </div>
+        </div>
         <apexchart
           v-if="porGrupoChartSeries.length"
           type="bar"
@@ -241,7 +311,18 @@
 
       <!-- Barra horizontal: Filial (top 15) -->
       <section class="v-block" style="margin-bottom: 24px;">
-        <div class="section-title">GASTO POR FILIAL — {{ mesMesLabel }}</div>
+        <div class="section-title-row">
+          <div class="section-title" style="margin-bottom:0">GASTO POR FILIAL — {{ mesMesLabel }}</div>
+          <div class="uf-comb-tabs">
+            <button :class="{ active: filtroCombFilial === null }" :style="filtroCombFilial === null ? { background: TODOS_COLOR, borderColor: TODOS_COLOR, color: 'white' } : { borderColor: TODOS_COLOR, color: TODOS_COLOR }" @click="setFiltroCombFilial(null)">Todos</button>
+            <button
+              v-for="c in opcoesUFComb" :key="c"
+              :class="{ active: filtroCombFilial === c }"
+              :style="filtroCombFilial === c ? { background: combustivelColor(c), borderColor: combustivelColor(c), color: 'white' } : { borderColor: combustivelColor(c), color: combustivelColor(c) }"
+              @click="setFiltroCombFilial(c)"
+            >{{ c }}</button>
+          </div>
+        </div>
         <apexchart
           v-if="filialChartSeries.length"
           type="bar"
@@ -256,62 +337,164 @@
       <!--  SEÇÕES RESTAURADAS A PEDIDO DO USUÁRIO                           -->
       <!-- ══════════════════════════════════════════════════════════════════ -->
       <section class="v-block">
-        <div class="section-title">KPIs POR GRUPO DE VEÍCULO — {{ mesMesLabel }}</div>
-        <div class="grupos-grid">
-          <div v-for="g in porGrupo" :key="g.grupo" class="grupo-card">
-            <div class="grupo-header">
-              <div class="gh-main">
-                <span class="grupo-nome">{{ g.grupo }}</span>
-                <span class="grupo-pct mono">{{ g.pct_gasto }}%</span>
-              </div>
-              <button class="btn-drill-card" @click="irParaOperacional(g.grupo)" title="Monitorar Operacional deste grupo">
-                OPERACIONAL <span class="icon-drill">→</span>
-              </button>
-            </div>
-            <div class="grupo-bar-wrap">
-              <div class="grupo-bar" :style="{ width: g.pct_gasto + '%', background: grupoColor(g.grupo) }"></div>
-            </div>
-            <div v-if="g.kml_ref != null" class="kml-bench" :class="'bench-' + g.kml_status">
-              <div class="bench-row">
-                <span class="bench-label">km/L real</span>
-                <span class="bench-real">{{ g.kml ?? '—' }}</span>
-                <span class="bench-sep">vs</span>
-                <span class="bench-ref">{{ g.kml_ref }} ref.</span>
-                <span class="bench-delta" :class="'delta-' + g.kml_status">
-                  {{ g.kml_variacao_pct != null ? (g.kml_variacao_pct > 0 ? '▲' : '▼') + ' ' + Math.abs(g.kml_variacao_pct) + '%' : '—' }}
-                </span>
-              </div>
-              <div class="bench-track">
-                <div class="bench-fill" :style="{ width: g.kml && g.kml_ref ? Math.min(g.kml / g.kml_ref * 100, 100) + '%' : '0%', background: benchColor(g.kml_status) }"></div>
-                <div class="bench-marker" :style="{ left: '83.3%' }" title="80% ref"></div>
-                <div class="bench-marker ref-line" :style="{ left: '100%' }" title="100% ref"></div>
-              </div>
-            </div>
-            <div class="grupo-stats">
-              <div class="gs-item"><span class="gs-label">Gasto</span><span class="gs-val">{{ fmtR(g.gasto) }}</span></div>
-              <div class="gs-item"><span class="gs-label">Litros</span><span class="gs-val">{{ fmtN(g.litros) }} L</span></div>
-              <div class="gs-item" v-if="g.kml_ref == null"><span class="gs-label">km/L</span><span class="gs-val">{{ g.kml ?? '—' }}</span></div>
-              <div class="gs-item"><span class="gs-label">R$/km</span><span class="gs-val">{{ g.custo_km != null ? g.custo_km.toFixed(3) : '—' }}</span></div>
-              <div class="gs-item"><span class="gs-label">Veículos</span><span class="gs-val">{{ g.veiculos }}</span></div>
-              <div class="gs-item"><span class="gs-label">Abast.</span><span class="gs-val">{{ g.abs_count }}</span></div>
-            </div>
-          </div>
+        <div class="section-title">DESEMPENHO POR GRUPO DE VEÍCULO — {{ mesMesLabel }}</div>
+        <div class="grupo-table-wrap">
+          <table class="grupo-table">
+            <thead>
+              <tr>
+                <th>Grupo</th>
+                <th class="right">R$/km</th>
+                <th>km/L</th>
+                <th class="right">KM Rodado</th>
+                <th class="right">Veíc.</th>
+                <th>Participação</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <template v-for="g in porGrupo" :key="g.grupo">
+                <tr class="grupo-row" :class="{ 'row-expanded': grupoExpandido === g.grupo }" @click="toggleAgressores(g.grupo)">
+                  <td>
+                    <span class="grupo-dot" :style="{ background: grupoColor(g.grupo) }"></span>
+                    <span class="grupo-nome-tbl">{{ g.grupo }}</span>
+                  </td>
+                  <td class="right mono">
+                    <span class="val-currency">R$</span> <span class="val-primary">{{ g.custo_km != null ? g.custo_km.toFixed(3) : '—' }}</span>
+                  </td>
+                  <td class="col-kml">
+                    <div class="kml-modern">
+                      <div class="kml-m-top">
+                        <span class="kml-val mono">{{ g.kml ?? '—' }}</span>
+                        <span v-if="g.kml_variacao_pct != null" class="kml-pill" :class="'pill-' + g.kml_status">
+                          {{ g.kml_variacao_pct > 0 ? '▲' : '▼' }} {{ Math.abs(g.kml_variacao_pct) }}%
+                        </span>
+                      </div>
+                      <div class="kml-m-bar-wrap" v-if="g.kml_ref && g.kml">
+                        <div class="kml-m-fill" :class="'fill-' + g.kml_status" :style="{ width: Math.min((g.kml / g.kml_ref) * 100, 100) + '%' }"></div>
+                        <div class="kml-m-target"></div>
+                      </div>
+                      <div class="kml-m-bot" v-if="g.kml_ref">
+                        <span>meta {{ g.kml_ref }}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="right mono metric-secondary">{{ g.km_rodado ? fmtN(g.km_rodado) : '—' }}</td>
+                  <td class="right mono metric-secondary">{{ g.veiculos }}</td>
+                  <td>
+                    <div class="bd-bar-cell">
+                      <div class="bd-bar-track">
+                        <div class="bd-bar-fill" :style="{ width: g.pct_gasto + '%', background: grupoColor(g.grupo) }"></div>
+                      </div>
+                      <span class="bd-pct mono">{{ g.pct_gasto }}%</span>
+                    </div>
+                  </td>
+                  <td>
+                    <button class="btn-expand" :class="{ 'expanded': grupoExpandido === g.grupo }">
+                      {{ grupoExpandido === g.grupo ? '▴' : '▾' }}
+                    </button>
+                  </td>
+                </tr>
+                <!-- Expandable detail row -->
+                <tr v-if="grupoExpandido === g.grupo" class="agressores-row">
+                  <td :colspan="8">
+                    <div class="agressores-panel">
+                      <div v-if="lAgressores" class="agressores-loading">Carregando dados…</div>
+                      <div v-else-if="!dadosAgressores" class="agressores-empty">Sem dados disponíveis</div>
+                      <template v-else>
+                        <!-- Header com média e tabs -->
+                        <div class="detail-header">
+                          <span class="ag-avg mono">Média do grupo: <strong>{{ dadosAgressores.kml_grupo_avg }}</strong> km/L · Meta: <strong>{{ dadosAgressores.kml_meta }}</strong> km/L</span>
+                        </div>
+                        <div class="detail-tabs">
+                          <button class="detail-tab" :class="{ active: abaDetalhe === 'destaques' }" @click.stop="abaDetalhe = 'destaques'">
+                            🟢 Destaques <span class="tab-count">{{ dadosAgressores.total_destaques }}</span>
+                          </button>
+                          <button class="detail-tab" :class="{ active: abaDetalhe === 'agressores' }" @click.stop="abaDetalhe = 'agressores'">
+                            🔴 Agressores <span class="tab-count">{{ dadosAgressores.total_agressores }}</span>
+                          </button>
+                        </div>
+
+                        <!-- Aba Destaques -->
+                        <div v-if="abaDetalhe === 'destaques'">
+                          <div class="ag-summary text-success">
+                            Economia gerada: <strong>{{ fmtR(dadosAgressores.total_economia) }}</strong>
+                          </div>
+                          <div v-if="dadosAgressores.destaques.length === 0" class="agressores-empty">Nenhum destaque identificado</div>
+                          <table v-else class="ag-table">
+                            <thead>
+                              <tr>
+                                <th>Placa</th><th>Modelo</th>
+                                <th class="right">km/L Real</th><th class="right">Meta</th>
+                                <th class="right">Δ km/L</th><th class="right">KM Rodado</th>
+                                <th class="right">Economia</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr v-for="d in dadosAgressores.destaques" :key="d.placa" class="ag-row">
+                                <td class="mono ag-placa">{{ d.placa }}</td>
+                                <td class="ag-modelo">{{ d.modelo }}</td>
+                                <td class="right mono">{{ d.kml_real }}</td>
+                                <td class="right mono">{{ d.kml_meta }}</td>
+                                <td class="right mono text-success">+{{ Math.abs(d.delta_kml) }}</td>
+                                <td class="right mono">{{ fmtN(d.km_rodado) }}</td>
+                                <td class="right mono text-success">{{ fmtR(d.economia) }}</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+
+                        <!-- Aba Agressores -->
+                        <div v-if="abaDetalhe === 'agressores'">
+                          <div class="ag-summary text-danger">
+                            Desperdício total: <strong>{{ fmtR(dadosAgressores.total_desperdicio) }}</strong>
+                          </div>
+                          <div v-if="dadosAgressores.agressores.length === 0" class="agressores-empty">Nenhum agressor identificado — todos na meta!</div>
+                          <table v-else class="ag-table">
+                            <thead>
+                              <tr>
+                                <th>Placa</th><th>Modelo</th>
+                                <th class="right">km/L Real</th><th class="right">Meta</th>
+                                <th class="right">Δ km/L</th><th class="right">KM Rodado</th>
+                                <th class="right">Desperdício</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr v-for="a in dadosAgressores.agressores" :key="a.placa" class="ag-row">
+                                <td class="mono ag-placa">{{ a.placa }}</td>
+                                <td class="ag-modelo">{{ a.modelo }}</td>
+                                <td class="right mono">{{ a.kml_real }}</td>
+                                <td class="right mono">{{ a.kml_meta }}</td>
+                                <td class="right mono" :class="a.delta_kml < -1 ? 'text-danger' : 'text-warning'">{{ a.delta_kml }}</td>
+                                <td class="right mono">{{ fmtN(a.km_rodado) }}</td>
+                                <td class="right mono text-danger">{{ fmtR(a.desperdicio) }}</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </template>
+                    </div>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
         </div>
       </section>
 
       <div class="bottom-row">
         <section class="v-block mix-block">
           <div class="section-title">MIX DE COMBUSTÍVEL — {{ mesMesLabel }}</div>
-          <div class="mix-list">
-            <div v-for="m in mixCombustivel" :key="m.grupo" class="mix-item">
-              <div class="mix-header">
-                <span class="mix-nome">{{ m.grupo }}</span>
-                <span class="mix-pct mono">{{ m.pct }}%</span>
+          <div class="donut-mix-wrap">
+            <div class="donut-chart-container">
+              <apexchart type="donut" height="200" width="200" :options="donutMixOptions" :series="donutMixSeries" />
+            </div>
+            <div class="donut-legend">
+              <div v-for="m in mixCombustivel" :key="m.grupo" class="dl-row">
+                <span class="dl-dot" :style="{ background: combustivelColor(m.grupo) }"></span>
+                <span class="dl-nome">{{ m.grupo }}</span>
+                <span class="dl-pct mono">{{ m.pct_local || m.pct }}%</span>
+                <span class="dl-val mono">{{ fmtR(m.valor) }}</span>
               </div>
-              <div class="mix-bar-wrap">
-                <div class="mix-bar" :style="{ width: m.pct + '%', background: combustivelColor(m.grupo) }"></div>
-              </div>
-              <div class="mix-vals mono">{{ fmtR(m.valor) }} · {{ fmtN(m.litros) }} L</div>
             </div>
           </div>
         </section>
@@ -319,7 +502,7 @@
           <div class="section-title">GASTO POR FILIAL — {{ mesMesLabel }}</div>
           <div v-if="filiaisVisiveis.length === 0" class="empty-msg">Dados de filial não disponíveis</div>
           <div v-else class="filiais-cards">
-            <div v-for="f in filiaisVisiveis" :key="f.filial" class="filial-row">
+            <div v-for="f in filiaisLimitadas" :key="f.filial" class="filial-row">
               <div class="filial-row-top">
                 <div class="filial-info">
                   <span class="filial-dot" :style="{ background: combustivelColor(f.combustivel_pred) }"></span>
@@ -348,6 +531,9 @@
                 <span v-if="f.combustivel_pred" class="comb-badge" :style="{ color: combustivelColor(f.combustivel_pred) }">{{ f.combustivel_pred }}</span>
               </div>
             </div>
+            <button v-if="filiaisVisiveis.length > 8" class="btn-ver-mais" @click="mostrarTodasFiliais = !mostrarTodasFiliais">
+              {{ mostrarTodasFiliais ? '▴ Recolher' : '▾ Ver todas (' + filiaisVisiveis.length + ')' }}
+            </button>
           </div>
         </section>
       </div>
@@ -362,7 +548,7 @@ import VueApexCharts from 'vue3-apexcharts'
 import GlobalTopbar from '../components/GlobalTopbar.vue'
 import GraficoPrecoPorUF from '../components/GraficoPrecoPorUF.vue'
 import KpiCardPro from '../components/KpiCardPro.vue'
-import { fetchVisaoGeralDashboard } from '../api/visaoGeral.js'
+import { fetchVisaoGeralDashboard, fetchAgressores } from '../api/visaoGeral.js'
 import { fetchPrecoPorUF } from '../api/precos.js'
 import { useFiltrosStore } from '../stores/filtros'
 
@@ -400,8 +586,9 @@ const precoPorUF     = ref([])
 const lUF            = ref(true)
 const filtroUFComb   = ref(null)
 
-// Combustíveis disponíveis para os tabs do gráfico UF (fixos pois são os grupos padrão)
+// Combustíveis disponíveis para os tabs de filtro (fixos — grupos padrão)
 const opcoesUFComb = ['Diesel', 'Gasolina', 'Álcool', 'Arla']
+const opcoesRegiao = ['Sul', 'Sudeste', 'Centro-Oeste', 'Nordeste', 'Norte']
 
 async function setFiltroUF(comb) {
   filtroUFComb.value = comb
@@ -415,6 +602,121 @@ async function setFiltroUF(comb) {
   }
 }
 
+// ── Filtros locais por seção ─────────────────────────────────────────────────
+const filtroCombTendencia = ref(null)  // Mensal + Semanal
+const filtroCombDiario    = ref(null)  // Diário
+const filtroRegiaoMix     = ref(null)  // Donut/Tabela Mix Combustível
+const filtroCombRegiao    = ref(null)  // Donut Região
+const filtroCombGrupo     = ref(null)  // Grupo bar + KPI cards
+const filtroCombFilial    = ref(null)  // Filial bar + cards
+
+const lTendencia   = ref(false)
+const lDiario      = ref(false)
+const lMixComb     = ref(false)
+const lRegiao      = ref(false)
+const lGrupo       = ref(false)
+const lFilial      = ref(false)
+const lAgressores  = ref(false)
+
+// ── Agressores (expandable in hybrid table) ──────────────────────────────────
+const grupoExpandido  = ref(null)
+const dadosAgressores = ref(null)
+const abaDetalhe      = ref('destaques')
+
+async function _dashboardComb(comb) {
+  return fetchVisaoGeralDashboard({ ...store.selecao, combustivel: comb || undefined })
+}
+
+async function _dashboardRegiao(reg) {
+  return fetchVisaoGeralDashboard({ ...store.selecao, regiao: reg || undefined })
+}
+
+async function toggleAgressores(grupo) {
+  if (grupoExpandido.value === grupo) {
+    grupoExpandido.value = null
+    dadosAgressores.value = null
+    return
+  }
+  grupoExpandido.value = grupo
+  abaDetalhe.value = 'destaques'
+  lAgressores.value = true
+  dadosAgressores.value = null
+  try {
+    const s = store.selecao
+    dadosAgressores.value = await fetchAgressores({
+      grupo,
+      modo_tempo: s.modo_tempo,
+      mes: s.mes,
+      ano: s.ano,
+      bimestre: s.bimestre,
+      semestre: s.semestre,
+      data_inicio: s.data_inicio,
+      data_fim: s.data_fim,
+    })
+  } catch (e) {
+    console.error('Erro ao buscar agressores:', e)
+    dadosAgressores.value = null
+  } finally { lAgressores.value = false }
+}
+
+async function setFiltroRegiaoMix(reg) {
+  filtroRegiaoMix.value = reg
+  lMixComb.value = true
+  try {
+    const d = await _dashboardRegiao(reg)
+    const mix = d.mix_combustivel ?? []
+    const totalMix = mix.reduce((s, m) => s + m.valor, 0) || 1
+    mix.forEach(m => m.pct_local = (m.valor / totalMix * 100).toFixed(1))
+    mixCombustivel.value = mix
+  } finally { lMixComb.value = false }
+}
+
+async function setFiltroCombTendencia(comb) {
+  filtroCombTendencia.value = comb
+  lTendencia.value = true
+  try {
+    const d = await _dashboardComb(comb)
+    grafMensal.value  = d.grafico_mensal  ?? []
+    grafSemanal.value = d.grafico_semanal ?? []
+  } finally { lTendencia.value = false }
+}
+
+async function setFiltroCombDiario(comb) {
+  filtroCombDiario.value = comb
+  lDiario.value = true
+  try {
+    const d = await _dashboardComb(comb)
+    grafDiario.value = d.grafico_diario ?? []
+  } finally { lDiario.value = false }
+}
+
+async function setFiltroCombRegiao(comb) {
+  filtroCombRegiao.value = comb
+  lRegiao.value = true
+  try {
+    const d = await _dashboardComb(comb)
+    porRegiao.value = d.por_regiao ?? []
+  } finally { lRegiao.value = false }
+}
+
+async function setFiltroCombGrupo(comb) {
+  filtroCombGrupo.value = comb
+  lGrupo.value = true
+  try {
+    const d = await _dashboardComb(comb)
+    porGrupo.value = d.por_grupo_veiculo ?? []
+  } finally { lGrupo.value = false }
+}
+
+async function setFiltroCombFilial(comb) {
+  filtroCombFilial.value = comb
+  lFilial.value = true
+  try {
+    const d = await _dashboardComb(comb)
+    filiais.value = d.filiais ?? []
+  } finally { lFilial.value = false }
+}
+
 // Filiais — exclui "Sem filial identificada" da tabela (já aparece no alerta)
 const filiaisVisiveis = computed(() =>
   filiais.value.filter(f => f.filial !== 'Sem filial identificada')
@@ -422,6 +724,10 @@ const filiaisVisiveis = computed(() =>
 
 const filiaisTotalGasto = computed(() =>
   filiaisVisiveis.value.reduce((s, f) => s + (f.gasto || 0), 0)
+)
+const mostrarTodasFiliais = ref(false)
+const filiaisLimitadas = computed(() =>
+  mostrarTodasFiliais.value ? filiaisVisiveis.value : filiaisVisiveis.value.slice(0, 8)
 )
 
 const veiculosSemFilial = computed(() => {
@@ -463,6 +769,9 @@ const fmtN = v => v != null
 const varClass = v => v == null ? 'badge-neutral' : v > 0 ? 'badge-red' : 'badge-green'
 const varIcon  = v => v == null ? '' : v > 0 ? '▲' : '▼'
 
+// Cor do botão "Todos" (neutro, distinto dos combustíveis)
+const TODOS_COLOR = '#334155'
+
 // ── Paleta categorial — hues distintos, sem vermelho (brand/alerta) nem verde (positivo)
 const FUEL_COLORS = {
   'Diesel':   '#2563EB',  // azul
@@ -473,23 +782,15 @@ const FUEL_COLORS = {
 }
 
 const GRUPO_COLORS = {
-  // Caminhões — azul a índigo, variando hue para diferenciar
-  'Caminhão17Ton':   '#1E3A5F',  // azul marinho
-  'Caminhão12Ton':   '#1D4ED8',  // azul
-  'Caminhão10.5Ton': '#0891B2',  // teal
-  'Caminhão9Ton':    '#0284C7',  // sky
-  'Caminhão7.5Ton':  '#4338CA',  // índigo
-  'Caminhão6Ton':    '#7C3AED',  // violeta
-  'Caminhão5.5Ton':  '#A21CAF',  // fúcsia
-  'Caminhão5Ton':    '#EA580C',  // laranja (distinto de vermelho)
-  'Caminhão4.2Ton':  '#B45309',  // âmbar escuro
-  // Categorias genéricas
-  'Pesado':  '#1D4ED8',  // azul
-  'Médio':   '#0891B2',  // teal
-  'Leve':    '#7C3AED',  // violeta
-  'Kombi':   '#EA580C',  // laranja
-  'Moto':    '#A21CAF',  // fúcsia
-  'Outros':  '#64748B',  // slate
+  'Bitruck': '#1E3A5F',
+  'Truck':   '#1D4ED8',
+  'Toco':    '#0891B2',
+  '3/4':     '#4338CA',
+  'Pesado':  '#7C3AED',
+  'Médio':   '#A21CAF',
+  'Leve':    '#EA580C',
+  'Moto':    '#B45309',
+  'Outros':  '#64748B',
 }
 
 const REGIAO_COLORS = {
@@ -532,6 +833,26 @@ const optDonutComb = computed(() => ({
   stroke: { width: 2 },
 }))
 
+// ── Donut: Mix Combustível (seção inferior) ──────────────────────────────
+const donutMixSeries = computed(() => mixCombustivel.value.map(m => m.valor))
+const donutMixOptions = computed(() => ({
+  chart: { background: 'transparent', fontFamily: 'Inter, sans-serif' },
+  theme: { mode: 'light' },
+  labels: mixCombustivel.value.map(m => m.grupo),
+  colors: mixCombustivel.value.map(m => FUEL_COLORS[m.grupo] ?? '#6b7280'),
+  legend: { show: false },
+  dataLabels: { enabled: false },
+  plotOptions: { pie: { donut: { size: '72%', labels: {
+    show: true,
+    name: { show: false },
+    value: { show: false },
+    total: { show: true, label: 'Total', fontSize: '11px', color: '#94a3b8',
+      formatter: () => fmtRShort(mixCombustivel.value.reduce((s, m) => s + m.valor, 0)) }
+  } } } },
+  tooltip: { y: { formatter: v => 'R$ ' + Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) } },
+  stroke: { width: 2, colors: ['#ffffff'] },
+}))
+
 // ── Donut: Região ─────────────────────────────────────────────────────────
 const seriesDonutRegiao = computed(() => porRegiao.value.map(r => r.valor))
 const optDonutRegiao = computed(() => ({
@@ -569,7 +890,7 @@ const optBarGrupo = computed(() => ({
   chart: { background: 'transparent', toolbar: { show: false }, fontFamily: 'Inter, sans-serif' },
   theme: { mode: 'light' },
   plotOptions: { bar: { horizontal: true, borderRadius: 4, distributed: true, barHeight: '70%' } },
-  colors: porGrupoOrdenado.value.map(g => GRUPO_COLORS[g.grupo] ?? '#6b7280'),
+  colors: porGrupoOrdenado.value.map(g => combustivelColor(g.combustivel_pred) ?? '#3b82f6'),
   legend: { show: false },
   dataLabels: {
     enabled: true,
@@ -638,9 +959,14 @@ const chartBase = {
   dataLabels: { enabled: false },
 }
 
+// Cor reativa: muda conforme filtro de combustível selecionado
+const corTendencia = computed(() =>
+  filtroCombTendencia.value ? combustivelColor(filtroCombTendencia.value) : '#1D4ED8'
+)
+
 const optMensal = computed(() => ({
   ...chartBase,
-  colors: ['#1D4ED8'],
+  colors: [corTendencia.value],
   xaxis: { ...chartBase.xaxis, categories: grafMensal.value.map(d => d.label) },
   plotOptions: { bar: { borderRadius: 6 } },
 }))
@@ -648,20 +974,53 @@ const seriesMensal = computed(() => [{ name: 'Gasto', data: grafMensal.value.map
 
 const optSemanal = computed(() => ({
   ...chartBase,
-  colors: ['#1D4ED8'],
+  colors: [corTendencia.value],
   xaxis: { ...chartBase.xaxis, categories: grafSemanal.value.map(d => d.label) },
   plotOptions: { bar: { borderRadius: 6 } },
 }))
 const seriesSemanal = computed(() => [{ name: 'Gasto', data: grafSemanal.value.map(d => d.valor) }])
 
-const optDiario = computed(() => ({
+// ── Gráfico diário split por tipo_dia ────────────────────────────────────
+function _getTipoDia(d) {
+  // 1. Backend novo: retorna tipo_dia direto
+  if (d.tipo_dia) return d.tipo_dia
+  // 2. Backend novo: iso_date presente
+  if (d.iso_date) {
+    const dt = new Date(d.iso_date + 'T12:00:00')
+    const wd = dt.getDay()
+    return (wd === 0 || wd === 6) ? 'fds' : 'util'
+  }
+  // 3. Fallback: reconstrói data a partir do label "dd/mm" + ano corrente
+  if (d.label && d.label.includes('/')) {
+    const [dd, mm] = d.label.split('/')
+    const year = new Date().getFullYear()
+    const dt = new Date(year, parseInt(mm) - 1, parseInt(dd))
+    const wd = dt.getDay()
+    return (wd === 0 || wd === 6) ? 'fds' : 'util'
+  }
+  return 'util'
+}
+
+const grafDiarioUtil     = computed(() => grafDiario.value.filter(d => _getTipoDia(d) === 'util'))
+const grafDiarioFDS      = computed(() => grafDiario.value.filter(d => _getTipoDia(d) === 'fds'))
+const grafDiarioFeriado  = computed(() => grafDiario.value.filter(d => _getTipoDia(d) === 'feriado'))
+
+const _diarioOpts = (dados, color) => ({
   ...chartBase,
-  colors: ['#1D4ED8'],
-  xaxis: { ...chartBase.xaxis, categories: grafDiario.value.map(d => d.label) },
-  fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0 } },
+  colors: [color],
+  xaxis: { ...chartBase.xaxis, categories: dados.map(d => d.label) },
+  fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0 } },
   stroke: { width: 2 },
-}))
-const seriesDiario = computed(() => [{ name: 'Gasto', data: grafDiario.value.map(d => d.valor) }])
+  tooltip: { theme: 'light', y: { formatter: v => 'R$ ' + Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) } },
+})
+
+const optDiarioUtil    = computed(() => _diarioOpts(grafDiarioUtil.value,    '#1D4ED8'))
+const optDiarioFDS     = computed(() => _diarioOpts(grafDiarioFDS.value,     '#7C3AED'))
+const optDiarioFeriado = computed(() => _diarioOpts(grafDiarioFeriado.value, '#EA580C'))
+
+const seriesDiarioUtil    = computed(() => [{ name: 'Gasto', data: grafDiarioUtil.value.map(d => d.valor) }])
+const seriesDiarioFDS     = computed(() => [{ name: 'Gasto', data: grafDiarioFDS.value.map(d => d.valor) }])
+const seriesDiarioFeriado = computed(() => [{ name: 'Gasto', data: grafDiarioFeriado.value.map(d => d.valor) }])
 
 async function load() {
   carregando.value = true
@@ -669,7 +1028,12 @@ async function load() {
     const d = await fetchVisaoGeralDashboard(store.selecao)
     hero.value          = d.hero ?? {}
     porGrupo.value      = d.por_grupo_veiculo ?? []
-    mixCombustivel.value = d.mix_combustivel ?? []
+    
+    const mix = d.mix_combustivel ?? []
+    const totalMix = mix.reduce((s, m) => s + m.valor, 0) || 1
+    mix.forEach(m => m.pct_local = (m.valor / totalMix * 100).toFixed(1))
+    mixCombustivel.value = mix
+
     porRegiao.value      = d.por_regiao ?? []
     filiais.value        = d.filiais ?? []
     grafMensal.value     = d.grafico_mensal ?? []
@@ -677,8 +1041,14 @@ async function load() {
     grafDiario.value     = d.grafico_diario ?? []
     ultimaAtualiz.value  = 'Atualizado ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 
-    // Busca o gráfico de estado — reseta tab local ao trocar filtro global
-    filtroUFComb.value = null
+    // Reseta todos os filtros locais ao trocar filtro global
+    filtroUFComb.value        = null
+    filtroCombTendencia.value = null
+    filtroCombDiario.value    = null
+    filtroRegiaoMix.value     = null
+    filtroCombRegiao.value    = null
+    filtroCombGrupo.value     = null
+    filtroCombFilial.value    = null
     lUF.value = true
     try {
       precoPorUF.value = await fetchPrecoPorUF({
@@ -925,6 +1295,12 @@ tbody.has-filter .bd-row.dimmed:hover {
 .charts-grid-bottom {
   margin-bottom: 24px;
 }
+.charts-grid-three {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 20px;
+}
 .charts-block { padding: 24px; }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -967,27 +1343,151 @@ tbody.has-filter .bd-row.dimmed:hover {
   .topbar { padding: 0 16px; }
 }
 /* ═══════════════════════════════════════════════════════════════════════════ */
-/*  RESTAURADAS: GRUPOS, MIX E FILIAIS (Módulos antigos)                       */
+/*  HYBRID TABLE: DESEMPENHO POR GRUPO                                        */
 /* ═══════════════════════════════════════════════════════════════════════════ */
-.grupos-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
+.grupo-table-wrap {
+  overflow-x: auto; border-radius: 10px; border: 1px solid #e2e8f0;
 }
-.grupo-card {
-  background: white; border: 1px solid #e2e8f0; border-radius: 12px;
-  padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+.grupo-table {
+  width: 100%; border-collapse: collapse; font-size: 13px;
 }
-.grupo-header {
-  display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
+.grupo-table thead tr {
+  background: #f8fafc; border-bottom: 1px solid #e2e8f0;
 }
-.grupo-icon { font-size: 18px; margin-right: 8px; }
-.grupo-nome { font-weight: 600; color: #1e293b; font-size: 14px; flex-grow: 1; }
-.grupo-pct { font-weight: 700; color: #64748b; font-size: 14px; }
-.grupo-bar-wrap { height: 6px; background: #f1f5f9; border-radius: 3px; overflow: hidden; margin-bottom: 16px; }
-.grupo-bar { height: 100%; border-radius: 3px; }
+.grupo-table th {
+  padding: 12px 14px; text-align: left; font-size: 11px; font-weight: 700;
+  color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;
+  border-right: 1px solid #e2e8f0;
+}
+.grupo-table th:last-child { border-right: none; }
+.grupo-table th.right, .grupo-table td.right { text-align: right; }
+.grupo-row {
+  border-bottom: 2px solid #f8fafc; cursor: pointer; transition: all 0.2s ease;
+}
+.grupo-row:hover { background: #f8fafc; transform: translateY(-1px); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); position: relative; z-index: 1; }
+.grupo-row.row-expanded { background: #f1f5f9; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); }
+.grupo-row td { 
+  padding: 14px 14px; color: #334155; vertical-align: middle;
+  border-right: 1px solid #f1f5f9;
+}
+.grupo-row td:last-child { border-right: none; }
+.col-kml { min-width: 140px; }
 
+.grupo-dot {
+  display: inline-block; width: 12px; height: 12px; border-radius: 3px;
+  margin-right: 12px; vertical-align: middle;
+}
+.grupo-nome-tbl { font-weight: 700; font-size: 14px; color: #0f172a; }
+.val-currency { font-size: 11px; color: #94a3b8; font-weight: 600; margin-right: 2px; }
+.val-primary { font-weight: 800; font-size: 15px; color: #0f172a; letter-spacing: -0.02em; }
+.metric-secondary { font-weight: 600; color: #475569; }
+
+/* km/L smart bar */
+.kml-modern { display: flex; flex-direction: column; gap: 6px; }
+.kml-m-top { display: flex; align-items: center; justify-content: space-between; }
+.kml-val { font-weight: 800; color: #0f172a; font-size: 14px; letter-spacing: -0.02em; }
+.kml-m-bot { font-size: 10px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; text-align: right; margin-top: -2px; }
+.kml-m-bar-wrap { 
+  height: 6px; background: #f1f5f9; border-radius: 3px; position: relative; overflow: visible; 
+}
+.kml-m-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+.fill-ok { background: #10b981; }
+.fill-alerta { background: #f59e0b; }
+.fill-critico { background: #ef4444; }
+.kml-m-target { 
+  position: absolute; right: 0; top: -3px; bottom: -3px; width: 2px; 
+  background: #cbd5e1; border-radius: 1px; z-index: 2;
+}
+
+.kml-pill {
+  display: inline-flex; align-items: center; gap: 2px;
+  font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px;
+  white-space: nowrap; margin-left: 4px; border: 1px solid transparent;
+}
+.pill-ok { background: #ecfdf5; color: #059669; border-color: #a7f3d0; }
+.pill-alerta { background: #fffbeb; color: #d97706; border-color: #fde68a; }
+.pill-critico { background: #fef2f2; color: #dc2626; border-color: #fca5a5; }
+
+/* Participation micro-bar */
+.bd-bar-cell { display: flex; align-items: center; gap: 8px; min-width: 120px; }
+.bd-bar-track { flex: 1; height: 6px; background: #f1f5f9; border-radius: 3px; overflow: hidden; }
+.bd-bar-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+.bd-pct { font-size: 12px; font-weight: 600; color: #64748b; min-width: 36px; text-align: right; }
+
+/* Expand button */
+.btn-expand {
+  background: none; border: none; cursor: pointer; font-size: 16px;
+  color: #94a3b8; transition: all 0.15s; padding: 2px 6px;
+}
+.btn-expand:hover { color: #475569; }
+.btn-expand.expanded { color: var(--orange); }
+
+/* Aggressors panel */
+.agressores-row td { padding: 0 !important; background: #fafbfc; }
+.agressores-panel {
+  padding: 16px 20px 20px; border-top: 2px solid var(--orange);
+  animation: slideDown 0.2s ease;
+}
+@keyframes slideDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+.agressores-loading, .agressores-empty {
+  font-size: 13px; color: #94a3b8; padding: 16px; text-align: center;
+}
+.agressores-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 12px; flex-wrap: wrap; gap: 8px;
+}
+.ag-title { font-size: 13px; font-weight: 700; color: #1e293b; }
+.ag-total-waste { font-size: 12px; color: #dc2626; }
+.ag-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ag-table thead tr { background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+.ag-table th {
+  padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700;
+  color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;
+  border-right: 1px solid #f1f5f9;
+}
+.ag-table th:last-child { border-right: none; }
+.ag-table th.right, .ag-table td.right { text-align: right; }
+.ag-row { border-bottom: 1px solid #e2e8f0; transition: background 0.15s; }
+.ag-row:hover { background: #f8fafc; }
+.ag-row:last-child { border-bottom: none; }
+.ag-row td { 
+  padding: 12px 14px; color: #334155; font-weight: 500; 
+  border-right: 1px solid #f8fafc; vertical-align: middle;
+}
+.ag-row td:last-child { border-right: none; }
+.ag-row td.right { font-weight: 700; color: #0f172a; }
+.ag-placa { font-weight: 800; color: #0f172a; letter-spacing: 0.02em; font-size: 14px; }
+.ag-modelo { font-size: 12px; font-weight: 600; color: #64748b; max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; margin-top: 2px; }
+.ag-avg { display: block; font-size: 12px; color: #475569; margin-bottom: 4px; }
+.text-danger { color: #b91c1c !important; font-weight: 700; }
+.text-warning { color: #b45309 !important; font-weight: 700; }
+.text-success { color: #047857 !important; font-weight: 700; }
+
+/* Detail tabs */
+.detail-header { margin-bottom: 8px; }
+.detail-tabs {
+  display: flex; gap: 6px; margin-bottom: 14px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;
+}
+.detail-tab {
+  background: transparent; border: 1.5px solid #e2e8f0; color: #64748b;
+  font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 20px;
+  cursor: pointer; font-family: 'Inter', sans-serif; transition: all .15s;
+}
+.detail-tab.active { background: #0f172a; color: white; border-color: #0f172a; }
+.detail-tab:not(.active):hover { border-color: #94a3b8; }
+.tab-count {
+  display: inline-block; background: rgba(0,0,0,0.08); color: inherit;
+  font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 10px; margin-left: 4px;
+}
+.detail-tab.active .tab-count { background: rgba(255,255,255,0.2); }
+.ag-summary {
+  font-size: 14px; font-weight: 700; padding: 10px 14px; border-radius: 8px;
+  margin-bottom: 12px; border: 1px solid transparent; display: flex; align-items: center;
+}
+.ag-summary.text-success { background: #ecfdf5; color: #047857 !important; border-color: #a7f3d0; }
+.ag-summary.text-danger { background: #fef2f2; color: #b91c1c !important; border-color: #fecaca; }
+
+/* ── Drill buttons (used in breakdown + filials) ─────────────────────────── */
 .btn-drill {
   background: none; border: none; padding: 0 4px; cursor: pointer;
   color: #94a3b8; display: flex; align-items: center; justify-content: center;
@@ -995,55 +1495,33 @@ tbody.has-filter .bd-row.dimmed:hover {
 }
 .bd-row:hover .btn-drill { opacity: 1; color: var(--orange); }
 
-.grupo-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
-.gh-main { display: flex; flex-direction: column; gap: 2px; }
-
-.btn-drill-card {
-  background: rgba(249, 115, 22, 0.08); border: 1px solid rgba(249, 115, 22, 0.15);
-  padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: 700;
-  color: var(--orange); cursor: pointer; transition: all 0.2s;
-  letter-spacing: 0.05em;
-}
-.btn-drill-card:hover { background: var(--orange); color: white; border-color: var(--orange); }
-.icon-drill { font-size: 14px; line-height: 1; }
-
-.grupo-stats { display: flex; flex-wrap: wrap; gap: 12px; row-gap: 8px; border-top: 1px dashed #e2e8f0; padding-top: 12px; }
-.gs-item { display: flex; flex-direction: column; width: calc(33.3% - 12px); }
-.gs-label { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; }
-.gs-val { font-size: 13px; font-weight: 600; color: #334155; }
-
-.kml-bench {
-  background: #f8fafc; border-radius: 8px; padding: 10px; margin-bottom: 16px; border: 1px solid #e2e8f0;
-}
-.kml-bench.bench-ok { border-color: #a7f3d0; background: #ecfdf5; }
-.kml-bench.bench-alerta { border-color: #fde68a; background: #fffbeb; }
-.kml-bench.bench-critico { border-color: #fecaca; background: #fef2f2; }
-.bench-row { display: flex; justify-content: space-between; align-items: center; font-size: 11px; margin-bottom: 8px; }
-.bench-label { font-weight: 600; color: #475569; }
-.bench-real { font-weight: 700; color: #0f172a; font-size: 13px; margin-left: 4px; }
-.bench-sep { color: #94a3b8; margin: 0 4px; }
-.bench-ref { color: #64748b; }
-.bench-delta { font-weight: 700; margin-left: auto; }
-.delta-ok { color: #059669; } .delta-alerta { color: #d97706; } .delta-critico { color: #dc2626; }
-.bench-track { height: 6px; background: #e2e8f0; border-radius: 3px; position: relative; }
-.bench-fill { height: 100%; border-radius: 3px; }
-.bench-marker { position: absolute; top: -2px; bottom: -2px; width: 2px; background: #cbd5e1; }
-.bench-marker.ref-line { background: #64748b; z-index: 2; }
-
 /* ── Insights dimensão ───────────────────────────────────────────────────── */
 .insights-donut-row { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
 .insights-card { margin-bottom: 0 !important; }
 
 .bottom-row { display: flex; gap: 24px; align-items: flex-start; }
 .mix-block, .filiais-block { flex: 1; }
-.mix-list { display: flex; flex-direction: column; gap: 12px; }
-.mix-item { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; justify-content: center; }
-.mix-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-.mix-nome { font-size: 13px; font-weight: 600; color: #334155; }
-.mix-pct { font-size: 14px; font-weight: 700; color: #0f172a; }
-.mix-bar-wrap { height: 6px; background: #f1f5f9; border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
-.mix-bar { height: 100%; border-radius: 3px; }
-.mix-vals { font-size: 12px; color: #64748b; text-align: right; }
+
+/* Donut Mix */
+.donut-mix-wrap { display: flex; align-items: center; gap: 16px; }
+.donut-chart-container { flex-shrink: 0; width: 220px; }
+.donut-legend { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+.dl-row {
+  display: flex; align-items: center; gap: 8px; font-size: 13px;
+}
+.dl-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.dl-nome { font-weight: 600; color: #1e293b; min-width: 70px; }
+.dl-pct { font-weight: 700; color: #0f172a; min-width: 40px; text-align: right; }
+.dl-val { color: #64748b; font-size: 12px; margin-left: auto; }
+
+/* Ver mais filiais */
+.btn-ver-mais {
+  display: block; width: 100%; margin-top: 12px; padding: 10px;
+  background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
+  color: #475569; font-size: 12px; font-weight: 600; cursor: pointer;
+  font-family: 'Inter', sans-serif; transition: all .15s;
+}
+.btn-ver-mais:hover { background: #f1f5f9; color: #1e293b; }
 
 /* ── Tabs UF Combustível ─────────────────────────────────────────────────── */
 .section-title-row {
@@ -1059,6 +1537,7 @@ tbody.has-filter .bd-row.dimmed:hover {
 }
 .uf-comb-tabs button.active { color: white; }
 .uf-comb-tabs button:not(.active):hover { border-color: #94a3b8; }
+.section-hint { font-size: 11px; color: #94a3b8; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; }
 
 /* ── Filiais Cards ───────────────────────────────────────────────────────── */
 .filiais-cards { display: flex; flex-direction: column; gap: 10px; }

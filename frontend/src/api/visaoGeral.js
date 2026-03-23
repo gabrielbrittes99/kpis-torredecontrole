@@ -18,3 +18,13 @@ export async function fetchFiltrosDisponiveis() {
   if (!r.ok) throw new Error('Falha ao buscar filtros disponíveis')
   return r.json()
 }
+
+export async function fetchAgressores(params = {}) {
+  const url = new URL(`${BASE}/api/visao-geral/agressores`, location.origin)
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== null && v !== undefined && v !== '') url.searchParams.set(k, v)
+  })
+  const r = await fetch(url)
+  if (!r.ok) throw new Error('Falha ao buscar agressores')
+  return r.json()
+}

@@ -78,7 +78,7 @@ const fmtR = v => v != null ? Number(v).toLocaleString('pt-BR', { style: 'curren
 
 function formatGrupo(g) {
   if (!g) return '—'
-  return g.replace('Caminhão', 'Cam.').replace('Ton', 'T').replace('10.5', '10,5').replace('4.2', '4,2').replace('5.5', '5,5').replace('7.5', '7,5')
+  return g
 }
 
 const flagLabel = flag => ({

@@ -165,87 +165,77 @@ VEICULO_RULES: list[tuple[str, str | None, str]] = [
     # ── Moto ─────────────────────────────────────────────────────────────────
     ("cg 160",          None,       "Moto"),
     ("cg160",           None,       "Moto"),
-    # ── Kombi ────────────────────────────────────────────────────────────────
-    ("kombi",           None,       "Kombi"),
 
     # ══════════════════════════════════════════════════════════════════════════
-    # CAMINHÕES — por tonelagem (ordem do mais pesado para o mais leve)
+    # BITRUCK / 6x4 (Antigo Caminhão 17 Ton)
     # ══════════════════════════════════════════════════════════════════════════
-
-    # ── Caminhão 17 Ton (Bitruck e pesados 6x4) ──────────────────────────────
-    ("30-330",          None,       "Caminhão17Ton"),
-    ("30.330",          None,       "Caminhão17Ton"),
-    ("30-280",          None,       "Caminhão17Ton"),
-    ("30.280",          None,       "Caminhão17Ton"),
-    ("vm 330",          None,       "Caminhão17Ton"),
-    ("26-260",          None,       "Caminhão17Ton"),   # 26-260 Constellation 6X2
-    ("24.260",          None,       "Caminhão17Ton"),   # 24.260 CNM 6X4
-    ("24-260",          None,       "Caminhão17Ton"),
-
-    # ── Caminhão 12 Ton (Truck) ──────────────────────────────────────────────
-    ("cargo 2423",      None,       "Caminhão12Ton"),
-    ("2423",            "ford",     "Caminhão12Ton"),
-    ("24-280",          None,       "Caminhão12Ton"),
-    ("24.280",          None,       "Caminhão12Ton"),
-    ("vm 290",          None,       "Caminhão12Ton"),
-    ("atego 2429",      None,       "Caminhão12Ton"),
-    ("atego 2430",      None,       "Caminhão12Ton"),
-    ("15.190",          None,       "Caminhão12Ton"),
-    ("15-190",          None,       "Caminhão12Ton"),
-
-    # ── Caminhão 10.5 Ton (Toco) ─────────────────────────────────────────────
-    ("17-230",          None,       "Caminhão10.5Ton"),
-    ("17.230",          None,       "Caminhão10.5Ton"),
-    ("17-210",          None,       "Caminhão10.5Ton"),
-    ("17.210",          None,       "Caminhão10.5Ton"),
-    ("atego 1719",      None,       "Caminhão10.5Ton"),
-
-    # ── Caminhão 9 Ton (Toco) ────────────────────────────────────────────────
-    ("13-180",          None,       "Caminhão9Ton"),
-    ("13.180",          None,       "Caminhão9Ton"),
-    ("atego 1419",      None,       "Caminhão9Ton"),
-
-    # ── Caminhão 7.5 Ton (Toco) ──────────────────────────────────────────────
-    ("14-190",          None,       "Caminhão7.5Ton"),
-    ("14.190",          None,       "Caminhão7.5Ton"),
-    ("14-210",          None,       "Caminhão7.5Ton"),
-    ("14.210",          None,       "Caminhão7.5Ton"),
-
-    # ── Caminhão 6 Ton (3/4) ─────────────────────────────────────────────────
-    ("11-180",          None,       "Caminhão6Ton"),
-    ("11.180",          None,       "Caminhão6Ton"),
-
-    # ── Caminhão 5.5 Ton (3/4) ───────────────────────────────────────────────
-    ("accelo 1016",     None,       "Caminhão5.5Ton"),
-    ("accelo 1017",     None,       "Caminhão5.5Ton"),
-    ("10.160",          None,       "Caminhão5.5Ton"),
-    ("10-160",          None,       "Caminhão5.5Ton"),
-
-    # ── Caminhão 5 Ton (3/4) ────────────────────────────────────────────────
-    ("9-170",           None,       "Caminhão5Ton"),
-    ("9.170",           None,       "Caminhão5Ton"),
-
-    # ── Caminhão 4.2 Ton (3/4) ──────────────────────────────────────────────
-    ("8-160",           None,       "Caminhão4.2Ton"),
-    ("8.160",           None,       "Caminhão4.2Ton"),
-    ("cargo 816",       None,       "Caminhão4.2Ton"),
-    ("816",             "ford",     "Caminhão4.2Ton"),
-    ("hd80",            None,       "Caminhão4.2Ton"),
-    ("hd 80",           None,       "Caminhão4.2Ton"),
-    ("accelo 815",      None,       "Caminhão4.2Ton"),
-    ("accelo 817",      None,       "Caminhão4.2Ton"),
-
-    # Fallbacks genéricos para caminhões (se não bateu acima)
-    ("accelo",          None,       "Caminhão5.5Ton"),  # Accelo genérico → 5.5T
-    ("atego",           None,       "Caminhão10.5Ton"), # Atego genérico → 10.5T
-    ("20.480",          None,       "Caminhão12Ton"),   # VW Constellation 20.480 (marca "VOLKSWAGEN" no banco)
-    ("constellation",   None,       "Caminhão12Ton"),   # Constellation genérico → 12T
-    ("constelation",    None,       "Caminhão12Ton"),   # typo c/ 1 L
-    ("costellation",    None,       "Caminhão12Ton"),   # typo no banco (COStellation)
-    ("vm",              "volvo",    "Caminhão12Ton"),    # Volvo VM genérico → 12T
+    ("30-330",          None,       "Bitruck"),
+    ("30.330",          None,       "Bitruck"),
+    ("30-280",          None,       "Bitruck"),
+    ("30.280",          None,       "Bitruck"),
+    ("vm 330",          None,       "Bitruck"),
+    ("26-260",          None,       "Bitruck"),
+    ("24.260",          None,       "Bitruck"),
+    ("24-260",          None,       "Bitruck"),
 
     # ══════════════════════════════════════════════════════════════════════════
-    # PESADO — vans e furgões grandes (diesel)
+    # TRUCK (Antigo Caminhão 12 Ton)
+    # ══════════════════════════════════════════════════════════════════════════
+    ("cargo 2423",      None,       "Truck"),
+    ("2423",            "ford",     "Truck"),
+    ("24-280",          None,       "Truck"),
+    ("24.280",          None,       "Truck"),
+    ("vm 290",          None,       "Truck"),
+    ("atego 2429",      None,       "Truck"),
+    ("atego 2430",      None,       "Truck"),
+    ("15.190",          None,       "Truck"),
+    ("15-190",          None,       "Truck"),
+    ("20.480",          None,       "Truck"),
+    ("constellation",   None,       "Truck"),
+    ("constelation",    None,       "Truck"),
+    ("costellation",    None,       "Truck"),
+    ("vm",              "volvo",    "Truck"),
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # TOCO (Antigos 10.5, 9, 7.5 Ton)
+    # ══════════════════════════════════════════════════════════════════════════
+    ("17-230",          None,       "Toco"),
+    ("17.230",          None,       "Toco"),
+    ("17-210",          None,       "Toco"),
+    ("17.210",          None,       "Toco"),
+    ("atego 1719",      None,       "Toco"),
+    ("13-180",          None,       "Toco"),
+    ("13.180",          None,       "Toco"),
+    ("atego 1419",      None,       "Toco"),
+    ("14-190",          None,       "Toco"),
+    ("14.190",          None,       "Toco"),
+    ("14-210",          None,       "Toco"),
+    ("14.210",          None,       "Toco"),
+    ("atego",           None,       "Toco"),
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # 3/4 (Antigos 6, 5.5, 5, 4.2 Ton)
+    # ══════════════════════════════════════════════════════════════════════════
+    ("11-180",          None,       "3/4"),
+    ("11.180",          None,       "3/4"),
+    ("accelo 1016",     None,       "3/4"),
+    ("accelo 1017",     None,       "3/4"),
+    ("10.160",          None,       "3/4"),
+    ("10-160",          None,       "3/4"),
+    ("9-170",           None,       "3/4"),
+    ("9.170",           None,       "3/4"),
+    ("8-160",           None,       "3/4"),
+    ("8.160",           None,       "3/4"),
+    ("cargo 816",       None,       "3/4"),
+    ("816",             "ford",     "3/4"),
+    ("hd80",            None,       "3/4"),
+    ("hd 80",           None,       "3/4"),
+    ("accelo 815",      None,       "3/4"),
+    ("accelo 817",      None,       "3/4"),
+    ("accelo",          None,       "3/4"),
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # PESADO — vans, kombi e furgões grandes (diesel e gasolina)
     # ══════════════════════════════════════════════════════════════════════════
     ("master",          None,       "Pesado"),
     ("sprinter",        None,       "Pesado"),
@@ -257,6 +247,7 @@ VEICULO_RULES: list[tuple[str, str | None, str]] = [
     ("furgão",          None,       "Pesado"),
     ("furgao",          None,       "Pesado"),
     ("s10",             None,       "Pesado"),
+    ("kombi",           None,       "Pesado"),
 
     # ══════════════════════════════════════════════════════════════════════════
     # MÉDIO — pickups, utilitários leves, furgonetas
@@ -284,34 +275,22 @@ VEICULO_RULES: list[tuple[str, str | None, str]] = [
 ]
 
 VEICULO_GROUPS = [
-    "Caminhão17Ton",
-    "Caminhão12Ton",
-    "Caminhão10.5Ton",
-    "Caminhão9Ton",
-    "Caminhão7.5Ton",
-    "Caminhão6Ton",
-    "Caminhão5.5Ton",
-    "Caminhão5Ton",
-    "Caminhão4.2Ton",
+    "Bitruck",
+    "Truck",
+    "Toco",
+    "3/4",
     "Pesado",
     "Médio",
     "Leve",
-    "Kombi",
     "Moto",
 ]
 
 # Grupos que operam obrigatoriamente a Diesel
 HEAVY_GROUPS = [
-    "Caminhão17Ton",
-    "Caminhão12Ton",
-    "Caminhão10.5Ton",
-    "Caminhão9Ton",
-    "Caminhão7.5Ton",
-    "Caminhão6Ton",
-    "Caminhão5.5Ton",
-    "Caminhão5Ton",
-    "Caminhão4.2Ton",
-    "Pesado",
+    "Bitruck",
+    "Truck",
+    "Toco",
+    "3/4",
 ]
 
 # Exceções manuais por placa (Placa -> Grupo)
@@ -344,50 +323,33 @@ FILIAL_PLATE_OVERRIDES: dict[str, str] = {
 # Grupos sem dados reais suficientes mantêm estimativas de mercado.
 
 KML_REFERENCIA: dict[str, dict[str, tuple]] = {
-    "Leve": {                        # n=891 registros, 60 veículos
+    "Leve": {
         "Gasolina": (13.69, 10.83),
         "Álcool":   (11.14,  7.86),
     },
-    "Médio": {                       # n=3635 registros, 143 veículos
+    "Médio": {
         "Gasolina": (11.72,  9.23),
         "Álcool":   ( 8.44,  6.99),
     },
-    "Kombi": {                       # sem dados suficientes — estimativa
+    "Pesado": {
+        "Diesel":   (10.18,  8.14),
         "Gasolina": (None,   9.60),
         "Álcool":   ( 8.95,  8.90),
     },
-    "Moto": {                        # sem dados suficientes — estimativa
+    "Moto": {
         "Gasolina": (None,  31.00),
     },
-    "Pesado": {                      # n=4033 registros, 174 veículos
-        "Diesel": (10.18,  8.14),    # Sprinter / Master / Transit / Ducato
+    "3/4": {
+        "Diesel":  ( 6.18,  5.06),
     },
-    "Caminhão4.2Ton": {              # n=152 registros, 19 veículos
-        "Diesel":  ( 6.07,  5.13),   # Cargo 816, Accelo 815, HD80, 8-160
+    "Toco": {
+        "Diesel":  ( 4.65,  4.18),
     },
-    "Caminhão5Ton": {                # n=94 registros, 6 veículos
-        "Diesel":  ( 6.83,  5.51),   # VW 9-170
+    "Truck": {
+        "Diesel":  ( 3.77,  3.23),
     },
-    "Caminhão5.5Ton": {              # n=369 registros, 15 veículos
-        "Diesel":  ( 5.95,  4.87),   # Accelo 1016/1017
-    },
-    "Caminhão6Ton": {                # n=210 registros, 8 veículos
-        "Diesel":  ( 5.89,  4.74),   # VW 11-180
-    },
-    "Caminhão7.5Ton": {              # sem dados — estimativa de mercado
-        "Diesel":  ( 4.80,  4.40),   # VW 14-190/14-210
-    },
-    "Caminhão9Ton": {                # sem dados — estimativa de mercado
-        "Diesel":  ( 4.50,  4.10),   # Atego 1419, 13-180
-    },
-    "Caminhão10.5Ton": {             # n=249 registros, 7 veículos
-        "Diesel":  ( 4.66,  4.05),   # VW 17-230/17-210, Atego 1719
-    },
-    "Caminhão12Ton": {               # n=407 registros, 21 veículos
-        "Diesel":  ( 3.77,  3.23),   # Cargo 2423, 24-280, VM 290, Atego 2429
-    },
-    "Caminhão17Ton": {               # n=295 registros, 9 veículos
-        "Diesel":  ( 3.21,  2.91),   # 30-330, 30-280, VM 330
+    "Bitruck": {
+        "Diesel":  ( 3.21,  2.91),
     },
 }
 
