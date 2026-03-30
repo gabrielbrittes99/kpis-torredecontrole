@@ -139,7 +139,11 @@ class DataCache:
         df.loc[cwb_mask, "filial_estado"] = CWB_BASE_FILIAL["estado"]
         df.loc[cwb_mask, "filial_regiao"] = CWB_BASE_FILIAL["regiao"]
 
-        logger.info(f"Cache: {len(df)} registros de {key} carregados")
+        logger.info(
+            f"Cache: {len(df)} transações carregadas | "
+            f"grupos: {df['grupo_combustivel'].value_counts().to_dict()} | "
+            f"Palmas: {palmas_mask.sum()} registros"
+        )
         return df
 
     def _enrich_filiais(self, df: pd.DataFrame) -> pd.DataFrame:

@@ -18,83 +18,49 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 from data_cache import cache
-from routers import combustivel, precos, frota, diretoria, veiculos, operacional, alertas, visao_geral, sistema, benchmark, fkm, manutencao, gestao_transacoes, pedagios, contratos, estornos, tco
+from routers import combustivel, precos, frota, diretoria, veiculos, operacional, alertas, visao_geral, sistema, benchmark, fkm, manutencao, pneus
 
 
 def _warmup_all():
-    """Carrega TODOS os caches externos em background para que as abas abram instantaneamente."""
+    """Carrega todos os caches externos em background (DB + ANP + mercado)."""
     import threading
     from market_client import get_brent, get_cambio, get_noticias
     from anp_client import get_anp_df
 
-    # 1. Dados de transações (PostgreSQL) — bloqueante, mais importante
+    # 1. Dados de transações (PostgreSQL)
     try:
-        cache.get_df("transacoes")
-        cache.get_df("pedagios")
-        cache.get_df("estornos")
-        logger.info("✓ Caches de transações, pedágios e estornos carregados.")
+        cache.get_df()
+        logger.info("Cache de transações carregado.")
     except Exception as e:
-        logger.error(f"✗ Falha ao carregar caches de transações/pedágios/estornos: {e}")
+        logger.error(f"Falha ao carregar cache de transações: {e}")
 
-    # 2. Veículos + Manutenção (SQL Server / BlueFleet) — paralelo
-    def _sqlserver():
-        try:
-            from db_sqlserver import get_veiculos_df, get_manutencao_df
-            get_veiculos_df()
-            logger.info("✓ Cache de veículos (SQL Server) carregado.")
-            get_manutencao_df()
-            logger.info("✓ Cache de manutenção (SQL Server) carregado.")
-        except Exception as e:
-            logger.warning(f"✗ Warmup SQL Server: {e}")
-
-    # 3. FKM (planilha Excel)
-    def _fkm():
-        try:
-            from db_fkm import get_fkm_df
-            get_fkm_df()
-            logger.info("✓ Cache FKM carregado.")
-        except Exception as e:
-            logger.warning(f"✗ Warmup FKM: {e}")
-
-    # 4. ANP (downloads CSV)
+    # 2. ANP (downloads CSV — paralelos internamente)
     def _anp():
         try:
             get_anp_df()
-            logger.info("✓ Cache ANP carregado.")
+            logger.info("Cache ANP carregado.")
         except Exception as e:
-            logger.warning(f"✗ Warmup ANP: {e}")
+            logger.warning(f"Warmup ANP: {e}")
 
-    # 5. Mercado externo (Brent + câmbio + notícias)
+    # 3. Mercado externo (Brent + câmbio + notícias)
     def _mercado():
         try:
             get_brent()
             get_cambio()
             get_noticias()
-            logger.info("✓ Cache de mercado carregado.")
+            logger.info("Cache de mercado carregado.")
         except Exception as e:
-            logger.warning(f"✗ Warmup mercado: {e}")
+            logger.warning(f"Warmup mercado: {e}")
 
-    # Dispara tudo em paralelo
-    threads = [
-        threading.Thread(target=_sqlserver, daemon=True, name="warmup-sqlserver"),
-        threading.Thread(target=_fkm, daemon=True, name="warmup-fkm"),
-        threading.Thread(target=_anp, daemon=True, name="warmup-anp"),
-        threading.Thread(target=_mercado, daemon=True, name="warmup-mercado"),
-    ]
-    for t in threads:
-        t.start()
-    # Aguarda todos terminarem para que o servidor esteja pronto antes de atender requests
-    for t in threads:
-        t.join(timeout=60)
-    logger.info("✓ Warmup completo — todos os caches inicializados.")
+    threading.Thread(target=_anp, daemon=True).start()
+    threading.Thread(target=_mercado, daemon=True).start()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Iniciando servidor — aquecendo TODOS os caches...")
+    logger.info("Iniciando servidor — aquecendo caches em background...")
     loop = asyncio.get_event_loop()
-    await loop.run_in_executor(None, _warmup_all)
-    logger.info("Servidor pronto para receber requests.")
+    loop.run_in_executor(None, _warmup_all)
     yield
 
 
@@ -127,11 +93,7 @@ app.include_router(visao_geral.router)
 app.include_router(sistema.router)
 app.include_router(fkm.router)
 app.include_router(manutencao.router)
-app.include_router(gestao_transacoes.router)
-app.include_router(pedagios.router)
-app.include_router(contratos.router)
-app.include_router(estornos.router)
-app.include_router(tco.router)
+app.include_router(pneus.router)
 
 
 @app.get("/health", tags=["sistema"])
