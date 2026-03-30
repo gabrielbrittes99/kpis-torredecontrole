@@ -125,7 +125,7 @@ class DataCache:
         logger.info(
             f"Cache: {len(df)} transações carregadas | "
             f"grupos: {df['grupo_combustivel'].value_counts().to_dict()} | "
-            f"Palmas: {palmas_mask.sum()} registros | CWB Base: {cwb_mask.sum()} registros"
+            f"Palmas: {palmas_mask.sum()} registros"
         )
         return df
 

@@ -16,6 +16,9 @@ const routes = [
   // ── FKM ───────────────────────────────────────────────────────────────────
   { path: '/fkm', name: 'fkm', component: () => import('./views/DashboardFKM.vue') },
 
+  // ── Pneus ──────────────────────────────────────────────────────────────────
+  { path: '/pneus', name: 'pneus', component: () => import('./views/Pneus.vue') },
+
   // ── Referência ────────────────────────────────────────────────────────────
   { path: '/sumario', name: 'sumario', component: () => import('./views/SistemaLegenda.vue') },
 ]
