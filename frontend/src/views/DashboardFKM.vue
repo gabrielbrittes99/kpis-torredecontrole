@@ -1,50 +1,47 @@
 <template>
   <div class="page">
-    <!-- ━━━━━ TOPBAR ━━━━━ -->
-    <header class="topbar">
-      <div class="topbar-main">
-        <div class="topbar-left">
-          <span class="logo">
-            GRITSCH <span class="divider">//</span>
-            <div class="title-group">
-              <span class="subtitle">FKM · Fechamento Mensal</span>
-              <span class="page-subtitle">Custo total da frota — combustível + manutenção + km rodado</span>
-            </div>
-          </span>
-        </div>
-
-        <div class="topbar-center">
-          <div class="fkm-filters">
-            <div class="filter-group">
-              <label>Mês</label>
-              <select v-model="filtroMes" @change="loadAll">
-                <option v-for="m in filtros.meses" :key="m" :value="m">{{ fmtMes(m) }}</option>
-              </select>
-            </div>
-            <div class="filter-group">
-              <label>Filial</label>
-              <select v-model="filtroFilial" @change="loadAll">
-                <option value="">Todas</option>
-                <option v-for="f in filtros.filiais" :key="f" :value="f">{{ f }}</option>
-              </select>
-            </div>
-            <div class="filter-group">
-              <label>Grupo</label>
-              <select v-model="filtroGrupo" @change="loadAll">
-                <option value="">Todos</option>
-                <option v-for="g in filtros.grupos" :key="g" :value="g">{{ g }}</option>
-              </select>
-            </div>
+    <GlobalTopbar
+      title="FKM · Fechamento Mensal"
+      subtitle="Custo total da frota — combustível + manutenção + km rodado"
+      :showPeriod="false" :showFilters="false"
+    >
+      <template #center>
+        <div class="topbar-filters">
+          <div class="filter-group">
+            <label>Mês</label>
+            <select v-model="filtroMes" @change="loadAll">
+              <option v-for="m in filtros.meses" :key="m" :value="m">{{ fmtMes(m) }}</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Filial</label>
+            <select v-model="filtroFilial" @change="loadAll">
+              <option value="">Todas</option>
+              <option v-for="f in filtros.filiais" :key="f" :value="f">{{ f }}</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Grupo</label>
+            <select v-model="filtroGrupo" @change="loadAll">
+              <option value="">Todos</option>
+              <option v-for="g in filtros.grupos" :key="g" :value="g">{{ g }}</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Contrato</label>
+            <select v-model="filtroContrato" @change="loadAll">
+              <option value="">Todos</option>
+              <option v-for="c in filtros.contratos" :key="c" :value="c">{{ c }}</option>
+            </select>
           </div>
         </div>
-
-        <div class="topbar-right">
-          <button class="btn-refresh" @click="refreshCache" :disabled="refreshing">
-            {{ refreshing ? 'Atualizando...' : 'Recarregar Planilha' }}
-          </button>
-        </div>
-      </div>
-    </header>
+      </template>
+      <template #right>
+        <button class="btn-topbar" @click="refreshCache" :disabled="refreshing">
+          {{ refreshing ? 'Atualizando...' : 'Recarregar Planilha' }}
+        </button>
+      </template>
+    </GlobalTopbar>
 
     <div class="page-body">
 
@@ -145,6 +142,36 @@
         </section>
       </div>
 
+      <!-- ━━━━━ SEÇÃO EXTRA: RESUMO POR CONTRATO ━━━━━ -->
+      <section class="v-block" v-if="porContrato.length > 0">
+        <div class="section-heading">Resumo por Contrato · {{ fmtMes(filtroMes) }}</div>
+        <div v-if="lContratos" class="skel" style="height:200px" />
+        <div v-else class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Contrato</th>
+                <th class="right">Custo Total</th>
+                <th class="right">KM Rodado</th>
+                <th class="right">Custo/KM</th>
+                <th class="right">km/L Médio</th>
+                <th class="right">Veículos Alocados</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in porContrato" :key="row.contrato">
+                <td class="filial-cell" style="font-weight:600; color:var(--brand);">{{ row.contrato }}</td>
+                <td class="right mono fw-bold">{{ fmtR(row.total_valor) }}</td>
+                <td class="right mono">{{ fmtN(row.total_km) }}</td>
+                <td class="right mono" :class="custoKmClass(row.custo_km)">{{ fmt4(row.custo_km) }}</td>
+                <td class="right mono">{{ row.media_kml ? row.media_kml.toFixed(2) : '—' }}</td>
+                <td class="right mono">{{ row.qtd_veiculos }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       <!-- ━━━━━ SEÇÃO 3: RESUMO POR FILIAL ━━━━━ -->
       <section class="v-block">
         <div class="section-heading">Resumo por Filial · {{ fmtMes(filtroMes) }}</div>
@@ -215,7 +242,6 @@
                 <th>Modelo</th>
                 <th>Grupo</th>
                 <th>Filial</th>
-                <th>Motorista</th>
                 <th class="right">KM</th>
                 <th class="right">Combustível</th>
                 <th class="right">Manutenção</th>
@@ -232,7 +258,6 @@
                 <td>{{ v.modelo || '—' }}</td>
                 <td><span class="grupo-badge" :class="grupoBadgeClass(v.grupo)">{{ v.grupo || '—' }}</span></td>
                 <td class="filial-cell">{{ v.filial || '—' }}</td>
-                <td>{{ v.motorista || '—' }}</td>
                 <td class="right mono">{{ fmtN(v.total_km) }}</td>
                 <td class="right mono">{{ fmtR(v.total_combustivel) }}</td>
                 <td class="right mono">{{ fmtR(v.total_manutencao) }}</td>
@@ -252,6 +277,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import GlobalTopbar from '../components/GlobalTopbar.vue'
 import KpiCardPro from '../components/KpiCardPro.vue'
 import {
   fetchFkmFiltros,
@@ -261,24 +287,28 @@ import {
   fetchFkmEvolucaoMensal,
   fetchFkmDistribuicaoCategorias,
 } from '../api/fkm.js'
+import { fetchContratosKpis } from '../api/contratos.js'
 
 // ── Estado ────────────────────────────────────────────────────────────────
-const filtros   = ref({ meses: [], filiais: [], grupos: [], combustiveis: [] })
+const filtros   = ref({ meses: [], filiais: [], grupos: [], combustiveis: [], contratos: [] })
 const filtroMes = ref('')
 const filtroFilial = ref('')
 const filtroGrupo  = ref('')
+const filtroContrato = ref('')
 
 const kpis      = ref({})
 const categorias = ref([])
 const evolucao  = ref([])
 const porFilial = ref([])
 const veiculos  = ref([])
+const porContrato = ref([])
 
 const lKpis      = ref(true)
 const lCategorias = ref(true)
 const lEvolucao  = ref(true)
 const lFilial    = ref(true)
 const lVeiculos  = ref(true)
+const lContratos = ref(true)
 const refreshing = ref(false)
 
 // ── Formatadores ──────────────────────────────────────────────────────────
@@ -344,18 +374,20 @@ const params = () => {
   if (filtroMes.value)    p.ano_mes = filtroMes.value
   if (filtroFilial.value) p.filial  = filtroFilial.value
   if (filtroGrupo.value)  p.grupo   = filtroGrupo.value
+  if (filtroContrato.value) p.contrato = filtroContrato.value
   return p
 }
 
 const loadAll = async () => {
   const p = params()
-  lKpis.value = lCategorias.value = lFilial.value = lVeiculos.value = true
+  lKpis.value = lCategorias.value = lFilial.value = lVeiculos.value = lContratos.value = true
 
   Promise.all([
     fetchFkmKpis(p).then(d => { kpis.value = d; lKpis.value = false }).catch(() => lKpis.value = false),
     fetchFkmDistribuicaoCategorias(p).then(d => { categorias.value = d; lCategorias.value = false }).catch(() => lCategorias.value = false),
     fetchFkmResumoPorFilial(p).then(d => { porFilial.value = d; lFilial.value = false }).catch(() => lFilial.value = false),
     fetchFkmCustoPorVeiculo({ ...p, limit: 50 }).then(d => { veiculos.value = d; lVeiculos.value = false }).catch(() => lVeiculos.value = false),
+    fetchContratosKpis({ ano_mes: p.ano_mes, contrato: p.contrato }).then(d => { porContrato.value = d; lContratos.value = false }).catch(() => lContratos.value = false),
   ])
 }
 
@@ -390,44 +422,8 @@ onMounted(init)
 </script>
 
 <style scoped>
-.page { min-height: 100vh; background: var(--void); }
+.page { min-height: 100vh; background: #f8fafc; }
 
-/* ── Topbar ── */
-.topbar {
-  background: white; border-bottom: 1px solid #e2e8f0;
-  position: sticky; top: 0; z-index: 1000;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
-}
-.topbar-main {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 32px; height: 64px; gap: 24px;
-}
-.topbar-left { flex-shrink: 0; }
-.logo { font-size: 16px; font-weight: 800; letter-spacing: 0.05em; color: #0f172a; display: flex; align-items: center; white-space: nowrap; }
-.logo .divider { color: #C41230; margin: 0 12px; font-weight: 400; opacity: 0.5; }
-.title-group { display: flex; flex-direction: column; line-height: 1.2; }
-.logo .subtitle { color: #64748b; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; }
-.page-subtitle { color: #94a3b8; font-size: 10px; font-weight: 500; }
-.topbar-center { flex: 1; display: flex; justify-content: center; }
-.topbar-right { flex-shrink: 0; }
-
-.fkm-filters { display: flex; gap: 12px; align-items: flex-end; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 8px 12px; }
-.filter-group { display: flex; flex-direction: column; gap: 3px; }
-.filter-group label { font-size: 9px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; }
-.filter-group select {
-  background: white; border: 1px solid #e2e8f0; border-radius: 6px;
-  font-size: 12px; font-weight: 600; color: #1e293b; padding: 5px 10px; outline: none; cursor: pointer;
-  min-width: 130px;
-}
-.filter-group select:focus { border-color: #C41230; }
-
-.btn-refresh {
-  background: white; border: 1px solid #e2e8f0; border-radius: 8px;
-  padding: 8px 16px; font-size: 12px; font-weight: 700; color: #475569;
-  cursor: pointer; transition: all 0.2s; white-space: nowrap;
-}
-.btn-refresh:hover:not(:disabled) { border-color: #C41230; color: #C41230; }
-.btn-refresh:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* ── Page body ── */
 .page-body {
@@ -448,14 +444,15 @@ onMounted(init)
 
 /* ── Sub KPIs de categoria ── */
 .cat-kpis {
-  display: flex; gap: 0; border-top: 1px solid #e2e8f0; padding-top: 16px;
-  flex-wrap: wrap;
+  display: flex; gap: 0; border-top: none; padding-top: 16px;
+  flex-wrap: wrap; position: relative;
 }
+.cat-kpis::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(to right, transparent, rgba(0,0,0,0.10) 20%, rgba(0,0,0,0.10) 80%, transparent); }
 .cat-kpi {
   flex: 1; min-width: 120px;
   display: flex; flex-direction: column; gap: 3px;
   padding: 0 20px 0 0;
-  border-right: 1px solid #f1f5f9;
+  border-right: 1px solid rgba(0,0,0,0.04);
 }
 .cat-kpi:last-child { border-right: none; }
 .cat-label { font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
@@ -482,11 +479,11 @@ onMounted(init)
 .table-wrap { overflow-x: auto; }
 .data-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .data-table th {
-  background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 8px 12px;
+  background: #f8fafc; border-bottom: 1px solid rgba(0,0,0,0.07); padding: 8px 12px;
   font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em;
   white-space: nowrap;
 }
-.data-table td { padding: 9px 12px; border-bottom: 1px solid #f1f5f9; color: #1e293b; white-space: nowrap; }
+.data-table td { padding: 9px 12px; border-bottom: 1px solid rgba(0,0,0,0.04); color: #1e293b; white-space: nowrap; }
 .data-table tbody tr:hover { background: #fafafa; }
 .data-table tfoot tr { background: #f8fafc; }
 .data-table tfoot td { padding: 10px 12px; font-weight: 700; font-size: 12px; border-top: 2px solid #e2e8f0; }
@@ -522,7 +519,5 @@ onMounted(init)
 @media (max-width: 768px) {
   .page-body { padding: 16px; }
   .kpi-pro-grid { grid-template-columns: 1fr; }
-  .fkm-filters { flex-wrap: wrap; }
-  .topbar-main { flex-wrap: wrap; height: auto; padding: 12px 16px; gap: 12px; }
 }
 </style>

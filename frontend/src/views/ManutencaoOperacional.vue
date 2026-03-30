@@ -1,43 +1,35 @@
 <template>
   <div class="page">
-    <header class="topbar">
-      <div class="topbar-main">
-        <div class="topbar-left">
-          <span class="logo">
-            GRITSCH <span class="divider">//</span>
-            <div class="title-group">
-              <span class="subtitle">Manutenção · Visão Operacional</span>
-              <span class="page-subtitle">Detalhamento por filial e grupo de veículo</span>
-            </div>
-          </span>
-        </div>
-        <div class="topbar-center">
-          <div class="fkm-filters">
-            <div class="filter-group">
-              <label>Mês</label>
-              <select v-model="filtroMes" @change="loadAll">
-                <option v-for="m in filtros.meses" :key="m" :value="m">{{ fmtMes(m) }}</option>
-              </select>
-            </div>
-            <div class="filter-group">
-              <label>Filial</label>
-              <select v-model="filtroFilial" @change="loadAll">
-                <option value="">Todas</option>
-                <option v-for="f in filtros.filiais" :key="f" :value="f">{{ f }}</option>
-              </select>
-            </div>
-            <div class="filter-group">
-              <label>Grupo</label>
-              <select v-model="filtroGrupo" @change="loadAll">
-                <option value="">Todos</option>
-                <option v-for="g in filtros.grupos" :key="g" :value="g">{{ g }}</option>
-              </select>
-            </div>
+    <GlobalTopbar
+      title="Manutenção · Visão Operacional"
+      subtitle="Detalhamento por filial e grupo de veículo"
+      :showPeriod="false" :showFilters="false"
+    >
+      <template #center>
+        <div class="topbar-filters">
+          <div class="filter-group">
+            <label>Mês</label>
+            <select v-model="filtroMes" @change="loadAll">
+              <option v-for="m in filtros.meses" :key="m" :value="m">{{ fmtMes(m) }}</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Filial</label>
+            <select v-model="filtroFilial" @change="loadAll">
+              <option value="">Todas</option>
+              <option v-for="f in filtros.filiais" :key="f" :value="f">{{ f }}</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Grupo</label>
+            <select v-model="filtroGrupo" @change="loadAll">
+              <option value="">Todos</option>
+              <option v-for="g in filtros.grupos" :key="g" :value="g">{{ g }}</option>
+            </select>
           </div>
         </div>
-        <div class="topbar-right"></div>
-      </div>
-    </header>
+      </template>
+    </GlobalTopbar>
 
     <div class="page-body">
 
@@ -147,6 +139,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import GlobalTopbar from '../components/GlobalTopbar.vue'
 import KpiCardPro from '../components/KpiCardPro.vue'
 import {
   fetchManutencaoFiltros, fetchManutencaoKpis,
@@ -246,22 +239,7 @@ onMounted(init)
 </script>
 
 <style scoped>
-.page { min-height: 100vh; background: var(--void); }
-.topbar { background: white; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; z-index: 1000; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
-.topbar-main { display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 64px; gap: 24px; }
-.topbar-left { flex-shrink: 0; }
-.logo { font-size: 16px; font-weight: 800; letter-spacing: 0.05em; color: #0f172a; display: flex; align-items: center; white-space: nowrap; }
-.logo .divider { color: #C41230; margin: 0 12px; font-weight: 400; opacity: 0.5; }
-.title-group { display: flex; flex-direction: column; line-height: 1.2; }
-.logo .subtitle { color: #64748b; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; }
-.page-subtitle { color: #94a3b8; font-size: 10px; font-weight: 500; }
-.topbar-center { flex: 1; display: flex; justify-content: center; }
-.topbar-right { flex-shrink: 0; min-width: 80px; }
-.fkm-filters { display: flex; gap: 12px; align-items: flex-end; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 8px 12px; }
-.filter-group { display: flex; flex-direction: column; gap: 3px; }
-.filter-group label { font-size: 9px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; }
-.filter-group select { background: white; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 12px; font-weight: 600; color: #1e293b; padding: 5px 10px; outline: none; cursor: pointer; min-width: 120px; }
-.filter-group select:focus { border-color: #C41230; }
+.page { min-height: 100vh; background: #f8fafc; }
 
 .page-body { padding: 24px 32px; display: flex; flex-direction: column; gap: 20px; max-width: 1600px; }
 .kpi-pro-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
@@ -271,8 +249,8 @@ onMounted(init)
 
 .table-wrap { overflow-x: auto; }
 .data-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-.data-table th { background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 8px 12px; font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
-.data-table td { padding: 9px 12px; border-bottom: 1px solid #f1f5f9; color: #1e293b; white-space: nowrap; }
+.data-table th { background: #f8fafc; border-bottom: 1px solid rgba(0,0,0,0.07); padding: 8px 12px; font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
+.data-table td { padding: 9px 12px; border-bottom: 1px solid rgba(0,0,0,0.04); color: #1e293b; white-space: nowrap; }
 .data-table tbody tr:hover { background: #fafafa; }
 .right { text-align: right; }
 .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }

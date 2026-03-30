@@ -498,7 +498,7 @@ const seriesPrecoL = computed(() => [
 .section-heading::after { content:''; flex:1; height:1px; background: #e2e8f0; }
 
 .kpi-pro-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
-.card { background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); }
+.card { background: linear-gradient(white, white) padding-box, linear-gradient(135deg, rgba(0,0,0,0.09) 0%, rgba(0,0,0,0.04) 40%, rgba(0,0,0,0.04) 60%, rgba(0,0,0,0.09) 100%) border-box; border: 1px solid transparent; border-radius: 16px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); }
 .chart-full { padding: 32px; }
 
 /* ── Tabela de Grupo ── */
@@ -508,12 +508,12 @@ const seriesPrecoL = computed(() => [
   font-size: 11px; font-weight: 700; color: #94a3b8;
   text-transform: uppercase; letter-spacing: 0.05em;
   text-align: left; padding: 10px 12px;
-  border-bottom: 2px solid #f1f5f9; white-space: nowrap;
+  border-bottom: 2px solid rgba(0,0,0,0.07); white-space: nowrap;
 }
 .grupo-table th.right, .grupo-table td.right { text-align: right; }
 .grupo-table tbody td {
   font-size: 13px; color: #334155; padding: 13px 12px;
-  border-bottom: 1px solid #f8fafc; white-space: nowrap; vertical-align: middle;
+  border-bottom: 1px solid rgba(0,0,0,0.03); white-space: nowrap; vertical-align: middle;
 }
 .grupo-table tbody tr:last-child td { border-bottom: none; }
 .grupo-table tbody tr:hover { background: #fafafa; }
@@ -561,12 +561,12 @@ const seriesPrecoL = computed(() => [
 
 /* ── Postos empilhados ── */
 .postos-stack { display: flex; flex-direction: column; gap: 24px; }
-.posto-panel { background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
+.posto-panel { background: linear-gradient(white, white) padding-box, linear-gradient(135deg, rgba(0,0,0,0.09) 0%, rgba(0,0,0,0.04) 40%, rgba(0,0,0,0.04) 60%, rgba(0,0,0,0.09) 100%) border-box; border: 1px solid transparent; border-radius: 16px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
 .posto-panel-title {
   display: flex; align-items: center; gap: 10px;
   font-size: 13px; font-weight: 700; color: #1e293b;
   margin-bottom: 16px; padding-bottom: 12px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid rgba(0,0,0,0.04);
 }
 .posto-icon {
   display: inline-flex; align-items: center; justify-content: center;
@@ -592,7 +592,7 @@ const seriesPrecoL = computed(() => [
 .kpi-skel { height: 130px; }
 @keyframes pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
 
-.footer { padding: 32px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; text-align: center; }
+.footer { padding: 32px; border-top: 1px solid rgba(0,0,0,0.07); font-size: 12px; color: #94a3b8; text-align: center; }
 
 @media (max-width: 1200px) {
   .kpi-pro-grid { grid-template-columns: repeat(2, 1fr); }

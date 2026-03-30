@@ -26,6 +26,7 @@ def _apply_filters(
     filial: Optional[str] = None,
     grupo: Optional[str] = None,
     tp_combustivel: Optional[str] = None,
+    contrato: Optional[str] = None,
 ) -> pd.DataFrame:
     df = df.copy()
     if ano_mes:
@@ -36,6 +37,8 @@ def _apply_filters(
         df = df[df["grupo_veiculo"] == grupo]
     if tp_combustivel:
         df = df[df["tp_combustivel"].str.lower() == tp_combustivel.lower()]
+    if contrato:
+        df = df[df["contrato"] == contrato]
     return df
 
 
@@ -54,7 +57,7 @@ def get_filtros():
     """Retorna listas de valores disponíveis para filtros."""
     df = get_fkm_df()
     if df.empty:
-        return {"meses": [], "filiais": [], "grupos": [], "combustiveis": []}
+        return {"meses": [], "filiais": [], "grupos": [], "combustiveis": [], "contratos": []}
 
     meses = sorted(df["ano_mes"].dropna().unique().tolist(), reverse=True)
     filiais = sorted(df["filial"].dropna().unique().tolist())
@@ -63,12 +66,15 @@ def get_filtros():
     grupos = [g for g in grupos if g and g != "nan"]
     combustiveis = sorted(df["tp_combustivel"].dropna().unique().tolist())
     combustiveis = [c for c in combustiveis if c and c != "nan"]
+    contratos = sorted(df["contrato"].dropna().unique().tolist())
+    contratos = [c for c in contratos if c and c != "nan"]
 
     return {
         "meses": meses,
         "filiais": filiais,
         "grupos": grupos,
         "combustiveis": combustiveis,
+        "contratos": contratos,
     }
 
 
@@ -81,6 +87,7 @@ def get_kpis(
     filial: Optional[str] = None,
     grupo: Optional[str] = None,
     tp_combustivel: Optional[str] = None,
+    contrato: Optional[str] = None,
 ):
     """
     KPIs consolidados do FKM:
@@ -96,7 +103,7 @@ def get_kpis(
         meses = sorted(df["ano_mes"].dropna().unique().tolist())
         ano_mes = meses[-1] if meses else None
 
-    df = _apply_filters(df, ano_mes, filial, grupo, tp_combustivel)
+    df = _apply_filters(df, ano_mes, filial, grupo, tp_combustivel, contrato)
     if df.empty:
         return {"ano_mes": ano_mes, "sem_dados": True}
 
@@ -151,6 +158,7 @@ def get_resumo_por_filial(
     ano_mes: Optional[str] = Query(default=None),
     grupo: Optional[str] = None,
     tp_combustivel: Optional[str] = None,
+    contrato: Optional[str] = None,
 ):
     """Tabela: filial × km, combustível, manutenção, pneus, total, custo/km."""
     df = get_fkm_df()
@@ -161,7 +169,7 @@ def get_resumo_por_filial(
         meses = sorted(df["ano_mes"].dropna().unique().tolist())
         ano_mes = meses[-1] if meses else None
 
-    df = _apply_filters(df, ano_mes, None, grupo, tp_combustivel)
+    df = _apply_filters(df, ano_mes, None, grupo, tp_combustivel, contrato)
     if df.empty:
         return []
 
@@ -211,6 +219,7 @@ def get_custo_por_veiculo(
     ano_mes: Optional[str] = Query(default=None),
     filial: Optional[str] = None,
     grupo: Optional[str] = None,
+    contrato: Optional[str] = None,
     limit: int = Query(default=30, le=200),
 ):
     """Ranking de veículos por custo total (TCO = combustível + manutenção)."""
@@ -222,7 +231,7 @@ def get_custo_por_veiculo(
         meses = sorted(df["ano_mes"].dropna().unique().tolist())
         ano_mes = meses[-1] if meses else None
 
-    df = _apply_filters(df, ano_mes, filial, grupo)
+    df = _apply_filters(df, ano_mes, filial, grupo, contrato=contrato)
     if df.empty:
         return []
 
@@ -275,13 +284,14 @@ def get_evolucao_mensal(
     filial: Optional[str] = None,
     grupo: Optional[str] = None,
     tp_combustivel: Optional[str] = None,
+    contrato: Optional[str] = None,
 ):
     """Histórico mensal: km, combustível, manutenção, custo/km por mês."""
     df = get_fkm_df()
     if df.empty:
         return []
 
-    df = _apply_filters(df, None, filial, grupo, tp_combustivel)
+    df = _apply_filters(df, None, filial, grupo, tp_combustivel, contrato)
     if df.empty:
         return []
 
@@ -321,6 +331,7 @@ def get_distribuicao_categorias(
     ano_mes: Optional[str] = Query(default=None),
     filial: Optional[str] = None,
     grupo: Optional[str] = None,
+    contrato: Optional[str] = None,
 ):
     """Distribuição percentual do gasto total por categoria."""
     df = get_fkm_df()
@@ -331,7 +342,7 @@ def get_distribuicao_categorias(
         meses = sorted(df["ano_mes"].dropna().unique().tolist())
         ano_mes = meses[-1] if meses else None
 
-    df = _apply_filters(df, ano_mes, filial, grupo)
+    df = _apply_filters(df, ano_mes, filial, grupo, contrato=contrato)
     if df.empty:
         return []
 
@@ -364,6 +375,7 @@ def get_distribuicao_categorias(
 def get_ranking_km_litro(
     ano_mes: Optional[str] = Query(default=None),
     filial: Optional[str] = None,
+    contrato: Optional[str] = None,
     limit: int = Query(default=30, le=100),
 ):
     """Ranking de km/L por veículo, agrupado por tipo (Leve, Médio, Pesado, Caminhão)."""
@@ -375,7 +387,7 @@ def get_ranking_km_litro(
         meses = sorted(df["ano_mes"].dropna().unique().tolist())
         ano_mes = meses[-1] if meses else None
 
-    df = _apply_filters(df, ano_mes, filial)
+    df = _apply_filters(df, ano_mes, filial, contrato=contrato)
 
     # Só considera veículos com km e litros válidos
     df = df[(df["total_km"] > 0) & (df["litros_comb"] > 0)].copy()

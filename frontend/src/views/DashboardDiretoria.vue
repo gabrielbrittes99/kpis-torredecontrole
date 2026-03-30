@@ -4,7 +4,7 @@
     <!-- Topbar: Padronizada -->
     <GlobalTopbar
       title="Diretoria"
-      subtitle="Visão estratégica de saúde e performance"
+      subtitle="Visão estratégica de custos e performance"
       :show-period="true"
       :show-filters="true"
     />
@@ -14,32 +14,31 @@
       <!-- HERO SECTION: Os Números que Importam -->
       <div class="kpi-pro-grid">
         <KpiCardPro
-          title="Saving Real (Mês)"
-          :value="kpis.saving_acumulado_mes || 0"
+          title="Gasto Real (Mês)"
+          :value="kpis.gasto_mes_atual || 0"
           format="currency"
           theme="primary"
-          description="Performance Negociação (vs ANP)"
-        />
-        <KpiCardPro
-          title="Saúde da Operação"
-          :value="kpis.score_saude || 100"
-          format="number"
-          unit="%"
-          :trendValue="0"
-          theme="dark"
+          :description="'Realizado até dia ' + (kpis.dia_referencia_proj || '—')"
         />
         <KpiCardPro
           title="Projeção (Mês)"
           :value="kpis.projecao_mes_atual || 0"
           format="currency"
-          :description="'Baseado no Real até dia ' + (kpis.dia_referencia_proj || '—')"
+          :description="(kpis.qtd_veiculos || 0) + ' veículos ativos'"
+        />
+        <KpiCardPro
+          title="Preço Médio/L"
+          :value="kpis.preco_medio_litro || 0"
+          format="currency"
+          :decimals="3"
+          description="Média ponderada geral"
         />
         <KpiCardPro
           title="Custo/KM Global"
           :value="kpis.custo_por_km || 0"
           format="currency"
           :decimals="3"
-          :description="'Gasto Year-to-Date'"
+          description="Gasto Year-to-Date"
         />
       </div>
 
@@ -183,47 +182,6 @@
 
         <!-- Coluna Direita: Detalhes Executivos -->
         <aside class="col-aside">
-          
-          <!-- Potencial de Saving (Oportunidade) -->
-          <div class="v-block opportunity-block">
-            <div class="label-tiny mono">OPORTUNIDADE DE SAVING</div>
-            <div class="opp-value">{{ fmtR(economia.economia_potencial) }}</div>
-            <p class="opp-desc">Economia possível se todos abastecessem no posto mais barato da região.</p>
-            <div class="opp-bar">
-               <div class="opp-fill" :style="{ width: economia.economia_pct + '%' }"></div>
-            </div>
-            <div class="opp-footer mono">{{ economia.economia_pct }}% do gasto total</div>
-          </div>
-
-          <!-- IA de Mercado (Migrado de Vigilância) -->
-          <div class="v-block side-block ia-block">
-            <div class="ia-header">
-              <div class="label-tiny mono" style="margin-bottom:0">INTELIGÊNCIA DE MERCADO <span class="ia-live-badge">IA AO VIVO</span></div>
-              <button class="btn-update mono" @click="fetchIntel" :disabled="iaLoading">
-                <span class="icon" :class="{ rotate: iaLoading }">⟳</span>
-                {{ iaLoading ? 'Consultando...' : 'Atualizar' }}
-              </button>
-            </div>
-            <div v-if="iaLoading" class="ia-loading mono">
-              Consultando inteligência...
-            </div>
-            <div v-else-if="intel" class="ia-content">
-              <div class="ia-resumo mono">
-                 <span class="trend-icon">{{ intel.tendencia === 'alta' ? '▲' : '→' }}</span>
-                 {{ intel.resumo }}
-              </div>
-              <div v-for="(n, i) in intel.noticias" :key="i" class="ia-card" :class="n.impacto">
-                <div class="ia-n-header">
-                  <span class="fonte mono">{{ n.fonte }}</span>
-                  <span class="impacto mono">{{ n.impacto }}</span>
-                </div>
-                <div class="ia-n-title">{{ n.titulo }}</div>
-                <div class="ia-n-market mono" v-if="n.brent_usd">
-                  Brent: {{ n.brent_usd }} · Câmbio: {{ n.cambio }}
-                </div>
-              </div>
-            </div>
-          </div>
 
           <!-- Mix de Operação Mês -->
           <div class="v-block">
@@ -253,14 +211,12 @@
 import { ref, onMounted, watch } from 'vue'
 import { useFiltrosStore } from '../stores/filtros'
 import GlobalTopbar from '../components/GlobalTopbar.vue'
-import { useMercadoIA } from '../composables/useMercadoIA'
 import KpiCardPro from '../components/KpiCardPro.vue'
-import { 
-  fetchKpisEstrategicos, 
-  fetchTendencia12Meses, 
-  fetchPotencialEconomia, 
-  fetchMixCombustiveis, 
-  fetchComparativoMeses, 
+import {
+  fetchKpisEstrategicos,
+  fetchTendencia12Meses,
+  fetchMixCombustiveis,
+  fetchComparativoMeses,
   fetchBenchmarkComparativo,
   fetchGastosFiliais
 } from '../api/diretoria.js'
@@ -268,18 +224,12 @@ import GraficoTendencia       from '../components/GraficoTendencia.vue'
 import GraficoMixCombustiveis from '../components/GraficoMixCombustiveis.vue'
 import BenchmarkANP           from '../components/BenchmarkANP.vue'
 
-const { intel, loading: iaLoading, fetchIntel } = useMercadoIA()
-
-const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
-const anosDisponiveis = [new Date().getFullYear(), new Date().getFullYear() - 1]
-
 const store = useFiltrosStore()
 
-const kpis           = ref({ score_saude: 100 })
+const kpis           = ref({})
 const tendencia      = ref([])
 const comparativo    = ref({})
 const mix            = ref({ mes: [], ano: [] })
-const economia       = ref({})
 const benchmark      = ref([])
 const filiais        = ref([])
 
@@ -293,12 +243,6 @@ const fmtR = v => v != null ? 'R$ ' + Number(v).toLocaleString('pt-BR', { maximu
 const fmtRPrecise = v => v != null ? 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 }) : '—'
 const fmtN = v => v != null ? Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) : '—'
 
-const getScoreColor = s => {
-  if (s > 80) return '#10b981' // Green
-  if (s > 50) return '#f59e0b' // Yellow
-  return '#ef4444' // Red
-}
-
 const getTrendClass = (val, threshold = 2) => {
   if (val == null || Math.abs(val) < threshold) return 'neutral'
   return val > 0 ? 'red' : 'green'
@@ -311,15 +255,14 @@ async function refreshData() {
   lMix.value = true
   lBenchmark.value = true
   lFiliais.value = true
-  
-  Promise.allSettled([
-    fetchKpisEstrategicos(p).then(d => kpis.value = d),
-    fetchTendencia12Meses(p).then(d => { tendencia.value = d; lTendencia.value = false }),
-    fetchComparativoMeses(p).then(d => { comparativo.value = d; lComparativo.value = false }),
-    fetchMixCombustiveis(p).then(d => { mix.value = d; lMix.value = false }),
-    fetchPotencialEconomia(p).then(d => economia.value = d),
-    fetchBenchmarkComparativo(p).then(d => { benchmark.value = d; lBenchmark.value = false }),
-    fetchGastosFiliais(p).then(d => { filiais.value = d; lFiliais.value = false }),
+
+  await Promise.allSettled([
+    fetchKpisEstrategicos(p).then(d => kpis.value = d).catch(e => console.warn('[Diretoria] KPIs:', e)),
+    fetchTendencia12Meses(p).then(d => tendencia.value = d).catch(e => console.warn('[Diretoria] Tendência:', e)).finally(() => lTendencia.value = false),
+    fetchComparativoMeses(p).then(d => comparativo.value = d).catch(e => console.warn('[Diretoria] Comparativo:', e)).finally(() => lComparativo.value = false),
+    fetchMixCombustiveis(p).then(d => mix.value = d).catch(e => console.warn('[Diretoria] Mix:', e)).finally(() => lMix.value = false),
+    fetchBenchmarkComparativo(p).then(d => benchmark.value = d).catch(e => console.warn('[Diretoria] Benchmark:', e)).finally(() => lBenchmark.value = false),
+    fetchGastosFiliais(p).then(d => filiais.value = d).catch(e => console.warn('[Diretoria] Filiais:', e)).finally(() => lFiliais.value = false),
   ])
 }
 
@@ -327,7 +270,6 @@ watch(() => store.selecao, () => refreshData(), { deep: true })
 
 onMounted(() => {
   refreshData()
-  fetchIntel()
 })
 </script>
 
@@ -361,15 +303,6 @@ onMounted(() => {
   margin-bottom: 40px;
 }
 
-.saving-card { border-left: 6px solid #10b981; }
-.saving-card .card-value { color: #10b981; }
-.cost-km-card { border-left: 6px solid #C41230; }
-.cost-km-card .card-value { color: #C41230; }
-.efficiency-card { border-left: 6px solid #C41230; }
-.projection-mes-card { border-left: 6px solid #f43f5e; }
-.projection-card { border-left: 6px solid #8b5cf6; }
-
-.projection-card { border-left: 6px solid #8b5cf6; }
 
 /* Middle Layout */
 .middle-layout {
@@ -377,7 +310,11 @@ onMounted(() => {
 }
 
 .v-block {
-  background: white; border: 1px solid var(--border); border-radius: 20px;
+  background:
+    linear-gradient(white, white) padding-box,
+    linear-gradient(135deg, rgba(0,0,0,0.09) 0%, rgba(0,0,0,0.04) 40%, rgba(0,0,0,0.04) 60%, rgba(0,0,0,0.09) 100%) border-box;
+  border: 1px solid transparent;
+  border-radius: 20px;
   padding: 32px; margin-bottom: 24px;
 }
 .section-title {
@@ -388,28 +325,6 @@ onMounted(() => {
 
 .label-tiny { font-size: 9px; font-weight: 800; color: var(--text-dim); margin-bottom: 12px; }
 
-/* IA Block Styles */
-.ia-block { padding: 24px; background: linear-gradient(180deg, white 0%, #f8fafc 100%); }
-.ia-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-.ia-live-badge { background: #C41230; color: white; padding: 2px 6px; border-radius: 4px; font-size: 8px; margin-left: 8px; }
-.btn-update { background: transparent; border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; font-size: 9px; cursor: pointer; color: var(--text-dim); display: flex; align-items: center; gap: 4px; }
-.btn-update:hover { background: #f1f5f9; }
-.btn-update .icon.rotate { animation: spin 1s linear infinite; }
-@keyframes spin { 100% { transform: rotate(360deg); } }
-.ia-loading { padding: 40px 0; text-align: center; font-size: 11px; color: var(--text-dim); }
-.ia-content { display: flex; flex-direction: column; gap: 16px; }
-.ia-resumo { font-size: 11px; color: #1e293b; background: white; padding: 12px; border-radius: 8px; border: 1px dashed var(--border); line-height: 1.5; }
-.trend-icon { font-weight: 800; margin-right: 4px; color: #C41230; }
-.ia-card { background: white; border: 1px solid var(--border); border-radius: 8px; padding: 16px; border-left: 3px solid var(--border); }
-.ia-card.ALTA { border-left-color: #ef4444; }
-.ia-card.BAIXA { border-left-color: #10b981; }
-.ia-n-header { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 9px; }
-.fonte { font-weight: 700; color: var(--text-dim); }
-.impacto { font-weight: 800; padding: 2px 6px; border-radius: 4px; background: #f1f5f9; }
-.ia-card.ALTA .impacto { color: #ef4444; background: #fef2f2; }
-.ia-card.BAIXA .impacto { color: #10b981; background: #ecfdf5; }
-.ia-n-title { font-size: 12px; font-weight: 600; color: #1e293b; margin-bottom: 12px; line-height: 1.4; }
-.ia-n-market { font-size: 10px; color: var(--text-dim); display: flex; gap: 12px; }
 
 /* Performance Section */
 .section-performance {
@@ -429,7 +344,7 @@ onMounted(() => {
 .metric-value { font-size: 32px; font-weight: 800; color: #1e293b; letter-spacing: -0.02em; margin-bottom: 20px; }
 .metric-value .sub-unit { font-size: 14px; color: var(--text-dim); }
 
-.metric-comparisons { border-top: 1px solid #f1f5f9; padding-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+.metric-comparisons { border-top: 1px solid rgba(0,0,0,0.04); padding-top: 16px; display: flex; flex-direction: column; gap: 8px; }
 .comp-row { display: flex; justify-content: space-between; align-items: center; }
 .comp-label { font-size: 11px; color: var(--text-dim); }
 .comp-val { font-size: 13px; font-weight: 700; }
@@ -469,14 +384,6 @@ onMounted(() => {
 .spreadsheet .total-val { background: #f1f5f9; font-weight: 800; text-align: right; }
 .spreadsheet .total-head { background: #e2e8f0; color: #475569; }
 
-.opportunity-block {
-  background: #f1f5f9; border: none;
-}
-.opportunity-block .opp-value { font-size: 28px; font-weight: 800; color: #1e293b; margin-bottom: 8px; }
-.opportunity-block .opp-desc { font-size: 12px; color: var(--text-dim); line-height: 1.5; margin-bottom: 20px; }
-.opp-bar { height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; }
-.opp-fill { height: 100%; background: #10b981; }
-.opp-footer { font-size: 10px; margin-top: 10px; color: var(--text-dim); font-weight: 700; }
 
 /* Utils */
 .mono { font-family: 'JetBrains Mono', monospace; }

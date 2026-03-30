@@ -222,6 +222,78 @@ def get_alertas():
         except Exception as e:
             logger.error(f"Alertas (projeção): {e}")
 
+        # ── 5. Spike de Estornos ────────────────────────────────────────────
+        try:
+            df_est = cache.get_df("estornos")
+            if not df_est.empty:
+                janela_est = hoje - timedelta(days=7)
+                estornos_recentes = df_est[df_est["data_transacao"] >= janela_est]
+                tx_recentes = df[df["data_transacao"] >= janela_est]
+
+                total_7d     = len(tx_recentes) + len(estornos_recentes)
+                taxa_atual   = len(estornos_recentes) / total_7d * 100 if total_7d > 0 else 0
+
+                # Histórico: taxa média dos 30 dias anteriores à janela
+                inicio_hist  = janela_est - timedelta(days=30)
+                est_hist     = df_est[(df_est["data_transacao"] >= inicio_hist) & (df_est["data_transacao"] < janela_est)]
+                tx_hist      = df[(df["data_transacao"] >= inicio_hist) & (df["data_transacao"] < janela_est)]
+                total_hist   = len(tx_hist) + len(est_hist)
+                taxa_hist    = len(est_hist) / total_hist * 100 if total_hist > 0 else 0
+
+                if taxa_hist > 0 and taxa_atual > taxa_hist * 1.5 and len(estornos_recentes) >= 3:
+                    desvio = round((taxa_atual / taxa_hist - 1) * 100, 1)
+                    alertas.append({
+                        "id": "spike_estornos",
+                        "tipo": "operacional",
+                        "nivel": "atencao",
+                        "titulo": f"Aumento de Estornos: +{desvio}% vs histórico",
+                        "descricao": (
+                            f"Taxa de estorno nos últimos 7 dias: {taxa_atual:.1f}% "
+                            f"(média histórica: {taxa_hist:.1f}%). "
+                            f"Total de estornos no período: {len(estornos_recentes)}."
+                        ),
+                        "detalhes": {
+                            "taxa_atual_pct": round(taxa_atual, 2),
+                            "taxa_historica_pct": round(taxa_hist, 2),
+                            "qtd_estornos_7d": int(len(estornos_recentes)),
+                            "desvio_pct": desvio,
+                        },
+                    })
+        except Exception as e:
+            logger.error(f"Alertas (spike estornos): {e}")
+
+        # ── 6. Gap no arquivo FKM ───────────────────────────────────────────
+        try:
+            from db_fkm import get_fkm_df
+            df_fkm = get_fkm_df()
+            if not df_fkm.empty:
+                meses_fkm = sorted(df_fkm["ano_mes"].dropna().unique().tolist())
+                ultimo_mes_fkm = meses_fkm[-1] if meses_fkm else None
+                if ultimo_mes_fkm:
+                    from datetime import date
+                    ano, mes = map(int, ultimo_mes_fkm.split("-"))
+                    # Último dia do mês FKM
+                    import calendar
+                    ultimo_dia = date(ano, mes, calendar.monthrange(ano, mes)[1])
+                    dias_defasagem = (hoje.date() - ultimo_dia).days
+                    if dias_defasagem > 45:
+                        alertas.append({
+                            "id": "fkm_desatualizado",
+                            "tipo": "dados",
+                            "nivel": "atencao",
+                            "titulo": f"FKM com {dias_defasagem} dias de defasagem",
+                            "descricao": (
+                                f"O arquivo FKM está desatualizado. Último mês disponível: {ultimo_mes_fkm}. "
+                                f"Atualize o arquivo para manter TCO e análise de contratos precisos."
+                            ),
+                            "detalhes": {
+                                "ultimo_mes": ultimo_mes_fkm,
+                                "dias_defasagem": dias_defasagem,
+                            },
+                        })
+        except Exception as e:
+            logger.error(f"Alertas (FKM gap): {e}")
+
         if not alertas:
             alertas.append({
                 "id": "ok",

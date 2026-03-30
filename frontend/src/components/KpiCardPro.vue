@@ -3,7 +3,10 @@
     
     <!-- Header: Título e Ícone -->
     <div class="kpi-header">
-      <span class="kpi-title">{{ title }}</span>
+      <div class="kpi-title-stack">
+        <span class="kpi-title">{{ title }}</span>
+        <span v-if="period" class="kpi-period">{{ period }}</span>
+      </div>
       <span v-if="icon" class="kpi-icon">{{ icon }}</span>
     </div>
 
@@ -43,6 +46,7 @@ const props = defineProps({
   trendDecimals: { type: Number, default: 1 },
   
   description: { type: String, default: '' },
+  period: { type: String, default: '' },
   icon: { type: String, default: '' },
   
   theme: { type: String, default: 'neutral' }, // 'neutral', 'primary', 'dark'
@@ -86,8 +90,10 @@ const trendIcon = computed(() => {
 <style scoped>
 .kpi-pro-card {
   position: relative;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background:
+    linear-gradient(#ffffff, #ffffff) padding-box,
+    linear-gradient(135deg, rgba(0,0,0,0.09) 0%, rgba(0,0,0,0.04) 40%, rgba(0,0,0,0.04) 60%, rgba(0,0,0,0.09) 100%) border-box;
+  border: 1px solid transparent;
   border-radius: 16px;
   padding: 20px 24px;
   display: flex;
@@ -110,8 +116,10 @@ const trendIcon = computed(() => {
   border-left: 4px solid #C41230;
 }
 .kpi-pro-card.dark {
-  background: #0f172a;
-  border-color: #1e293b;
+  background:
+    linear-gradient(#0f172a, #0f172a) padding-box,
+    linear-gradient(135deg, rgba(255,255,255,0.13) 0%, rgba(255,255,255,0.05) 40%, rgba(255,255,255,0.05) 60%, rgba(255,255,255,0.13) 100%) border-box;
+  border: 1px solid transparent;
   color: white;
 }
 .kpi-pro-card.dark .kpi-title, 
@@ -139,6 +147,15 @@ const trendIcon = computed(() => {
   color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+  line-height: 1.2;
+}
+
+.kpi-period {
+  font-size: 10px;
+  font-weight: 600;
+  color: #94a3b8;
+  opacity: 0.8;
+  margin-top: 1px;
 }
 
 .kpi-icon {

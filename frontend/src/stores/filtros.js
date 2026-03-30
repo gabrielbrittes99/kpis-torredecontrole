@@ -20,7 +20,8 @@ export const useFiltrosStore = defineStore('filtros', {
       regiao: null,
       filial: null,
       grupo: null,
-      combustivel: null
+      combustivel: null,
+      contrato: null
     },
     
     // Opções disponíveis que vêm da API
@@ -30,6 +31,7 @@ export const useFiltrosStore = defineStore('filtros', {
       filiais: [],
       grupos_veiculo: [],
       combustiveis: [],
+      contratos: [],
       meses: [
         'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
         'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
@@ -85,6 +87,7 @@ export const useFiltrosStore = defineStore('filtros', {
         this.opcoes.filiais = f.filiais || []
         this.opcoes.grupos_veiculo = f.grupos_veiculo || []
         this.opcoes.combustiveis = f.combustiveis || []
+        this.opcoes.contratos = f.contratos || []
       } catch (e) {
         console.error('[Pinia] Erro carregando opções de filtros', e)
       } finally {
@@ -98,6 +101,7 @@ export const useFiltrosStore = defineStore('filtros', {
       this.selecao.filial = null
       this.selecao.grupo = null
       this.selecao.combustivel = null
+      this.selecao.contrato = null
     }
   }
 })

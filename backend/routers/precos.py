@@ -16,11 +16,31 @@ def _apply_filters(
     df: pd.DataFrame,
     combustivel: Optional[str],
     placa: Optional[str],
+    modo_tempo: str = "historico",
+    mes: Optional[int] = None,
+    ano: Optional[int] = None,
+    bimestre: Optional[int] = None,
+    semestre: Optional[int] = None,
+    data_inicio: Optional[str] = None,
+    data_fim: Optional[str] = None,
 ) -> pd.DataFrame:
     if combustivel:
         df = df[df["grupo_combustivel"] == combustivel]
     if placa:
         df = df[df["placa"] == placa.upper()]
+    # Filtro temporal (quando não for "historico")
+    if modo_tempo == "mes" and mes and ano:
+        df = df[(df["data_transacao"].dt.month == mes) & (df["data_transacao"].dt.year == ano)]
+    elif modo_tempo == "bimestre" and bimestre and ano:
+        months = [bimestre * 2 - 1, bimestre * 2]
+        df = df[(df["data_transacao"].dt.month.isin(months)) & (df["data_transacao"].dt.year == ano)]
+    elif modo_tempo == "semestre" and semestre and ano:
+        months = list(range(1, 7)) if semestre == 1 else list(range(7, 13))
+        df = df[(df["data_transacao"].dt.month.isin(months)) & (df["data_transacao"].dt.year == ano)]
+    elif modo_tempo == "ano" and ano:
+        df = df[df["data_transacao"].dt.year == ano]
+    elif modo_tempo == "personalizado" and data_inicio and data_fim:
+        df = df[(df["data_transacao"] >= data_inicio) & (df["data_transacao"] <= data_fim)]
     return df
 
 
@@ -32,12 +52,22 @@ def _apply_filters(
 def get_evolucao_por_tipo(
     combustivel: Optional[str] = Query(None),
     placa: Optional[str] = Query(None),
+    modo_tempo: str = Query("historico"),
+    mes: Optional[int] = Query(None),
+    ano: Optional[int] = Query(None),
+    bimestre: Optional[int] = Query(None),
+    semestre: Optional[int] = Query(None),
+    data_inicio: Optional[str] = Query(None),
+    data_fim: Optional[str] = Query(None),
 ):
     """
     Retorna preço médio por litro por mês, separado por tipo de combustível.
     Ideal para gráfico multi-linha.
     """
-    df = _apply_filters(cache.get_df(), combustivel, placa)
+    df = _apply_filters(
+        cache.get_df(), combustivel, placa,
+        modo_tempo, mes, ano, bimestre, semestre, data_inicio, data_fim
+    )
     if df.empty:
         return []
 
@@ -83,9 +113,19 @@ def get_evolucao_por_tipo(
 def get_preco_por_uf(
     combustivel: Optional[str] = Query(None),
     placa: Optional[str] = Query(None),
+    modo_tempo: str = Query("historico"),
+    mes: Optional[int] = Query(None),
+    ano: Optional[int] = Query(None),
+    bimestre: Optional[int] = Query(None),
+    semestre: Optional[int] = Query(None),
+    data_inicio: Optional[str] = Query(None),
+    data_fim: Optional[str] = Query(None),
 ):
     """Preço médio por litro agrupado por estado (UF)."""
-    df = _apply_filters(cache.get_df(), combustivel, placa)
+    df = _apply_filters(
+        cache.get_df(), combustivel, placa,
+        modo_tempo, mes, ano, bimestre, semestre, data_inicio, data_fim
+    )
     if df.empty:
         return []
 
@@ -125,9 +165,19 @@ def get_ranking_postos_preco(
     ordem: str = Query(default="mais_barato"),  # mais_barato | mais_caro
     combustivel: Optional[str] = Query(None),
     placa: Optional[str] = Query(None),
+    modo_tempo: str = Query("historico"),
+    mes: Optional[int] = Query(None),
+    ano: Optional[int] = Query(None),
+    bimestre: Optional[int] = Query(None),
+    semestre: Optional[int] = Query(None),
+    data_inicio: Optional[str] = Query(None),
+    data_fim: Optional[str] = Query(None),
 ):
     """Postos ordenados por preço médio/L, maior volume ou maior custo total (mínimo 3 abastecimentos)."""
-    df = _apply_filters(cache.get_df(), combustivel, placa)
+    df = _apply_filters(
+        cache.get_df(), combustivel, placa,
+        modo_tempo, mes, ano, bimestre, semestre, data_inicio, data_fim
+    )
     if df.empty:
         return []
 

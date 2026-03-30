@@ -93,11 +93,11 @@ thead th {
   font-size: 11px; font-weight: 700; color: #94a3b8;
   text-transform: uppercase; letter-spacing: 0.05em;
   text-align: left; padding: 10px 10px;
-  border-bottom: 1px solid #f1f5f9; white-space: nowrap;
+  border-bottom: 1px solid rgba(0,0,0,0.07); white-space: nowrap;
 }
 .col-highlight { color: #1e293b; }
 th.right, td.right { text-align: right; }
-tbody td { font-size: 13px; color: #334155; padding: 10px 10px; border-bottom: 1px solid #f8fafc; white-space: nowrap; vertical-align: middle; }
+tbody td { font-size: 13px; color: #334155; padding: 10px 10px; border-bottom: 1px solid rgba(0,0,0,0.03); white-space: nowrap; vertical-align: middle; }
 tbody tr:last-child td { border-bottom: none; }
 tbody tr:hover { background: #fafafa; }
 

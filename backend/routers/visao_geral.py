@@ -160,22 +160,39 @@ def get_dashboard(
     total_veic   = int(df_periodo["placa"].nunique())
     preco_medio  = round(gasto_mes / litros_mes, 4) if litros_mes > 0 else None
 
-    # Variação vs período anterior
-    # Simplificação: Para meses, usa M-1. Para outros modos, compara com o mesmo período do ano anterior (ou apenas o ano anterior completo)
-    # Aqui vamos manter a lógica de mês para compatibilidade se modo_tempo for 'mes'
-    gasto_ant = None
+    # Variação vs período anterior — suporta todos os modos de tempo
+    df_ant = None
     if modo_tempo == "mes":
         m_ant = mes - 1 if mes > 1 else 12
         a_ant = ano if mes > 1 else ano - 1
         df_ant = _apply_filters(df_all, "mes", a_ant, m_ant, None, None, None, None, grupo, combustivel, estado, regiao, filial)
         if is_current_month:
             df_ant = df_ant[df_ant["data_transacao"].dt.day <= now.day]
-        gasto_ant = float(df_ant["valor"].sum())
+    elif modo_tempo == "bimestre":
+        b_ant = bimestre - 1 if bimestre and bimestre > 1 else 6
+        a_ant = ano if (bimestre and bimestre > 1) else ano - 1
+        df_ant = _apply_filters(df_all, "bimestre", a_ant, None, b_ant, None, None, None, grupo, combustivel, estado, regiao, filial)
+    elif modo_tempo == "semestre":
+        s_ant = semestre - 1 if semestre and semestre > 1 else 2
+        a_ant = ano if (semestre and semestre > 1) else ano - 1
+        df_ant = _apply_filters(df_all, "semestre", a_ant, None, None, s_ant, None, None, grupo, combustivel, estado, regiao, filial)
     elif modo_tempo == "ano":
         df_ant = _apply_filters(df_all, "ano", ano - 1, None, None, None, None, None, grupo, combustivel, estado, regiao, filial)
-        gasto_ant = float(df_ant["valor"].sum())
 
-    var_pct = round((gasto_mes - gasto_ant) / gasto_ant * 100, 1) if gasto_ant and gasto_ant > 0 else None
+    gasto_ant   = float(df_ant["valor"].sum())   if df_ant is not None else None
+    litros_ant  = float(df_ant["litragem"].sum()) if df_ant is not None else None
+    abs_ant     = int(len(df_ant))               if df_ant is not None else None
+    preco_ant   = round(gasto_ant / litros_ant, 4) if (litros_ant and litros_ant > 0 and gasto_ant is not None) else None
+
+    def _var(atual, anterior):
+        if atual is None or not anterior or anterior <= 0:
+            return None
+        return round((atual - anterior) / anterior * 100, 1)
+
+    var_pct          = _var(gasto_mes, gasto_ant)
+    litros_var_pct   = _var(litros_mes, litros_ant)
+    abs_var_pct      = _var(float(total_abs), float(abs_ant) if abs_ant is not None else None)
+    preco_medio_var_pct = _var(preco_medio, preco_ant)
 
     # km/l e custo/km — calculado sobre o período filtrado com hodômetro
     kml_df = cache.get_kml_df()
@@ -189,15 +206,18 @@ def get_dashboard(
     custo_km  = round(val_kml / km_val, 4)   if km_val  > 0 else None
 
     hero = {
-        "gasto_mes":         round(gasto_mes, 2),
-        "gasto_mes_var_pct": var_pct,
-        "trend_label":       trend_label,
-        "litros_mes":        round(litros_mes, 1),
-        "total_abastecimentos": total_abs,
-        "total_veiculos":    total_veic,
-        "preco_medio":       preco_medio,
-        "kml_medio":         kml_medio,
-        "custo_km":          custo_km,
+        "gasto_mes":              round(gasto_mes, 2),
+        "gasto_mes_var_pct":      var_pct,
+        "litros_mes":             round(litros_mes, 1),
+        "litros_mes_var_pct":     litros_var_pct,
+        "total_abastecimentos":   total_abs,
+        "abastecimentos_var_pct": abs_var_pct,
+        "total_veiculos":         total_veic,
+        "preco_medio":            preco_medio,
+        "preco_medio_var_pct":    preco_medio_var_pct,
+        "trend_label":            trend_label,
+        "kml_medio":              kml_medio,
+        "custo_km":               custo_km,
     }
 
     # ── Gráfico mensal (últimos 12 meses) — aplica filtros de atributo ──────

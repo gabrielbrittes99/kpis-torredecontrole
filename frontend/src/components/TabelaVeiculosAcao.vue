@@ -106,7 +106,7 @@ function exportarCSV() {
 </script>
 
 <style scoped>
-.card { background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; }
+.card { background: linear-gradient(white, white) padding-box, linear-gradient(135deg, rgba(0,0,0,0.09) 0%, rgba(0,0,0,0.04) 40%, rgba(0,0,0,0.04) 60%, rgba(0,0,0,0.09) 100%) border-box; border: 1px solid transparent; border-radius: 16px; padding: 24px; }
 .card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
 .card-title { font-size: 14px; font-weight: 700; color: #0f172a; }
 .card-hint { font-size: 12px; color: #94a3b8; margin-top: 2px; }
@@ -124,12 +124,12 @@ thead th {
   font-size: 11px; font-weight: 700; color: #94a3b8;
   text-transform: uppercase; letter-spacing: 0.05em;
   text-align: left; padding: 12px 10px;
-  border-bottom: 1px solid #f1f5f9; white-space: nowrap;
+  border-bottom: 1px solid rgba(0,0,0,0.07); white-space: nowrap;
 }
 th.right, td.right { text-align: right; }
 tbody tr { transition: background 0.1s; }
 tbody tr:hover { background: #fcfcfc; }
-tbody td { font-size: 13px; color: #334155; padding: 12px 10px; border-bottom: 1px solid #f8fafc; white-space: nowrap; vertical-align: middle; }
+tbody td { font-size: 13px; color: #334155; padding: 12px 10px; border-bottom: 1px solid rgba(0,0,0,0.03); white-space: nowrap; vertical-align: middle; }
 tbody tr:last-child td { border-bottom: none; }
 
 tbody tr.row-critico { background: rgba(239,68,68,0.02); }

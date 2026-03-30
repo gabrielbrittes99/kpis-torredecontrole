@@ -95,7 +95,7 @@ const fmtN = v => v != null ? Number(v).toLocaleString('pt-BR', { maximumFractio
 </script>
 
 <style scoped>
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; }
+.card { background: linear-gradient(var(--surface, white), var(--surface, white)) padding-box, linear-gradient(135deg, rgba(0,0,0,0.09) 0%, rgba(0,0,0,0.04) 40%, rgba(0,0,0,0.04) 60%, rgba(0,0,0,0.09) 100%) border-box; border: 1px solid transparent; border-radius: 12px; padding: 24px; }
 .card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
 .card-title { font-size: 14px; font-weight: 600; color: var(--text); }
 .card-hint  { font-size: 12px; color: var(--text-3); margin-top: 2px; }

@@ -1,15 +1,16 @@
 <template>
   <div class="sl-page">
-    <!-- Header -->
+    <GlobalTopbar
+      title="Sumário do Sistema"
+      subtitle="Como os dados são classificados, filtrados e calculados neste painel"
+      :showPeriod="false" :showFilters="false"
+    />
+    <!-- Header inline com stats -->
     <div class="sl-header">
       <div class="sl-header-left">
         <div class="sl-title-row">
-          <h1 class="sl-title font-syne">Sumário do Sistema</h1>
           <span class="sl-badge">Referência</span>
         </div>
-        <p class="sl-subtitle">
-          Como os dados são classificados, filtrados e calculados neste painel.
-        </p>
       </div>
       <div v-if="stats" class="sl-header-stats">
         <div class="sl-stat">
@@ -154,6 +155,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import GlobalTopbar from '../components/GlobalTopbar.vue'
 import { GRITSCH_CONFIG } from '../gritsch.config'
 const BASE_URL = GRITSCH_CONFIG.URLS.BACKEND
 
@@ -236,10 +238,16 @@ onMounted(async () => {
 
 <style scoped>
 .sl-page {
-  padding: 32px 40px 60px;
+  background: #f8fafc;
+  min-height: 100vh;
+}
+.sl-page > .sl-header,
+.sl-page > *:not(header) {
   max-width: 1200px;
   margin: 0 auto;
+  padding: 0 40px;
 }
+.sl-page > .sl-header { padding-top: 24px; }
 
 /* Header */
 .sl-header {
