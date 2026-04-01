@@ -147,32 +147,24 @@
         </button>
       </div>
 
-      <!-- TRANSAÇÕES & AUDITORIA -->
+      <!-- PNEUS -->
       <div class="nav-group">
-        <span v-show="!collapsed" class="group-label">Monitoramento</span>
-        <div v-show="collapsed" class="group-rule"></div>
+        <span v-show="!collapsed" class="group-label">Pneus</span>
+        <div v-show="collapsed" class="group-rule" />
 
-        <button class="nav-btn" :class="{ active: is('transacoes') }" @click="go('transacoes')" :title="collapsed ? 'Gestão de Transações' : ''">
+        <button class="nav-btn" :class="{ active: is('pneus') }" @click="go('pneus')" :title="collapsed ? 'Pneus' : ''">
           <span class="nav-icon">
             <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M2 9h14M9 2l7 7-7 7"/>
+              <circle cx="9" cy="9" r="7"/>
+              <circle cx="9" cy="9" r="3"/>
+              <circle cx="9" cy="9" r="1" fill="currentColor" stroke="none"/>
             </svg>
           </span>
-          <span v-show="!collapsed" class="nav-text">Transações (Live)</span>
+          <span v-show="!collapsed" class="nav-text">Gestão de Pneus</span>
         </button>
+      </div>
 
-        <button class="nav-btn" :class="{ active: is('estornos') }" @click="go('estornos')" :title="collapsed ? 'Auditoria de Estornos' : ''">
-          <span class="nav-icon">
-            <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M16 4h-2a4 4 0 00-8 0H2M2 4l4-4M2 4l4 4"/>
-              <path d="M2 14h2a4 4 0 008 0h4M16 14l-4-4M16 14l-4 4"/>
-            </svg>
-          </span>
-          <span v-show="!collapsed" class="nav-text">Estornos (Auditoria)</span>
-        </button>
-      </div> <!-- fim monitoramento -->
-
-      <div class="sidebar-spacer"></div>
+      <div class="sidebar-spacer" />
 
       <!-- REFERÊNCIA -->
       <div class="nav-group nav-group--bottom">
