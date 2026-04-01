@@ -94,6 +94,7 @@ app.include_router(sistema.router)
 app.include_router(fkm.router)
 app.include_router(manutencao.router)
 app.include_router(pneus.router)
+app.include_router(pneus.router)
 
 
 @app.get("/health", tags=["sistema"])
