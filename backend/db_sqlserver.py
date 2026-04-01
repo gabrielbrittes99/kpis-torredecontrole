@@ -122,6 +122,60 @@ def get_veiculos_df() -> pd.DataFrame:
     return _veiculos_cache
 
 
+def get_trocas_pneu_df() -> pd.DataFrame:
+    """
+    Retorna DataFrame específico para busca de trocas de pneus.
+
+    Regras de filtragem (conforme especificação):
+      - DescricaoItem contém 'SUBSTITUIR - PNEU' OU 'MONTAGEM DE PNEU'  (OR, não AND)
+      - TipoItem = 'Serviço'
+
+    Campo de cruzamento com a planilha: DataEmissao (data de emissão da OS).
+    KM capturado: OdometroConfirmado da OrdensServico — km do veículo no momento da troca.
+    """
+    try:
+        conn = get_sqlserver_conn()
+        cursor = conn.cursor(as_dict=True)
+        cursor.execute("""
+            SELECT
+                ios.Placa,
+                ios.TipoItem,
+                ios.DescricaoItem,
+                os.DataEmissao,
+                ios.DataCriacaoOcorrencia,
+                ios.DataConclusaoOcorrencia,
+                os.OdometroConfirmado AS KmTroca
+            FROM ItensOrdemServico ios
+            LEFT JOIN OrdensServico os ON ios.OrdemServico = os.OrdemServico
+            WHERE ios.FilialOperacional LIKE '%GRITSCH%'
+              AND ios.TipoItem = 'Serviço'
+              AND (
+                  ios.DescricaoItem LIKE '%SUBSTITUIR - PNEU%'
+                  OR ios.DescricaoItem LIKE '%MONTAGEM DE PNEU%'
+              )
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+
+        df = pd.DataFrame(rows)
+        if not df.empty:
+            df["Placa"] = df["Placa"].apply(_norm_placa)
+            df["KmTroca"] = pd.to_numeric(df["KmTroca"], errors="coerce").fillna(0)
+            df["DataEmissao"] = pd.to_datetime(df["DataEmissao"], errors="coerce")
+            df["DataCriacaoOcorrencia"] = pd.to_datetime(df["DataCriacaoOcorrencia"], errors="coerce")
+            df["DataConclusaoOcorrencia"] = pd.to_datetime(df["DataConclusaoOcorrencia"], errors="coerce")
+
+        logger.info(f"SQL Server: {len(df)} trocas de pneus carregadas (SUBSTITUIR-PNEU OR MONTAGEM-PNEU, TipoItem=Serviço)")
+        return df
+
+    except Exception as e:
+        logger.warning(f"SQL Server: falha ao carregar trocas de pneus: {e}")
+        return pd.DataFrame(columns=[
+            "Placa", "TipoItem", "DescricaoItem", "DataEmissao",
+            "DataCriacaoOcorrencia", "DataConclusaoOcorrencia", "KmTroca"
+        ])
+
+
 def get_manutencao_df() -> pd.DataFrame:
     """
     Retorna DataFrame de itens de manutenção de veículos Gritsch.
@@ -168,9 +222,11 @@ def get_manutencao_df() -> pd.DataFrame:
                     ios.SituacaoOcorrencia,
                     ios.SituacaoOrdemServico,
                     ios.FilialOperacional,
-                    ios.IdUnidadeDeFaturamento  AS IdFilialOperacional,
-                    ios.ModeloVeiculo
+                    ios.IdUnidadeDeFaturamento AS IdFilialOperacional,
+                    ios.ModeloVeiculo,
+                    os.OdometroConfirmado AS KmManutencao
                 FROM ItensOrdemServico ios
+                LEFT JOIN OrdensServico os ON ios.OrdemServico = os.OrdemServico
                 WHERE ios.FilialOperacional LIKE '%GRITSCH%'
                   AND ios.Tipo NOT IN ('Despesa', 'Devolução')
                   AND ios.ValorTotal > 0
@@ -183,6 +239,7 @@ def get_manutencao_df() -> pd.DataFrame:
                 df["ValorTotal"] = pd.to_numeric(df["ValorTotal"], errors="coerce").fillna(0)
                 df["Quantidade"] = pd.to_numeric(df["Quantidade"], errors="coerce").fillna(0)
                 df["ValorUnitario"] = pd.to_numeric(df["ValorUnitario"], errors="coerce").fillna(0)
+                df["KmManutencao"] = pd.to_numeric(df["KmManutencao"], errors="coerce").fillna(0)
             _manutencao_cache = df
             _manutencao_cache_ts = agora
             logger.info(f"SQL Server: {len(df)} itens de manutenção carregados")

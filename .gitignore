@@ -21,3 +21,12 @@ venv/
 node_modules/
 dist/
 *.log
+
+# Scratch and Data files
+*.xlsx
+*.txt
+diag_*.py
+nul
+backend/audit_*.py
+test.xlsx
+debug_xls.txt
