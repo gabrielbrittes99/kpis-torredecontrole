@@ -31,11 +31,14 @@ def get_kpis_estrategicos(
     if df.empty:
         return {}
 
-    hoje = datetime.now()
+    # Puxa a data máxima real que existe na base de dados (dataset cutoff)
+    hoje = df["data_transacao"].max()
+    if pd.isna(hoje): hoje = datetime.now()
+    
     mes_ref = mes if mes else hoje.month
     ano_ref = ano if ano else hoje.year
     
-    # Determina se é o mês atual "em curso" para usar Like-for-Like
+    # Determina se é o mês atual "em curso" (último mês do dataset) para usar Like-for-Like
     eh_mes_atual = (mes_ref == hoje.month and ano_ref == hoje.year)
     
     df_ano = df[df["data_transacao"].dt.year == ano_ref].copy()
@@ -163,6 +166,7 @@ def get_kpis_estrategicos(
         "projecao_mes_atual": proj_total_mes,
         "projecao_anual": projecao_anual,
         "kml_medio": kml_medio,
+        "preco_medio_litro": round(gasto_ano / litros_ano, 4) if litros_ano > 0 else 0,
         "custo_por_km": custo_km,
         "saving_acumulado_mes": saving_acumulado,
         "saving_resumo_anp": saving_resumo,
@@ -296,7 +300,8 @@ def get_mix_combustiveis(
     if df.empty:
         return {"mes": [], "ano": []}
 
-    hoje = datetime.now()
+    hoje = df["data_transacao"].max()
+    if pd.isna(hoje): hoje = datetime.now()
     mes_ref = mes if mes else hoje.month
     ano_ref = ano if ano else hoje.year
     
@@ -351,7 +356,8 @@ def get_gastos_filiais_matriz(
     if df_tp.empty:
         return []
 
-    hoje = datetime.now()
+    hoje = df_tp["data_transacao"].max()
+    if pd.isna(hoje): hoje = datetime.now()
     mes_ref = mes if mes else hoje.month
     ano_ref = ano if ano else hoje.year
 
@@ -436,7 +442,8 @@ def get_comparativo_meses(
     if df.empty:
         return {}
 
-    hoje = datetime.now()
+    hoje = df["data_transacao"].max()
+    if pd.isna(hoje): hoje = datetime.now()
     mes_ref = mes if mes else hoje.month
     ano_ref = ano if ano else hoje.year
     eh_mes_atual = (mes_ref == hoje.month and ano_ref == hoje.year)
@@ -444,7 +451,7 @@ def get_comparativo_meses(
     ref_dt = datetime(ano_ref, mes_ref, 1)
     
     if eh_mes_atual:
-        # Se for o mês atual, a referência de "até que dia" é o último dado ou hoje.
+        # A referência de "até que dia" é o último dado ou hoje.
         ultima_transacao = df[df["data_transacao"].dt.month == mes_ref]["data_transacao"].max()
         dia_referencia = ultima_transacao.day if not pd.isna(ultima_transacao) else hoje.day
     else:
@@ -517,7 +524,9 @@ def get_comparativo_meses(
             "valor_pct": round((atual["total_valor"] - anterior["total_valor"]) / anterior["total_valor"] * 100, 1),
             "litros_pct": round(((atual["total_litros"] / anterior["total_litros"]) - 1) * 100, 1) if anterior["total_litros"] > 0 else 0,
             "preco_abs": round(atual["preco_medio"] - anterior["preco_medio"], 4),
-            "custo_km_abs": round(atual["custo_km"] - anterior["custo_km"], 3) if anterior["custo_km"] > 0 else 0,
+            "preco_pct": round((atual["preco_medio"] / anterior["preco_medio"] - 1) * 100, 1) if anterior["preco_medio"] > 0 else 0,
+            "custo_km_abs": round(atual["custo_km"] - anterior["custo_km"], 3),
+            "custo_km_pct": round((atual["custo_km"] / anterior["custo_km"] - 1) * 100, 1) if anterior["custo_km"] > 0 else 0,
         }
 
     variacao_avg = {}
@@ -527,7 +536,9 @@ def get_comparativo_meses(
             "valor_pct": round((atual["total_valor"] - avg_3_meses["total_valor"]) / avg_3_meses["total_valor"] * 100, 1),
             "litros_pct": round(((atual["total_litros"] / avg_3_meses["total_litros"]) - 1) * 100, 1) if avg_3_meses["total_litros"] > 0 else 0,
             "preco_abs": round(atual["preco_medio"] - avg_3_meses["preco_medio"], 4),
-            "custo_km_abs": round(atual["custo_km"] - avg_3_meses["custo_km"], 3) if avg_3_meses["custo_km"] > 0 else 0,
+            "preco_pct": round((atual["preco_medio"] / avg_3_meses["preco_medio"] - 1) * 100, 1) if avg_3_meses["preco_medio"] > 0 else 0,
+            "custo_km_abs": round(atual["custo_km"] - avg_3_meses["custo_km"], 3),
+            "custo_km_pct": round((atual["custo_km"] / avg_3_meses["custo_km"] - 1) * 100, 1) if avg_3_meses["custo_km"] > 0 else 0,
         }
 
     return {

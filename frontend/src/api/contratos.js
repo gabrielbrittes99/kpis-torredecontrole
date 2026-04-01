@@ -1,21 +1,9 @@
-import { GRITSCH_CONFIG } from '../gritsch.config.js'
+import { cachedFetch, TTL } from './apiCache'
 
-const BASE = GRITSCH_CONFIG.URLS.BACKEND
-
-async function get(path, params = {}) {
-  const url = new URL(`${BASE}${path}`, location.origin)
-  Object.entries(params).forEach(([k, v]) => {
-    if (v !== null && v !== undefined && v !== '') url.searchParams.set(k, v)
-  })
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
-  return res.json()
+export function fetchContratosKpis(params = {}) {
+  return cachedFetch('/api/contratos/kpis', params, { ttl: TTL.DASHBOARD })
 }
 
-export function fetchContratosKpis(params = {}) { 
-  return get('/api/contratos/kpis', params) 
-}
-
-export function fetchContratosHistorico(params = {}) { 
-  return get('/api/contratos/historico', params) 
+export function fetchContratosHistorico(params = {}) {
+  return cachedFetch('/api/contratos/historico', params, { ttl: TTL.EVOLUCAO })
 }

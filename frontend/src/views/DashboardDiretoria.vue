@@ -15,7 +15,9 @@
       <div class="kpi-pro-grid">
         <KpiCardPro
           title="Gasto Real (Mês)"
-          :value="kpis.gasto_mes_atual || 0"
+          :value="kpis.gasto_mes_atual_real || 0"
+          :trendValue="comparativo.variacao?.valor_pct"
+          trendInvert
           format="currency"
           theme="primary"
           :description="'Realizado até dia ' + (kpis.dia_referencia_proj || '—')"
@@ -24,11 +26,13 @@
           title="Projeção (Mês)"
           :value="kpis.projecao_mes_atual || 0"
           format="currency"
-          :description="(kpis.qtd_veiculos || 0) + ' veículos ativos'"
+          :description="(kpis.veiculos_ativos_mes || 0) + ' veículos ativos'"
         />
         <KpiCardPro
           title="Preço Médio/L"
           :value="kpis.preco_medio_litro || 0"
+          :trendValue="comparativo.variacao?.preco_pct"
+          trendInvert
           format="currency"
           :decimals="3"
           description="Média ponderada geral"
@@ -36,6 +40,8 @@
         <KpiCardPro
           title="Custo/KM Global"
           :value="kpis.custo_por_km || 0"
+          :trendValue="comparativo.variacao?.custo_km_pct"
+          trendInvert
           format="currency"
           :decimals="3"
           description="Gasto Year-to-Date"

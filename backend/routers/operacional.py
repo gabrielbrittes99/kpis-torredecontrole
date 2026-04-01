@@ -27,70 +27,34 @@ _FAMILIA_MAP = {
 
 # ── Agregação de métricas (range por veículo) ───────────────────────────────
 def _agg_km(grupo: pd.DataFrame):
-    """
-    Retorna: total_valor, total_litros, total_km, custo_km, km_litro, preco_litro
-
-    Nova lógica (Mar/2026):
-    1. Calcula o range de KM (max - min) por veículo.
-    2. Soma o valor e litragem de TODAS as transações que ocorrem APÓS o 
-       primeiro hodômetro registrado no período.
-    3. Isso resolve a subestimação (captura records sem hodo entre medições) 
-       e a superestimação (remove o primeiro tanque que refere-se ao passado).
-    """
-    # Totais brutos para KPIs de volume/valor (incluem tudo, inclusive Arla)
-    total_valor = float(grupo["valor"].sum())
+    # Logica: diff de hodometro entre abastecimentos consecutivos por placa.
+    # Descarta diffs invalidos (<= 0 ou > 2000 km). Exclui Arla da performance.
+    total_valor  = float(grupo["valor"].sum())
     total_litros = float(grupo["litragem"].sum())
-    preco_litro = round(total_valor / total_litros, 4) if total_litros > 0 else None
-
+    preco_litro  = round(total_valor / total_litros, 4) if total_litros > 0 else None
     if "hodometro" not in grupo.columns or grupo.empty:
         return total_valor, total_litros, None, None, None, preco_litro
-
-    # Filtra apenas quem tem hodômetro para definir a linha de base (t_min)
     hodo = grupo[grupo["hodometro"].notna() & (grupo["hodometro"] > 0)].copy()
     if hodo.empty:
         return total_valor, total_litros, None, None, None, preco_litro
-
-    res_valor_km = 0.0
-    res_litros_km = 0.0
-    res_total_km = 0.0
-
-    # Agrupa por placa para processar o range de cada veículo individualmente
+    res_valor_km = res_litros_km = res_total_km = 0.0
     for placa, g_veh in hodo.groupby("placa"):
-        # Acha o ponto de partida: menor hodômetro e seu timestamp
-        # Usamos idxmin para pegar a linha exata caso haja duplicatas de hodo
-        idx_min = g_veh["hodometro"].idxmin()
-        row_min = g_veh.loc[idx_min]
-        
-        t_min = row_min["data_transacao"]
-        km_min = float(row_min["hodometro"])
-        km_max = float(g_veh["hodometro"].max())
-        
-        km_range = km_max - km_min
-        
-        # Filtros de sanidade: range > 0 e humanamente possível (< 500k km num mês)
-        if km_range <= 0 or km_range > 500_000:
+        g_veh = g_veh.sort_values("data_transacao").reset_index(drop=True)
+        g_perf = g_veh[~g_veh["grupo_combustivel"].str.contains("Arla", case=False, na=False)].copy()
+        if g_perf.empty:
             continue
-            
-        # Pega TODAS as transações deste veículo no 'grupo' original 
-        # (para incluir as que não tem hodômetro registrado)
-        v_all = grupo[grupo["placa"] == placa]
-        
-        # Somamos apenas o que ocorreu DEPOIS do t_min.
-        # Por que? Porque o valor do abastecimento no t_min foi usado para chegar até ali.
-        # Os abastecimentos subsequentes é que "encheram o tanque" para o range percorrido.
-        v_interval = v_all[v_all["data_transacao"] > t_min]
-        
-        # Filtro de Arla para métricas de performance (Diesel/Gasolina/Álcool)
-        # O Arla distorce o custo/km e km/l por ser muito barato e não tracionar o veículo.
-        v_perf = v_interval[~v_interval["grupo_combustivel"].str.contains("Arla", case=False, na=False)]
-        
-        res_valor_km += float(v_perf["valor"].sum())
-        res_litros_km += float(v_perf["litragem"].sum())
-        res_total_km += km_range
-
-    custo_km = round(res_valor_km / res_total_km, 4) if res_total_km > 0 else None
+        g_perf = g_perf.sort_values("data_transacao").reset_index(drop=True)
+        g_perf["km_percorrido"] = g_perf["hodometro"].diff()
+        validos = g_perf[(g_perf["km_percorrido"] > 0) & (g_perf["km_percorrido"] <= 2000)]
+        if validos.empty:
+            continue
+        res_total_km  += float(validos["km_percorrido"].sum())
+        res_valor_km  += float(validos["valor"].sum())
+        res_litros_km += float(validos["litragem"].sum())
+    if res_total_km == 0:
+        return total_valor, total_litros, None, None, None, preco_litro
+    custo_km = round(res_valor_km / res_total_km, 4)
     km_litro = round(res_total_km / res_litros_km, 2) if res_litros_km > 0 else None
-
     return total_valor, total_litros, res_total_km, custo_km, km_litro, preco_litro
 
 

@@ -61,7 +61,13 @@
 
       <!-- ━━━━━ SEÇÃO 2: CUSTO/KM POR GRUPO DE VEÍCULO ━━━━━ -->
       <section class="v-block">
-        <div class="section-heading">Custo/KM por Grupo de Veículo</div>
+        <div class="section-title-row">
+          <div class="section-heading" style="flex:1;margin:0">Custo/KM por Grupo de Veículo</div>
+          <div class="comb-tabs">
+            <button :class="{ active: filtroGrupo === null }" :style="pillStyle(null, filtroGrupo)" @click="setFiltroGrupo(null)">Todos</button>
+            <button v-for="c in COMBUSTIVEIS" :key="c" :class="{ active: filtroGrupo === c }" :style="pillStyle(c, filtroGrupo)" @click="setFiltroGrupo(c)">{{ c }}</button>
+          </div>
+        </div>
         <div class="card chart-full">
           <div v-if="lGrupo" class="skel" style="height:300px" />
           <div v-else-if="!custoPorGrupo.length" class="empty">Sem dados de custo/km por grupo</div>
@@ -120,7 +126,13 @@
 
       <!-- ━━━━━ SEÇÃO 3: CUSTO/KM POR FILIAL ━━━━━ -->
       <section class="v-block">
-        <div class="section-heading">Custo/KM por Filial</div>
+        <div class="section-title-row">
+          <div class="section-heading" style="flex:1;margin:0">Custo/KM por Filial</div>
+          <div class="comb-tabs">
+            <button :class="{ active: filtroFilial === null }" :style="pillStyle(null, filtroFilial)" @click="setFiltroFilial(null)">Todos</button>
+            <button v-for="c in COMBUSTIVEIS" :key="c" :class="{ active: filtroFilial === c }" :style="pillStyle(c, filtroFilial)" @click="setFiltroFilial(c)">{{ c }}</button>
+          </div>
+        </div>
         <GraficoBarrasFilial
           :data="filialData"
           :familia="familiaFiltro"
@@ -130,54 +142,85 @@
 
       <!-- ━━━━━ SEÇÃO 4: POSTOS ━━━━━ -->
       <section class="v-block">
-        <div class="section-heading">Análise de Postos</div>
+        <div class="section-title-row">
+          <div class="section-heading" style="flex:1;margin:0">Análise de Postos</div>
+        </div>
         <div class="postos-stack">
-
-          <!-- Maior Custo Total -->
           <div class="posto-panel">
             <div class="posto-panel-title">
-              <span class="posto-icon posto-icon-red">$</span>
-              Maior custo total — Top 10
+              <div style="display:flex; align-items:center; gap:10px;">
+                <span class="posto-icon posto-icon-red">$</span>
+                Maior custo total — Top 10
+              </div>
+              <div class="comb-tabs" style="margin-left: auto;">
+                <button :class="{ active: filtroPostosCusto === null }" :style="pillStyle(null, filtroPostosCusto)" @click="setFiltroPostosCusto(null)">Todos</button>
+                <button v-for="c in COMBUSTIVEIS" :key="c" :class="{ active: filtroPostosCusto === c }" :style="pillStyle(c, filtroPostosCusto)" @click="setFiltroPostosCusto(c)">{{ c }}</button>
+              </div>
             </div>
             <TabelaRankingPostos :data="postosMaiorCusto" :loading="lPostosCusto" ordem="maior_custo" />
           </div>
-
-          <!-- Maior Volume -->
           <div class="posto-panel">
             <div class="posto-panel-title">
-              <span class="posto-icon posto-icon-blue">⬆</span>
-              Maior volumetria — Top 10
+              <div style="display:flex; align-items:center; gap:10px;">
+                <span class="posto-icon posto-icon-blue">⬆</span>
+                Maior volumetria — Top 10
+              </div>
+              <div class="comb-tabs" style="margin-left: auto;">
+                <button :class="{ active: filtroPostosVolume === null }" :style="pillStyle(null, filtroPostosVolume)" @click="setFiltroPostosVolume(null)">Todos</button>
+                <button v-for="c in COMBUSTIVEIS" :key="c" :class="{ active: filtroPostosVolume === c }" :style="pillStyle(c, filtroPostosVolume)" @click="setFiltroPostosVolume(c)">{{ c }}</button>
+              </div>
             </div>
             <TabelaRankingPostos :data="postosMaiorVolume" :loading="lPostosVolume" ordem="maior_volume" />
           </div>
-
-          <!-- Mais Caros (preço/L) -->
           <div class="posto-panel">
             <div class="posto-panel-title">
-              <span class="posto-icon posto-icon-orange">▲</span>
-              Maior preço/L — Top 10
+              <div style="display:flex; align-items:center; gap:10px;">
+                <span class="posto-icon posto-icon-orange">▲</span>
+                Maior preço/L — Top 10
+              </div>
+              <div class="comb-tabs" style="margin-left: auto;">
+                <button :class="{ active: filtroPostosPreco === null }" :style="pillStyle(null, filtroPostosPreco)" @click="setFiltroPostosPreco(null)">Todos</button>
+                <button v-for="c in COMBUSTIVEIS" :key="c" :class="{ active: filtroPostosPreco === c }" :style="pillStyle(c, filtroPostosPreco)" @click="setFiltroPostosPreco(c)">{{ c }}</button>
+              </div>
             </div>
             <TabelaRankingPostos :data="postosMaisCaros" :loading="lPostos" ordem="mais_caro" />
           </div>
-
         </div>
       </section>
 
       <!-- ━━━━━ SEÇÃO 5: VARIAÇÃO DE PREÇO POR MÊS ━━━━━ -->
       <section class="v-block">
-        <div class="section-heading">Variação de Preço Médio por Mês</div>
+        <div class="section-title-row">
+          <div class="section-heading" style="flex:1;margin:0">Variação de Preço Médio por Mês</div>
+          <div class="comb-tabs">
+            <button :class="{ active: filtroVariacao === null }" :style="pillStyle(null, filtroVariacao)" @click="setFiltroVariacao(null)">Todos</button>
+            <button v-for="c in COMBUSTIVEIS" :key="c" :class="{ active: filtroVariacao === c }" :style="pillStyle(c, filtroVariacao)" @click="setFiltroVariacao(c)">{{ c }}</button>
+          </div>
+        </div>
         <GraficoVariacaoMensal :data="variacao" :loading="lVariacao" />
       </section>
 
       <!-- ━━━━━ SEÇÃO 6: MONITORAMENTO DE FROTA ━━━━━ -->
       <section id="secao-acao" class="v-block">
-        <div class="section-heading">Veículos sob Alerta · Comparação por Grupo</div>
+        <div class="section-title-row">
+          <div class="section-heading" style="flex:1;margin:0">Veículos sob Alerta · Comparação por Grupo</div>
+          <div class="comb-tabs">
+            <button :class="{ active: filtroAcao === null }" :style="pillStyle(null, filtroAcao)" @click="setFiltroAcao(null)">Todos</button>
+            <button v-for="c in COMBUSTIVEIS" :key="c" :class="{ active: filtroAcao === c }" :style="pillStyle(c, filtroAcao)" @click="setFiltroAcao(c)">{{ c }}</button>
+          </div>
+        </div>
         <TabelaVeiculosAcao :data="veiculosAcao" :resumo="resumoAcao" :loading="lAcao" />
       </section>
 
       <!-- ━━━━━ SEÇÃO 7A: EVOLUÇÃO CUSTO/KM ━━━━━ -->
       <section class="v-block">
-        <div class="section-heading">Evolução Histórica · Custo/KM (12 meses)</div>
+        <div class="section-title-row">
+          <div class="section-heading" style="flex:1;margin:0">Evolução Histórica · Custo/KM (12 meses)</div>
+          <div class="comb-tabs">
+            <button :class="{ active: filtroEvolucao === null }" :style="pillStyle(null, filtroEvolucao)" @click="setFiltroEvolucao(null)">Todos</button>
+            <button v-for="c in COMBUSTIVEIS" :key="c" :class="{ active: filtroEvolucao === c }" :style="pillStyle(c, filtroEvolucao)" @click="setFiltroEvolucao(c)">{{ c }}</button>
+          </div>
+        </div>
         <div class="card">
           <div v-if="lEvolucao" class="skel" style="height:240px" />
           <div v-else-if="!evolucao.length" class="empty">Sem dados históricos</div>
@@ -279,6 +322,53 @@ const FAMILIAS_LIST = [
 ]
 const labelFamilia = computed(() => FAMILIAS_LIST.find(f => f.key === familiaFiltro.value)?.label ?? familiaFiltro.value)
 
+// ── Combustíveis para filtros por seção ──────────────────────────────────────
+const COMBUSTIVEIS = ['Diesel', 'Gasolina', 'Álcool', 'Arla']
+
+const COMB_COLORS = {
+  'Diesel':   '#2563EB',
+  'Gasolina': '#7C3AED',
+  'Álcool':   '#0891B2',
+  'Arla':     '#64748B',
+}
+const TODOS_COLOR = '#334155'
+
+function pillStyle(comb, activeRef) {
+  if (comb === null) {
+    if (activeRef === null) return { background: TODOS_COLOR, borderColor: TODOS_COLOR, color: 'white' }
+    return { borderColor: TODOS_COLOR, color: TODOS_COLOR }
+  }
+  const color = COMB_COLORS[comb] ?? '#64748b'
+  if (activeRef === comb) return { background: color, borderColor: color, color: 'white' }
+  return { borderColor: color, color: color }
+}
+
+// ── Filtros locais por seção ─────────────────────────────────────────────────
+const filtroGrupo    = ref(null)
+const filtroFilial   = ref(null)
+const filtroPostosCusto  = ref(null)
+const filtroPostosVolume = ref(null)
+const filtroPostosPreco  = ref(null)
+const filtroVariacao = ref(null)
+const filtroAcao     = ref(null)
+const filtroEvolucao = ref(null)
+
+// ── Mapa combustível pill → família API ──────────────────────────────────────
+const COMB_TO_FAM = { 'Diesel': 'diesel', 'Gasolina': 'gasolina', 'Álcool': 'etanol', 'Arla': 'arla' }
+const FAM_TO_COMB = { 'diesel': 'Diesel', 'gasolina': 'Gasolina', 'etanol': 'Álcool' }
+
+function getFamilia(combFilter) {
+  if (combFilter) return COMB_TO_FAM[combFilter] || familiaFiltro.value
+  return familiaFiltro.value
+}
+
+function getCombustivel(combFilter) {
+  if (combFilter) return combFilter // Diesel, Gasolina, Álcool, Arla
+  const fam = familiaFiltro.value
+  return fam !== 'todos' ? FAM_TO_COMB[fam] : undefined
+}
+
+// ── Dados ────────────────────────────────────────────────────────────────────
 const kpis            = ref({})
 const custoPorGrupo   = ref([])
 const custoPorFilial  = ref({ filiais: [], media_geral: null })
@@ -352,21 +442,25 @@ const tendenciaCustoKm = computed(() => {
   return last3[last3.length - 1] - last3[0]
 })
 
-function buildParams() {
+function buildParams(overrides = {}) {
   return {
     ...store.paramsTempo,
-    familia: familiaFiltro.value,
+    familia: overrides.familia ?? familiaFiltro.value,
     grupo: store.selecao.grupo,
     filial: store.selecao.filial,
     estado: store.selecao.estado,
     regiao: store.selecao.regiao,
+    ...overrides,
   }
 }
 
+// ── Load principal (todos os módulos) ────────────────────────────────────────
 async function loadAll() {
+  // Reset filtros locais
+  filtroGrupo.value = filtroFilial.value = filtroPostosCusto.value = filtroPostosVolume.value = filtroPostosPreco.value = filtroVariacao.value = filtroAcao.value = filtroEvolucao.value = null
+
   const p = buildParams()
-  const fam = familiaFiltro.value
-  const combustivelFiltro = fam !== 'todos' ? fam : undefined
+  const combustivelFiltro = familiaFiltro.value !== 'todos' ? FAM_TO_COMB[familiaFiltro.value] : undefined
   lKpis.value = lGrupo.value = lFilial.value = lEvolucao.value = lAcao.value = lPostos.value = lPostosVolume.value = lPostosCusto.value = lVariacao.value = true
 
   await Promise.allSettled([
@@ -380,6 +474,77 @@ async function loadAll() {
     fetchRankingPostosPreco({ ...p, combustivel: combustivelFiltro, ordem: 'maior_custo',  limit: 10 }).then(d => postosMaiorCusto.value = d).finally(() => lPostosCusto.value = false),
     fetchVariacaoMensal({ ...p, combustivel: combustivelFiltro }).then(d => variacao.value = d).finally(() => lVariacao.value = false),
   ])
+}
+
+// ── Handlers de filtro por seção ─────────────────────────────────────────────
+async function setFiltroGrupo(comb) {
+  filtroGrupo.value = comb
+  lGrupo.value = true
+  try {
+    custoPorGrupo.value = await fetchCustoPorGrupo(buildParams({ familia: getFamilia(comb) }))
+  } finally { lGrupo.value = false }
+}
+
+async function setFiltroFilial(comb) {
+  filtroFilial.value = comb
+  lFilial.value = true
+  try {
+    custoPorFilial.value = await fetchCustoPorFilial(buildParams({ familia: getFamilia(comb) }))
+  } finally { lFilial.value = false }
+}
+
+async function setFiltroPostosCusto(comb) {
+  filtroPostosCusto.value = comb
+  lPostosCusto.value = true
+  const combustivel = getCombustivel(comb)
+  try {
+    postosMaiorCusto.value = await fetchRankingPostosPreco({ ...buildParams({ familia: getFamilia(comb) }), combustivel, ordem: 'maior_custo', limit: 10 })
+  } finally { lPostosCusto.value = false }
+}
+
+async function setFiltroPostosVolume(comb) {
+  filtroPostosVolume.value = comb
+  lPostosVolume.value = true
+  const combustivel = getCombustivel(comb)
+  try {
+    postosMaiorVolume.value = await fetchRankingPostosPreco({ ...buildParams({ familia: getFamilia(comb) }), combustivel, ordem: 'maior_volume', limit: 10 })
+  } finally { lPostosVolume.value = false }
+}
+
+async function setFiltroPostosPreco(comb) {
+  filtroPostosPreco.value = comb
+  lPostos.value = true
+  const combustivel = getCombustivel(comb)
+  try {
+    postosMaisCaros.value = await fetchRankingPostosPreco({ ...buildParams({ familia: getFamilia(comb) }), combustivel, ordem: 'mais_caro', limit: 10 })
+  } finally { lPostos.value = false }
+}
+
+async function setFiltroVariacao(comb) {
+  filtroVariacao.value = comb
+  lVariacao.value = true
+  const combustivel = getCombustivel(comb)
+  try {
+    variacao.value = await fetchVariacaoMensal({ ...buildParams({ familia: getFamilia(comb) }), combustivel })
+  } finally { lVariacao.value = false }
+}
+
+async function setFiltroAcao(comb) {
+  filtroAcao.value = comb
+  lAcao.value = true
+  try {
+    const d = await fetchVeiculosAcao(buildParams({ familia: getFamilia(comb) }))
+    veiculosAcao.value = d.veiculos ?? []
+    resumoAcao.value = d.resumo ?? {}
+  } finally { lAcao.value = false }
+}
+
+async function setFiltroEvolucao(comb) {
+  filtroEvolucao.value = comb
+  lEvolucao.value = true
+  try {
+    evolucao.value = await fetchEvolucaoMensal(buildParams({ familia: getFamilia(comb) }))
+  } finally { lEvolucao.value = false }
 }
 
 watch(() => store.selecao, () => loadAll(), { deep: true })
@@ -400,62 +565,75 @@ const chartBaseOpt = {
   xaxis: { labels: { style: { colors: '#94a3b8', fontSize: '11px', fontFamily: 'JetBrains Mono, monospace' } }, axisBorder: { show: false }, axisTicks: { show: false } },
 }
 
-const optCustoKm = computed(() => ({
-  ...chartBaseOpt,
-  colors: ['#C41230'],
-  xaxis: { ...chartBaseOpt.xaxis, categories: evolucao.value.map(d => fmtMes(d.ano_mes)) },
-  yaxis: {
-    labels: {
-      style: { colors: '#C41230', fontSize: '11px', fontFamily: 'JetBrains Mono, monospace' },
-      formatter: v => v != null ? `R$ ${Number(v).toFixed(2)}` : '',
+function autoRange(values) {
+  if (!values.length) return { min: 0, max: undefined }
+  const mn = Math.min(...values)
+  const mx = Math.max(...values)
+  const range = mx - mn || mn * 0.1
+  return {
+    min: Math.max(0, Math.floor((mn - range * 0.5) * 100) / 100),
+    max: Math.ceil((mx + range * 0.5) * 100) / 100,
+  }
+}
+
+const optCustoKm = computed(() => {
+  const { min, max } = autoRange(evolucaoVals.value)
+  return {
+    ...chartBaseOpt,
+    colors: ['#C41230'],
+    xaxis: { ...chartBaseOpt.xaxis, categories: evolucao.value.map(d => fmtMes(d.ano_mes)) },
+    yaxis: {
+      labels: {
+        style: { colors: '#C41230', fontSize: '11px', fontFamily: 'JetBrains Mono, monospace' },
+        formatter: v => v != null ? `R$ ${Number(v).toFixed(2)}` : '',
+      },
+      min, max,
     },
-    min: 0,
-  },
-  tooltip: {
-    theme: 'light',
-    y: { formatter: v => v != null ? `R$ ${Number(v).toFixed(4)}/km` : '—' },
-  },
-  annotations: evolucaoMin.value ? {
-    yaxis: [{
-      y: evolucaoMin.value,
-      borderColor: '#10b981',
-      borderWidth: 1,
-      strokeDashArray: 4,
-      label: { text: `Mín R$ ${evolucaoMin.value.toFixed(4)}`, style: { color: '#10b981', fontSize: '10px', background: '#ecfdf5' } },
-    }, {
-      y: evolucaoMax.value,
-      borderColor: '#ef4444',
-      borderWidth: 1,
-      strokeDashArray: 4,
-      label: { text: `Máx R$ ${evolucaoMax.value.toFixed(4)}`, style: { color: '#ef4444', fontSize: '10px', background: '#fef2f2' } },
-    }],
-  } : {},
-}))
+    tooltip: {
+      theme: 'light',
+      y: { formatter: v => v != null ? `R$ ${Number(v).toFixed(4)}/km` : '—' },
+    },
+    annotations: evolucaoMin.value ? {
+      yaxis: [{
+        y: evolucaoMin.value,
+        borderColor: '#10b981', borderWidth: 1, strokeDashArray: 4,
+        label: { text: `Mín R$ ${evolucaoMin.value.toFixed(4)}`, style: { color: '#10b981', fontSize: '10px', background: '#ecfdf5' } },
+      }, {
+        y: evolucaoMax.value,
+        borderColor: '#ef4444', borderWidth: 1, strokeDashArray: 4,
+        label: { text: `Máx R$ ${evolucaoMax.value.toFixed(4)}`, style: { color: '#ef4444', fontSize: '10px', background: '#fef2f2' } },
+      }],
+    } : {},
+  }
+})
 
 const seriesCustoKm = computed(() => [{
   name: 'Custo/km (R$/km)',
   data: evolucao.value.map(d => d.custo_km != null ? +d.custo_km.toFixed(4) : null),
 }])
 
-const optPrecoL = computed(() => ({
-  ...chartBaseOpt,
-  colors: ['#3b82f6'],
-  xaxis: { ...chartBaseOpt.xaxis, categories: evolucao.value.map(d => fmtMes(d.ano_mes)) },
-  yaxis: {
-    labels: {
-      style: { colors: '#3b82f6', fontSize: '11px', fontFamily: 'JetBrains Mono, monospace' },
-      formatter: v => v != null ? `R$ ${Number(v).toFixed(2)}` : '',
+const optPrecoL = computed(() => {
+  const { min, max } = autoRange(precoVals.value)
+  return {
+    ...chartBaseOpt,
+    colors: ['#3b82f6'],
+    xaxis: { ...chartBaseOpt.xaxis, categories: evolucao.value.map(d => fmtMes(d.ano_mes)) },
+    yaxis: {
+      labels: {
+        style: { colors: '#3b82f6', fontSize: '11px', fontFamily: 'JetBrains Mono, monospace' },
+        formatter: v => v != null ? `R$ ${Number(v).toFixed(2)}` : '',
+      },
+      min, max,
     },
-    min: 0,
-  },
-  tooltip: {
-    theme: 'light',
-    y: [
-      { formatter: v => v != null ? `R$ ${Number(v).toFixed(3)}/L` : '—' },
-      { formatter: v => v != null ? fmtN(v) + ' L' : '—' },
-    ],
-  },
-}))
+    tooltip: {
+      theme: 'light',
+      y: [
+        { formatter: v => v != null ? `R$ ${Number(v).toFixed(3)}/L` : '—' },
+        { formatter: v => v != null ? fmtN(v) + ' L' : '—' },
+      ],
+    },
+  }
+})
 
 const seriesPrecoL = computed(() => [
   {
@@ -496,6 +674,21 @@ const seriesPrecoL = computed(() => [
   display: flex; align-items: center; gap: 16px;
 }
 .section-heading::after { content:''; flex:1; height:1px; background: #e2e8f0; }
+
+/* ── Filtros por seção (combustível pills) ── */
+.section-title-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+}
+.comb-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.comb-tabs button {
+  background: transparent; border: 1.5px solid #e2e8f0; color: #64748b;
+  font-size: 11px; font-weight: 700; padding: 4px 14px; border-radius: 20px;
+  cursor: pointer; font-family: 'Inter', sans-serif; transition: all .15s;
+  letter-spacing: 0.03em;
+}
+.comb-tabs button.active { color: white; }
+.comb-tabs button:not(.active):hover { opacity: 0.8; }
 
 .kpi-pro-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
 .card { background: linear-gradient(white, white) padding-box, linear-gradient(135deg, rgba(0,0,0,0.09) 0%, rgba(0,0,0,0.04) 40%, rgba(0,0,0,0.04) 60%, rgba(0,0,0,0.09) 100%) border-box; border: 1px solid transparent; border-radius: 16px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); }

@@ -75,32 +75,27 @@ def _download_csv(url: str) -> Optional[pd.DataFrame]:
 
 
 def _build_cache() -> pd.DataFrame:
-    """Baixa os CSVs da ANP em paralelo (máx 4 threads)."""
+    """Baixa os CSVs da ANP com prioridade para o mês mais recente."""
     hoje = datetime.now()
 
-    # Monta lista de URLs candidatas (mês atual + 3 anteriores × 2 categorias)
-    candidatas: list[tuple[int, str]] = []  # (idx_categoria, url)
-    for delta in range(4):
-        d = hoje - pd.DateOffset(months=delta)
-        for idx, url in enumerate(_csv_urls(d.year, d.month)):
-            candidatas.append((idx, url))
-
-    # Baixa tudo em paralelo; para cada categoria pega só a primeira que funcionar
     resultados: dict[int, pd.DataFrame] = {}  # idx_categoria → df
 
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        future_to_meta = {pool.submit(_download_csv, url): (idx, url) for idx, url in candidatas}
-        for future in as_completed(future_to_meta):
-            idx, url = future_to_meta[future]
-            if idx in resultados:
-                continue  # Já temos os dados dessa categoria
-            try:
-                df = future.result()
+    # Busca mês a mês, do mais recente para o mais antigo (até 4 meses atrás)
+    for delta in range(4):
+        d = hoje - pd.DateOffset(months=delta)
+        urls = _csv_urls(d.year, d.month)
+        
+        for idx, url in enumerate(urls):
+            if idx not in resultados:
+                logger.info(f"ANP: Tentando baixar referência de {d.strftime('%Y-%m')} -> {url}")
+                df = _download_csv(url)
                 if df is not None and not df.empty:
                     resultados[idx] = df
-                    logger.info(f"ANP: {url} carregado ({len(df)} registros)")
-            except Exception as e:
-                logger.warning(f"ANP: erro {url}: {e}")
+                    logger.info(f"ANP: Carregado com sucesso ({len(df)} registros)")
+
+        # Se já garantiu as duas categorias (gasolina/etanol e diesel/gnv) do mês mais recente possível, para a busca
+        if 0 in resultados and 1 in resultados:
+            break
 
     if not resultados:
         logger.error("ANP: nenhum CSV disponível nos últimos 4 meses")

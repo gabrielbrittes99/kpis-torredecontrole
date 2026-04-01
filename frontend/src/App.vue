@@ -201,12 +201,15 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { prefetchAllModules } from './api/prefetch.js'
+import { useFiltrosStore } from './stores/filtros'
 
 const router = useRouter()
 const route  = useRoute()
 const collapsed = ref(false)
+const store = useFiltrosStore()
 
 const is = (name) => {
   if (route.path === '/' && name === 'visao-geral') return true
@@ -214,6 +217,16 @@ const is = (name) => {
 }
 
 const go = (name) => router.push({ name })
+
+// ── Pré-carregamento global ──────────────────────────────────────────────────
+onMounted(() => {
+  // 1. Carrega filtros globais (estados, filiais, etc.)
+  store.loadOpcoesFiltros()
+
+  // 2. Dispara prefetch de TODAS as telas em background
+  //    Quando o usuário clicar em qualquer aba, os dados já estarão no cache
+  prefetchAllModules()
+})
 </script>
 
 <style>

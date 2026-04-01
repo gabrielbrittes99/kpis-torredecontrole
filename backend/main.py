@@ -138,6 +138,7 @@ app.include_router(tco.router)
 def health():
     return {
         "status": "ok",
+        "data_source": cache.data_source,
         "cache_ultima_atualizacao": (
             cache.last_updated.isoformat() if cache.last_updated else None
         ),

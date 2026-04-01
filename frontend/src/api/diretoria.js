@@ -1,39 +1,29 @@
-const BASE = import.meta.env.VITE_API_URL
-
-async function get(path, params = {}) {
-  const url = new URL(`${BASE}${path}`, location.origin)
-  Object.entries(params).forEach(([k, v]) => {
-    if (v !== null && v !== undefined && v !== '') url.searchParams.set(k, v)
-  })
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
-  return res.json()
-}
+import { cachedFetch, TTL } from './apiCache'
 
 export function fetchKpisEstrategicos(params = {}) {
-  return get('/api/diretoria/kpis-estrategicos', params)
+  return cachedFetch('/api/diretoria/kpis-estrategicos', params, { ttl: TTL.DASHBOARD })
 }
 
 export function fetchTendencia12Meses(params = {}) {
-  return get('/api/diretoria/tendencia-12-meses', params)
+  return cachedFetch('/api/diretoria/tendencia-12-meses', params, { ttl: TTL.EVOLUCAO })
 }
 
 export function fetchPotencialEconomia(params = {}) {
-  return get('/api/diretoria/potencial-economia', params)
+  return cachedFetch('/api/diretoria/potencial-economia', params, { ttl: TTL.DASHBOARD })
 }
 
 export function fetchMixCombustiveis(params = {}) {
-  return get('/api/diretoria/mix-combustiveis', params)
+  return cachedFetch('/api/diretoria/mix-combustiveis', params, { ttl: TTL.DASHBOARD })
 }
 
 export function fetchComparativoMeses(params = {}) {
-  return get('/api/diretoria/comparativo-meses', params)
+  return cachedFetch('/api/diretoria/comparativo-meses', params, { ttl: TTL.DASHBOARD })
 }
 
 export function fetchGastosFiliais(params = {}) {
-  return get('/api/diretoria/gastos-filiais', params)
+  return cachedFetch('/api/diretoria/gastos-filiais', params, { ttl: TTL.DASHBOARD })
 }
 
 export function fetchBenchmarkComparativo(params = {}) {
-  return get('/api/benchmark/comparativo-frota', params)
+  return cachedFetch('/api/benchmark/comparativo-frota', params, { ttl: TTL.DASHBOARD })
 }
