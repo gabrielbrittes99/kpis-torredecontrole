@@ -18,7 +18,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 from data_cache import cache
-from routers import combustivel, precos, frota, diretoria, veiculos, operacional, alertas, visao_geral, sistema, benchmark, fkm, manutencao
+from routers import combustivel, precos, frota, diretoria, veiculos, operacional, alertas, visao_geral, sistema, benchmark, fkm, manutencao, pneus
 
 
 def _warmup_all():
@@ -93,6 +93,7 @@ app.include_router(visao_geral.router)
 app.include_router(sistema.router)
 app.include_router(fkm.router)
 app.include_router(manutencao.router)
+app.include_router(pneus.router)
 
 
 @app.get("/health", tags=["sistema"])
