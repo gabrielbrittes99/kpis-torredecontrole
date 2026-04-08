@@ -702,6 +702,23 @@ def obter_dashboard():
         filiais = conn.execute(text("SELECT COUNT(*) FROM gp_filiais WHERE ativo=1")).scalar() or 0
         val_estoque = conn.execute(text("SELECT COALESCE(SUM(valor),0) FROM gp_pneus WHERE status='estoque'")).scalar() or 0
         val_uso = conn.execute(text("SELECT COALESCE(SUM(valor),0) FROM gp_pneus WHERE status='em_uso'")).scalar() or 0
+        
+        # KPIs de Reciclagem
+        val_reciclado = conn.execute(text("SELECT COALESCE(SUM(valor_total),0) FROM gp_lotes_reciclagem")).scalar() or 0
+        pneus_sucata = conn.execute(text("""SELECT COUNT(*) FROM gp_pneus p 
+                                           JOIN gp_filiais f ON p.filial_id = f.id 
+                                           WHERE UPPER(f.nome) LIKE '%SUCATA%' AND p.status != 'reciclagem'""")).scalar() or 0
+        
+        # Reciclagem por filial de origem (Lucratividade operacional)
+        rec_por_filial = conn.execute(text("""
+            SELECT f.nome as filial, SUM(l.valor_pneu) as valor
+            FROM gp_pneus p
+            JOIN gp_lotes_reciclagem l ON p.lote_id = l.id
+            JOIN gp_filiais f ON p.filial_origem_id = f.id
+            GROUP BY f.nome
+            ORDER BY valor DESC
+        """)).mappings().all()
+
         est_filial = conn.execute(text("""SELECT f.nome as filial, COUNT(*) as total, COALESCE(SUM(p.valor),0) as valor
                                           FROM gp_pneus p JOIN gp_filiais f ON p.filial_id=f.id
                                           WHERE p.status='estoque' GROUP BY f.nome ORDER BY f.nome""")).mappings().all()
@@ -741,6 +758,9 @@ def obter_dashboard():
         "descartados": descartados, "em_recapagem": recapagem,
         "total_veiculos": veiculos, "total_filiais": filiais,
         "valor_estoque": float(val_estoque), "valor_em_uso": float(val_uso),
+        "valor_reciclado": float(val_reciclado),
+        "pneus_em_sucata": pneus_sucata,
+        "reciclagem_por_filial": [dict(r) for r in rec_por_filial],
         "estoque_por_filial": [dict(r) for r in est_filial],
         "alertas_rodizio": alertas_rodizio
     }

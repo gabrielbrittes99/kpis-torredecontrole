@@ -59,6 +59,54 @@
       </div>
 
       <!-- ══════════════════════════════════════════════════════════════════ -->
+      <!--  ANÁLISE DE PREVISÃO — Baseada no mês anterior                  -->
+      <div v-if="hero.analise_previsao" style="margin-bottom: 24px;">
+        <div class="section-title">Análise de Desvio Operacional (vs Mês Anterior)</div>
+        <div class="kpi-pro-grid">
+          <KpiCardPro
+            title="Gasto Previsto"
+            :value="hero.analise_previsao.gasto_previsto || 0"
+            format="currency"
+            description="Projeção baseada na média diária anterior"
+            theme="neutral"
+          />
+          <KpiCardPro
+            title="Desvio do Realizado"
+            :value="hero.analise_previsao.desvio_valor || 0"
+            format="currency"
+            :trendValue="hero.analise_previsao.desvio_pct"
+            :trendInvert="true"
+            :description="hero.analise_previsao.desvio_valor > 0 ? 'Gasto ACIMA do previsto' : 'Economia em relação ao previsto'"
+            theme="primary"
+          />
+          <KpiCardPro
+            title="Média Diária Anterior"
+            :value="hero.analise_previsao.media_diaria_ant || 0"
+            format="currency"
+            unit="/ dia"
+            description="Referência do mês de fevereiro (ou anterior)"
+          />
+          <KpiCardPro
+            title="Sazonalidade Teórica"
+            :value="hero.analise_previsao.desvio_pct || 0"
+            unit="%"
+            format="number"
+            :decimals="1"
+            description="Variação real vs média projetada"
+          />
+        </div>
+        
+        <!-- Gráfico de Ponte Comparativa -->
+        <section class="v-block" style="margin-top: 24px;">
+          <div class="section-title">Comparativo Dinâmico (Sazonalidade vs Gasto Atual)</div>
+          <apexchart type="bar" height="350" :options="optPonte" :series="seriesPonte" />
+          <div class="waterfall-hint">
+            Este gráfico compara o gasto real de <strong>{{ mesMesLabel }}</strong> com a projeção teórica corrigida pelos dias do mês.
+          </div>
+        </section>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════════════ -->
       <!--  BREAKDOWNS — tabelas compactas lado a lado                     -->
       <!-- ══════════════════════════════════════════════════════════════════ -->
       <div class="breakdown-row">
@@ -1022,6 +1070,47 @@ const seriesDiarioUtil    = computed(() => [{ name: 'Gasto', data: grafDiarioUti
 const seriesDiarioFDS     = computed(() => [{ name: 'Gasto', data: grafDiarioFDS.value.map(d => d.valor) }])
 const seriesDiarioFeriado = computed(() => [{ name: 'Gasto', data: grafDiarioFeriado.value.map(d => d.valor) }])
 
+// ── Gráfico de Ponte Financeira ──────────────────────────────────────────
+const optPonte = computed(() => ({
+  chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'Inter, sans-serif' },
+  plotOptions: { 
+    bar: { 
+      horizontal: false, 
+      columnWidth: '55%', 
+      borderRadius: 8,
+      distributed: true
+    } 
+  },
+  dataLabels: { 
+    enabled: true,
+    formatter: (val) => 'R$ ' + Number(val).toLocaleString('pt-BR', { maximumFractionDigits: 0 }),
+    style: { fontSize: '12px', fontWeight: '700' }
+  },
+  legend: { show: false },
+  xaxis: { 
+    categories: ['Mês Anterior', 'Previsto (Dias)', 'Realizado Atual'],
+    labels: { style: { fontWeight: 600 } }
+  },
+  colors: ['#94a3b8', '#3b82f6', '#ef4444'], // Cores fixas para cada barra
+  yaxis: { labels: { formatter: (v) => 'R$ ' + Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) } },
+  grid: { borderColor: '#f1f5f9', strokeDashArray: 4 },
+  tooltip: { theme: 'light', y: { formatter: (v) => 'R$ ' + Number(v).toLocaleString('pt-BR') } }
+}))
+
+const seriesPonte = computed(() => {
+  const p = hero.value.analise_previsao
+  if (!p) return []
+  
+  return [{
+    name: 'Gasto',
+    data: [
+      { x: 'Mês Anterior', y: p.gasto_anterior },
+      { x: 'Previsto pela Média', y: p.gasto_previsto },
+      { x: 'Realizado Atual', y: hero.value.gasto_mes }
+    ]
+  }]
+})
+
 async function load() {
   carregando.value = true
   try {
@@ -1121,6 +1210,12 @@ onMounted(() => {
   grid-template-columns: repeat(4, 1fr);
   gap: 16px;
   margin-bottom: 24px;
+}
+@media (max-width: 1400px) {
+  .kpi-pro-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 768px) {
+  .kpi-pro-grid { grid-template-columns: 1fr; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -1560,4 +1655,15 @@ tbody.has-filter .bd-row.dimmed:hover {
 
 .empty-msg { font-size: 13px; color: #94a3b8; padding: 24px; text-align: center; border: 1px dashed #e2e8f0; border-radius: 8px; }
 
+.waterfall-hint {
+  margin-top: 16px;
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.5;
+  background: #f8fafc;
+  padding: 12px;
+  border-radius: 8px;
+  border-left: 3px solid #cbd5e1;
+}
+.waterfall-hint strong { color: #1e293b; }
 </style>

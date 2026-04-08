@@ -188,6 +188,34 @@ def get_dashboard(
     kml_medio = round(km_val / lit_kml, 2)   if lit_kml > 0 else None
     custo_km  = round(val_kml / km_val, 4)   if km_val  > 0 else None
 
+    # ── Previsão baseada no mês anterior (Sazonalidade) ──────────────
+    previsao = None
+    if modo_tempo == "mes":
+        import calendar
+        dias_mes_atual = calendar.monthrange(ano, mes)[1]
+        
+        m_ant_pre = mes - 1 if mes > 1 else 12
+        a_ant_pre = ano if mes > 1 else ano - 1
+        dias_mes_ant = calendar.monthrange(a_ant_pre, m_ant_pre)[1]
+        
+        # Busca gasto total do mês anterior COMPLETO (sem travar no dia atual)
+        df_ant_full = _apply_filters(df_all, "mes", a_ant_pre, m_ant_pre, None, None, None, None, grupo, combustivel, estado, regiao, filial)
+        gasto_ant_full = float(df_ant_full["valor"].sum())
+        
+        if gasto_ant_full > 0:
+            media_diaria_ant = gasto_ant_full / dias_mes_ant
+            gasto_previsto = media_diaria_ant * dias_mes_atual
+            desvio_valor = gasto_mes - gasto_previsto
+            desvio_pct = (desvio_valor / gasto_previsto * 100) if gasto_previsto > 0 else 0
+            
+            previsao = {
+                "gasto_anterior": round(gasto_ant_full, 2),
+                "gasto_previsto": round(gasto_previsto, 2),
+                "desvio_valor": round(desvio_valor, 2),
+                "desvio_pct": round(desvio_pct, 1),
+                "media_diaria_ant": round(media_diaria_ant, 2)
+            }
+
     hero = {
         "gasto_mes":         round(gasto_mes, 2),
         "gasto_mes_var_pct": var_pct,
@@ -198,6 +226,7 @@ def get_dashboard(
         "preco_medio":       preco_medio,
         "kml_medio":         kml_medio,
         "custo_km":          custo_km,
+        "analise_previsao":  previsao
     }
 
     # ── Gráfico mensal (últimos 12 meses) — aplica filtros de atributo ──────
