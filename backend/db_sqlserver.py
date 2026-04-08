@@ -83,6 +83,7 @@ def get_veiculos_df() -> pd.DataFrame:
             cursor = conn.cursor(as_dict=True)
             cursor.execute("""
                 SELECT
+                    IdVeiculo,
                     Placa,
                     Modelo,
                     Montadora,
@@ -91,6 +92,7 @@ def get_veiculos_df() -> pd.DataFrame:
                     TanqueLitros,
                     FilialOperacional,
                     IdFilialOperacional,
+                    IdFilial,
                     SituacaoVeiculo,
                     GrupoVeiculo,
                     OdometroConfirmado,
@@ -115,11 +117,27 @@ def get_veiculos_df() -> pd.DataFrame:
             if _veiculos_cache is not None:
                 return _veiculos_cache
             return pd.DataFrame(columns=[
-                "Placa", "Modelo", "Montadora", "AnoModelo", "TanqueLitros",
+                "IdVeiculo", "Placa", "Modelo", "Montadora", "AnoModelo", "TanqueLitros",
                 "FilialOperacional", "IdFilialOperacional", "SituacaoVeiculo",
                 "GrupoVeiculo", "OdometroConfirmado",
             ])
     return _veiculos_cache
+
+
+def get_odometro_realtime(placa: str) -> float:
+    """Busca o KM exato do veículo direto no LSERP bypassando o cache, para alocações perfeitas."""
+    try:
+        placa_clean = _norm_placa(placa)
+        conn = get_sqlserver_conn()
+        cursor = conn.cursor(as_dict=True)
+        cursor.execute("SELECT OdometroConfirmado FROM Veiculos WHERE REPLACE(Placa, '-', '') = %s", (placa_clean,))
+        row = cursor.fetchone()
+        conn.close()
+        if row and row.get("OdometroConfirmado"):
+            return float(row["OdometroConfirmado"])
+    except Exception as e:
+        logger.warning(f"Falha ao buscar odômetro realtime p/ {placa}: {e}")
+    return 0.0
 
 
 def get_trocas_pneu_df() -> pd.DataFrame:

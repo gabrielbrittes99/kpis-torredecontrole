@@ -120,7 +120,7 @@
         <span v-show="!collapsed" class="group-label">Pneus</span>
         <div v-show="collapsed" class="group-rule" />
 
-        <button class="nav-btn" :class="{ active: is('pneus') }" @click="go('pneus')" :title="collapsed ? 'Pneus' : ''">
+        <button class="nav-btn" :class="{ active: is('pneus') }" @click="go('pneus')" :title="collapsed ? 'Dashboard Pneus' : ''">
           <span class="nav-icon">
             <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="9" cy="9" r="7"/>
@@ -128,8 +128,32 @@
               <circle cx="9" cy="9" r="1" fill="currentColor" stroke="none"/>
             </svg>
           </span>
-          <span v-show="!collapsed" class="nav-text">Gestão de Pneus</span>
+          <span v-show="!collapsed" class="nav-text">Dashboard</span>
         </button>
+
+        <button class="nav-btn" :class="{ active: is('pneus-gestao') }" @click="go('pneus-gestao')" :title="collapsed ? 'Controle de Pneus' : ''">
+          <span class="nav-icon">
+            <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="2" width="14" height="14" rx="2"/>
+              <circle cx="6.5" cy="6.5" r="1.5"/>
+              <circle cx="11.5" cy="6.5" r="1.5"/>
+              <circle cx="6.5" cy="11.5" r="1.5"/>
+              <circle cx="11.5" cy="11.5" r="1.5"/>
+            </svg>
+          </span>
+          <span v-show="!collapsed" class="nav-text">Controle</span>
+        </button>
+
+        <button class="nav-btn" :class="{ active: is('pneus-alertas') }" @click="go('pneus-alertas')" :title="collapsed ? 'Alertas e Decisão' : ''">
+          <span class="nav-icon">
+            <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 2l7.5 13H1.5L9 2zm0 4.5v4"/>
+              <circle cx="9" cy="13" r=".5" fill="currentColor" stroke="none"/>
+            </svg>
+          </span>
+          <span v-show="!collapsed" class="nav-text">Alertas</span>
+        </button>
+
       </div>
 
       <div class="sidebar-spacer" />
@@ -169,8 +193,7 @@ const route  = useRoute()
 const collapsed = ref(false)
 
 const is = (name) => {
-  if (route.path === '/' && name === 'visao-geral') return true
-  return route.path.substring(1).replace('/', '-') === name
+  return route.name === name
 }
 
 const go = (name) => router.push({ name })

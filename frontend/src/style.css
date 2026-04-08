@@ -7,16 +7,23 @@
   --brand-bg:   #FDF2F4;   /* Fundo vermelho suave */
   --brand-mid:  #FCCDD4;   /* Vermelho médio (badges, destaques) */
 
-  /* ── Superfícies ───────────────────────────────────────────────────── */
-  --void:    #EAECF0;
+  /* ── Superfícies & Elementos ───────────────────────────────────────── */
+  --void:    #F3F4F6; /* Fundo geral ligeiramente mais quente/suave */
   --deep:    #FFFFFF;
   --s1:      #FFFFFF;
-  --s2:      #E2E8F0;
-  --s3:      #F8FAFC;
-  --s4:      #CBD5E1;
+  --s2:      #E5E7EB;
+  --s3:      #F9FAFB;
+  --s4:      #D1D5DB;
 
-  --border:  rgba(0, 0, 0, 0.05);
-  --border2: rgba(0, 0, 0, 0.08);
+  --border:  #E5E7EB;
+  --border2: #D1D5DB;
+
+  /* ── Sombras Premium ──────────────────────────────────────────────── */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -4px rgba(0, 0, 0, 0.025);
+  --shadow-float: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+
 
   /* ── Semânticas ────────────────────────────────────────────────────── */
   --red:     #EF4444;
@@ -55,11 +62,12 @@
 html, body {
   background: var(--void);
   color: var(--text);
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', -apple-system, system-ui, sans-serif;
   font-size: 14px;
   line-height: 1.6;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 h1, h2, h3, h4 { 
@@ -70,18 +78,21 @@ h1, h2, h3, h4 {
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-variant-numeric: tabular-nums; }
 
 /* Custom Scrollbar Thin */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--void); }
-::-webkit-scrollbar-thumb { background: var(--s4); border-radius: 10px; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 10px; border: 2px solid var(--void); }
+::-webkit-scrollbar-thumb:hover { background: #9CA3AF; }
 
 /* Cards Professional Light */
 .v-block {
-  background: white;
+  background: var(--deep);
   border: 1px solid var(--border);
   border-radius: 16px; 
   padding: 24px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.02), 0 4px 6px -1px rgba(0,0,0,0.03);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.2s ease;
 }
+.v-block:hover { box-shadow: var(--shadow-md); }
 
 .section-title {
   font-weight: 700;

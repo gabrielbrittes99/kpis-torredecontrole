@@ -1,0 +1,3 @@
+#TYPE Microsoft.PowerShell.Commands.MatchInfo
+"IgnoreCase","LineNumber","Line","Filename","Path","Pattern","Context","Matches"
+"True","138","                  <h4>Pneus em Estoque</h4>","PneusGestao.vue","C:\Users\fabio.pepplow\Desktop\Projetos Antigravity\kpis-torredecontrole\frontend\src\views\PneusGestao.vue","Pneus em Estoque",,"System.Text.RegularExpressions.Match[]"
