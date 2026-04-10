@@ -12,10 +12,58 @@ from fastapi import APIRouter, Query
 from anp_client import get_anp_df
 from config import get_kml_referencia, KML_REFERENCIA
 from data_cache import cache
+from db_dw import get_dw_engine
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/operacional", tags=["operacional"])
+
+# ── Dados FKM reconciliados por placa/mês ────────────────────────────────────
+
+def _load_fkm_overrides(ano_mes: str, grupo: str | None = None, filial: str | None = None) -> dict:
+    """
+    Retorna dict {placa_norm: {litros, valor, total_km, fonte}} para o mês dado.
+    Usa litros_efetivo e valor_efetivo (já corrigidos pelo ETL de reconciliação).
+    Retorna {} se a tabela não existir ou o mês ainda não tiver sido processado.
+    """
+    try:
+        from sqlalchemy import text
+        engine = get_dw_engine()
+        where = ["ano_mes = :ano_mes", "litros_efetivo > 0", "total_km > 0"]
+        params: dict = {"ano_mes": ano_mes}
+        if grupo:
+            where.append("grupo_veiculo = :grupo")
+            params["grupo"] = grupo
+        if filial:
+            where.append("filial = :filial")
+            params["filial"] = filial
+
+        sql = f"""
+            SELECT
+                UPPER(REPLACE(placa, '-', '')) AS placa_norm,
+                litros_efetivo,
+                valor_efetivo,
+                total_km,
+                corrigido_por_truckpag
+            FROM torre.fkm_reconciliacao
+            WHERE {' AND '.join(where)}
+        """
+        with engine.connect() as conn:
+            rows = conn.execute(text(sql), params).fetchall()
+
+        return {
+            row.placa_norm: {
+                "litros":     float(row.litros_efetivo),
+                "valor":      float(row.valor_efetivo),
+                "total_km":   float(row.total_km),
+                "corrigido":  bool(row.corrigido_por_truckpag),
+                "fonte":      "fkm_reconciliado",
+            }
+            for row in rows
+        }
+    except Exception:
+        return {}
+
 
 # ── Mapa família (frontend) → grupo_combustivel (cache) ─────────────────────
 _FAMILIA_MAP = {
@@ -31,7 +79,7 @@ def _agg_km(grupo: pd.DataFrame):
     # Descarta diffs invalidos (<= 0 ou > 2000 km). Exclui Arla da performance.
     total_valor  = float(grupo["valor"].sum())
     total_litros = float(grupo["litragem"].sum())
-    preco_litro  = round(total_valor / total_litros, 4) if total_litros > 0 else None
+    preco_litro  = round(total_valor / total_litros, 2) if total_litros > 0 else None
     if "hodometro" not in grupo.columns or grupo.empty:
         return total_valor, total_litros, None, None, None, preco_litro
     hodo = grupo[grupo["hodometro"].notna() & (grupo["hodometro"] > 0)].copy()
@@ -53,7 +101,7 @@ def _agg_km(grupo: pd.DataFrame):
         res_litros_km += float(validos["litragem"].sum())
     if res_total_km == 0:
         return total_valor, total_litros, None, None, None, preco_litro
-    custo_km = round(res_valor_km / res_total_km, 4)
+    custo_km = round(res_valor_km / res_total_km, 2)
     km_litro = round(res_total_km / res_litros_km, 2) if res_litros_km > 0 else None
     return total_valor, total_litros, res_total_km, custo_km, km_litro, preco_litro
 
@@ -186,7 +234,7 @@ def get_kpis_operacional(
         "qtd_veiculos": qtd_veiculos,
         "qtd_com_km": qtd_com_km,
         "economia_anp": economia_anp,
-        "preco_anp_referencia": round(preco_anp, 4) if preco_anp else None,
+        "preco_anp_referencia": round(preco_anp, 2) if preco_anp else None,
         "tem_km": tk is not None,
         "familia": familia,
     }
@@ -399,20 +447,49 @@ def get_veiculos_acao(
     if df.empty:
         return {"veiculos": [], "resumo": {}}
 
+    # Carrega FKM reconciliado (só para modo mês — FKM é granularidade mensal)
+    fkm_map = {}
+    if modo_tempo == "mes" and ano and mes:
+        ano_mes_str = f"{ano:04d}-{mes:02d}"
+        fkm_map = _load_fkm_overrides(ano_mes_str, grupo=grupo, filial=filial)
 
     # 1. Agrega por placa
     veiculos = []
     for placa, g in df.groupby("placa"):
         tv, tl, tk, ck, kl, pl = _agg_km(g)
+
+        grp    = g["grupo_veiculo"].iloc[0] if "grupo_veiculo" in g.columns else "Outros"
+        f_name = g["filial_nome"].iloc[0]   if "filial_nome"   in g.columns else ""
+        motorista = g["motorista"].dropna().mode()
+        modelo    = g["modelo_veiculo"].dropna().mode()
+
+        # Enriquece com FKM reconciliado se disponível para esta placa
+        placa_norm = placa.upper().replace("-", "").strip()
+        fkm = fkm_map.get(placa_norm)
+        if fkm and not fkm["corrigido"]:
+            # FKM confiável (não corrigido): usa km e litros totais do FKM
+            fkm_km  = fkm["total_km"]
+            fkm_lit = fkm["litros"]
+            fkm_val = fkm["valor"]
+            kl = round(fkm_km / fkm_lit, 2) if fkm_lit > 0 else kl
+            ck = round(fkm_val / fkm_km, 2) if fkm_km  > 0 else ck
+            tk = fkm_km
+            fonte = "fkm_reconciliado"
+        else:
+            # Sem FKM ou FKM corrigido pelo TruckPag: usa hodômetro TruckPag
+            # (kl, ck, tk já calculados por _agg_km com diffs de hodômetro)
+            fonte = "truckpag" if tk is not None else None
+
+        # Sem km registrado em nenhuma fonte → não inclui no ranking
         if tk is None:
             continue
 
-        grp = g["grupo_veiculo"].iloc[0] if "grupo_veiculo" in g.columns else "Outros"
-        f_name = g["filial_nome"].iloc[0] if "filial_nome" in g.columns else ""
-        motorista = g["motorista"].dropna().mode()
-        modelo = g["modelo_veiculo"].dropna().mode()
+        # Veículo com km muito baixo no mês (parado, manutenção, etc.)
+        # não tem base estatística para calcular eficiência
+        if tk < 300:
+            continue
 
-        veiculos.append({
+        item = {
             "placa": placa,
             "grupo": grp,
             "filial": f_name or "Sem filial",
@@ -424,7 +501,16 @@ def get_veiculos_acao(
             "total_km": round(tk, 0),
             "total_litros": round(tl, 0),
             "qtd_abastecimentos": int(len(g)),
-        })
+            "fonte_kml": fonte,
+        }
+        # Adiciona alerta de discrepância FKM vs TruckPag quando relevante
+        if fkm:
+            item["litros_fkm_reportado"] = round(fkm["litros"], 1)
+            item["litros_truckpag"] = round(tl, 1)
+            item["fkm_corrigido"] = fkm["corrigido"]
+            discrepancia = abs(fkm["litros"] - tl) / max(fkm["litros"], tl) if max(fkm["litros"], tl) > 0 else 0
+            item["fkm_discrepancia_pct"] = round(discrepancia * 100, 1)
+        veiculos.append(item)
 
     if not veiculos:
         return {"veiculos": [], "resumo": {}}
@@ -463,13 +549,13 @@ def get_veiculos_acao(
                 flags.append("BAIXO_RENDIMENTO")
 
         v["flag"] = "CRITICO" if len(flags) > 1 else flags[0] if flags else "OK"
-        v["media_grupo_custo_km"] = round(media_ck, 4) if media_ck else None
+        v["media_grupo_custo_km"] = round(media_ck, 2) if media_ck else None
         v["media_grupo_km_litro"] = round(media_kl, 2) if media_kl else None
         v["pct_vs_grupo"] = round((v["custo_km"] - media_ck) / media_ck * 100, 1) if media_ck else 0
         v["economia_possivel"] = round((v["custo_km"] - media_ck) * v["total_km"], 2) if v["flag"] != "OK" and media_ck else 0
 
     acao = [v for v in veiculos if v["flag"] != "OK"]
-    acao.sort(key=lambda x: abs(x.get("pct_vs_grupo", 0)), reverse=True)
+    acao.sort(key=lambda x: x.get("economia_possivel", 0), reverse=True)
 
     # Resumo geral
     all_ck = [v["custo_km"] for v in veiculos]
@@ -480,7 +566,7 @@ def get_veiculos_acao(
         "resumo": {
             "total_frota": len(veiculos),
             "total_acao": len(acao),
-            "media_custo_km_geral": round(sum(all_ck) / len(all_ck), 4) if all_ck else None,
+            "media_custo_km_geral": round(sum(all_ck) / len(all_ck), 2) if all_ck else None,
             "media_km_litro_geral": round(sum(all_kl) / len(all_kl), 2) if all_kl else None,
             "economia_total_possivel": round(sum(v["economia_possivel"] for v in acao), 2),
             "grupos_monitorados": len(medias_grupo),
@@ -549,7 +635,7 @@ def get_etanol_gasolina_filial(
 
         if ck_g is not None and ck_e is not None:
             row["melhor_opcao"] = "ETANOL" if ck_e < ck_g else "GASOLINA"
-            row["economia_km"] = round(abs(ck_g - ck_e), 4)
+            row["economia_km"] = round(abs(ck_g - ck_e), 2)
             row["metodo"] = "custo_km"
         elif pl_g is not None and pl_e is not None:
             row["melhor_opcao"] = "ETANOL" if pl_e < pl_g * 0.70 else "GASOLINA"

@@ -61,13 +61,24 @@
           :description="hero.trend_label ? 'vs ' + hero.trend_label : ''"
         />
         <KpiCardPro
-          title="Abastecimentos"
-          :value="hero.total_abastecimentos || 0"
+          title="Km / Litro"
+          :value="hero.kml_medio ?? 0"
           format="number"
-          :trendValue="hero.abastecimentos_var_pct"
-          :trendInvert="false"
+          :decimals="2"
+          unit="km/L"
+          :trendValue="null"
           :period="mesMesLabel"
-          :description="hero.trend_label ? 'vs ' + hero.trend_label : ''"
+          :description="hero.kml_fonte === 'fkm_reconciliado' ? 'Eficiência real · fonte FKM' : 'Eficiência via TruckPag (parcial)'"
+        />
+        <KpiCardPro
+          title="Custo por KM"
+          :value="hero.custo_km ?? 0"
+          format="currency"
+          :decimals="2"
+          unit="/ km"
+          :trendValue="null"
+          :period="mesMesLabel"
+          :description="hero.kml_fonte === 'fkm_reconciliado' ? 'Custo real · fonte FKM' : 'Custo via TruckPag (parcial)'"
         />
       </div>
 
@@ -179,6 +190,32 @@
           >{{ c }}</button>
         </div>
       </div>
+      <!-- Diário — largura total, só dias úteis + linha de média -->
+      <section class="v-block charts-block" style="margin-bottom: 16px;">
+        <div class="section-title">GASTO DIÁRIO — DIAS ÚTEIS (30 DIAS){{ filtroLabel }}</div>
+        <apexchart v-if="grafDiarioUtil.length" height="260" :options="optDiarioGeral" :series="seriesDiarioGeral" />
+        <div v-else class="empty-msg">Sem dados no período</div>
+        <!-- Resumo FDS / Feriado -->
+        <div class="diario-resumo">
+          <div class="diario-chip">
+            <span class="chip-dot" style="background:#1D4ED8"></span>
+            <span class="chip-label">Média dia útil</span>
+            <span class="chip-val">{{ fmtR(avgDiarioUtil) }}</span>
+          </div>
+          <div class="diario-sep">vs</div>
+          <div class="diario-chip">
+            <span class="chip-dot" style="background:#7C3AED"></span>
+            <span class="chip-label">Média FDS + feriado</span>
+            <span class="chip-val">{{ fmtR(avgDiarioFDSFeriado) }}</span>
+          </div>
+          <div v-if="avgDiarioUtil > 0 && avgDiarioFDSFeriado > 0" class="diario-ratio">
+            {{ ((avgDiarioFDSFeriado / avgDiarioUtil - 1) * 100).toFixed(0) > 0
+               ? '+' + ((avgDiarioFDSFeriado / avgDiarioUtil - 1) * 100).toFixed(0)
+               : ((avgDiarioFDSFeriado / avgDiarioUtil - 1) * 100).toFixed(0) }}% no FDS/feriado
+          </div>
+        </div>
+      </section>
+
       <div class="charts-grid-top">
         <section class="v-block charts-block">
           <div class="section-title">GASTO MENSAL (12 MESES){{ filtroLabel }}</div>
@@ -209,41 +246,6 @@
         <GraficoPrecoPorUF :data="precoPorUF" :loading="lUF" :color="filtroUFComb ? combustivelColor(filtroUFComb) : '#3b82f6'" />
       </section>
 
-      <!-- ══════════════════════════════════════════════════════════════════ -->
-      <!--  GRÁFICO DIÁRIO — Dias Úteis · Fim de Semana · Feriados        -->
-      <!-- ══════════════════════════════════════════════════════════════════ -->
-      <div class="section-title-row" style="margin-bottom: 12px;">
-        <span class="section-hint">Gasto diário nos últimos 30 dias</span>
-        <div class="uf-comb-tabs">
-          <button :class="{ active: filtroCombDiario === null }" :style="filtroCombDiario === null ? { background: TODOS_COLOR, borderColor: TODOS_COLOR, color: 'white' } : { borderColor: TODOS_COLOR, color: TODOS_COLOR }" @click="setFiltroCombDiario(null)">Todos</button>
-          <button
-            v-for="c in opcoesUFComb" :key="c"
-            :class="{ active: filtroCombDiario === c }"
-            :style="filtroCombDiario === c ? { background: combustivelColor(c), borderColor: combustivelColor(c), color: 'white' } : { borderColor: combustivelColor(c), color: combustivelColor(c) }"
-            @click="setFiltroCombDiario(c)"
-          >{{ c }}</button>
-        </div>
-      </div>
-      <div :class="grafDiarioFeriado.length ? 'charts-grid-three' : 'charts-grid-top'" style="margin-bottom: 24px;">
-        <section class="v-block charts-block" style="margin-bottom: 0;">
-          <div class="section-title" style="color: #1D4ED8;">GASTO DIAS ÚTEIS (30 DIAS)</div>
-          <div v-if="grafDiarioUtil.length">
-            <apexchart type="area" height="200" :options="optDiarioUtil" :series="seriesDiarioUtil" />
-          </div>
-          <div v-else class="empty-msg">Sem dados no período</div>
-        </section>
-        <section class="v-block charts-block" style="margin-bottom: 0;">
-          <div class="section-title" style="color: #7C3AED;">GASTO FIM DE SEMANA (30 DIAS)</div>
-          <div v-if="grafDiarioFDS.length">
-            <apexchart type="area" height="200" :options="optDiarioFDS" :series="seriesDiarioFDS" />
-          </div>
-          <div v-else class="empty-msg">Sem dados no período</div>
-        </section>
-        <section v-if="grafDiarioFeriado.length" class="v-block charts-block" style="margin-bottom: 0;">
-          <div class="section-title" style="color: #EA580C;">GASTO FERIADOS (30 DIAS)</div>
-          <apexchart type="area" height="200" :options="optDiarioFeriado" :series="seriesDiarioFeriado" />
-        </section>
-      </div>
 
       <!-- ══════════════════════════════════════════════════════════════════ -->
       <!--  INSIGHTS POR DIMENSÃO — Combustível · Região · Grupo · Filial  -->
@@ -702,6 +704,7 @@ async function setFiltroCombTendencia(comb) {
     const d = await _dashboardComb(comb)
     grafMensal.value  = d.grafico_mensal  ?? []
     grafSemanal.value = d.grafico_semanal ?? []
+    grafDiario.value  = d.grafico_diario  ?? []
   } finally { lTendencia.value = false }
 }
 
@@ -988,21 +991,62 @@ const corTendencia = computed(() =>
   filtroCombTendencia.value ? combustivelColor(filtroCombTendencia.value) : '#1D4ED8'
 )
 
-const optMensal = computed(() => ({
-  ...chartBase,
-  colors: [corTendencia.value],
-  xaxis: { ...chartBase.xaxis, categories: grafMensal.value.map(d => d.label) },
-  plotOptions: { bar: { borderRadius: 6 } },
-}))
-const seriesMensal = computed(() => [{ name: 'Gasto', data: grafMensal.value.map(d => d.valor) }])
+const _fmtY = v => {
+  if (v >= 1_000_000) return 'R$ ' + (v / 1_000_000).toFixed(1).replace('.', ',') + 'M'
+  if (v >= 1_000)     return 'R$ ' + (v / 1_000).toFixed(0) + 'k'
+  return 'R$ ' + v.toFixed(0)
+}
+const _fmtTip = v => 'R$ ' + Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 0 })
 
-const optSemanal = computed(() => ({
+const _barOpts = (categories, color) => ({
   ...chartBase,
-  colors: [corTendencia.value],
-  xaxis: { ...chartBase.xaxis, categories: grafSemanal.value.map(d => d.label) },
-  plotOptions: { bar: { borderRadius: 6 } },
-}))
+  colors: [color],
+  plotOptions: { bar: { borderRadius: 6, columnWidth: '55%' } },
+  xaxis: {
+    categories,
+    labels: { style: { colors: '#94a3b8', fontSize: '11px' }, rotate: -35, rotateAlways: false, trim: true },
+    axisBorder: { show: false },
+    axisTicks: { show: false },
+  },
+  yaxis: { labels: { style: { colors: '#94a3b8', fontSize: '11px' }, formatter: _fmtY } },
+  tooltip: { theme: 'light', y: { formatter: _fmtTip } },
+})
+
+const optMensal  = computed(() => _barOpts(grafMensal.value.map(d => d.label),  corTendencia.value))
+const seriesMensal  = computed(() => [{ name: 'Gasto', data: grafMensal.value.map(d => d.valor) }])
+
+const optSemanal = computed(() => _barOpts(grafSemanal.value.map(d => d.label), corTendencia.value))
 const seriesSemanal = computed(() => [{ name: 'Gasto', data: grafSemanal.value.map(d => d.valor) }])
+
+const avgDiarioUtil = computed(() => {
+  const vals = grafDiarioUtil.value.map(d => d.valor).filter(v => v > 0)
+  return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0
+})
+const avgDiarioFDSFeriado = computed(() => {
+  const vals = [...grafDiarioFDS.value, ...grafDiarioFeriado.value].map(d => d.valor).filter(v => v > 0)
+  return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0
+})
+
+const optDiarioGeral = computed(() => ({
+  ...chartBase,
+  colors: [corTendencia.value, '#f97316'],
+  plotOptions: { bar: { borderRadius: 5, columnWidth: '60%' } },
+  stroke: { width: [0, 2.5], curve: 'straight', dashArray: [0, 6] },
+  markers: { size: [0, 0] },
+  legend: { show: false },
+  xaxis: {
+    categories: grafDiarioUtil.value.map(d => d.label),
+    labels: { style: { colors: '#94a3b8', fontSize: '11px' }, rotate: -35, rotateAlways: false },
+    axisBorder: { show: false },
+    axisTicks: { show: false },
+  },
+  yaxis: { labels: { style: { colors: '#94a3b8', fontSize: '11px' }, formatter: _fmtY } },
+  tooltip: { theme: 'light', y: { formatter: _fmtTip } },
+}))
+const seriesDiarioGeral = computed(() => [
+  { name: 'Gasto dia útil', type: 'bar',  data: grafDiarioUtil.value.map(d => d.valor) },
+  { name: 'Média',          type: 'line', data: grafDiarioUtil.value.map(() => Math.round(avgDiarioUtil.value)) },
+])
 
 // ── Gráfico diário split por tipo_dia ────────────────────────────────────
 function _getTipoDia(d) {
@@ -1140,7 +1184,7 @@ onMounted(() => {
 
 .kpi-pro-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 16px;
   margin-bottom: 24px;
 }
@@ -1352,6 +1396,9 @@ tbody.has-filter .bd-row.dimmed:hover {
 .animate-in { animation: fadeIn 0.25s ease-out; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
+@media (max-width: 1300px) {
+  .kpi-pro-grid { grid-template-columns: repeat(3, 1fr); }
+}
 @media (max-width: 1200px) {
   .kpi-pro-grid { grid-template-columns: repeat(2, 1fr); }
   .kpi-sep:nth-child(n+6) { display: none; }
@@ -1583,5 +1630,58 @@ tbody.has-filter .bd-row.dimmed:hover {
 .filial-row:hover .btn-drill { opacity: 1; }
 
 .empty-msg { font-size: 13px; color: #94a3b8; padding: 24px; text-align: center; border: 1px dashed #e2e8f0; border-radius: 8px; }
+
+/* ── Resumo diário (chips média) ─────────────────────────────────────────── */
+.diario-resumo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #f1f5f9;
+  flex-wrap: wrap;
+}
+.diario-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 8px 14px;
+}
+.chip-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.chip-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.chip-val {
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+.diario-sep {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+}
+.diario-ratio {
+  font-size: 12px;
+  font-weight: 700;
+  color: #7C3AED;
+  background: #f5f3ff;
+  border: 1px solid #ddd6fe;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
 
 </style>

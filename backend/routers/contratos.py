@@ -101,7 +101,7 @@ def get_kpis(
             "custo_lataria":     safe_round(custo_lataria, 2),
             "custo_arla":        safe_round(custo_arla, 2),
             "custo_total":       safe_round(custo_total, 2),
-            "custo_km":  safe_round(custo_total / total_km, 4) if total_km > 0 else 0,
+            "custo_km":  safe_round(custo_total / total_km, 2) if total_km > 0 else 0,
             "media_kml": safe_round(total_km / total_litros, 2) if total_litros > 0 else 0,
             "pct_combustivel": safe_round(custo_comb / custo_total * 100, 1) if custo_total > 0 else 0,
             "pct_manutencao":  safe_round(custo_man / custo_total * 100, 1) if custo_total > 0 else 0,
@@ -140,7 +140,7 @@ def get_resumo(ano_mes: Optional[str] = Query(default=None)):
         resumo.append({
             "contrato":     contrato,
             "custo_total":  safe_round(custo_total, 2),
-            "custo_km":     safe_round(custo_total / total_km, 4) if total_km > 0 else 0,
+            "custo_km":     safe_round(custo_total / total_km, 2) if total_km > 0 else 0,
             "total_km":     safe_round(total_km, 0),
             "qtd_veiculos": int(g["placa"].nunique()),
             "filial_principal": filiais[0] if filiais else None,
@@ -179,7 +179,7 @@ def get_historico(contrato: str = Query(...)):
     res = evolucao.to_dict(orient="records")
     for r in res:
         km = r["total_km"]
-        r["custo_km"]  = safe_round(r["total_valor"] / km, 4) if km > 0 else 0
+        r["custo_km"]  = safe_round(r["total_valor"] / km, 2) if km > 0 else 0
         r["total_km"]  = safe_round(km, 0)
         r["total_valor"]         = safe_round(r["total_valor"], 2)
         r["custo_combustivel"]   = safe_round(r["custo_combustivel"], 2)
@@ -225,7 +225,7 @@ def get_veiculos(
             "custo_combustivel":  safe_round(float(row.get("valor_comb", 0)), 2),
             "custo_manutencao":   safe_round(float(row.get("manutencao", 0)), 2),
             "custo_total":        safe_round(custo, 2),
-            "custo_km":           safe_round(custo / km, 4) if km > 0 else 0,
+            "custo_km":           safe_round(custo / km, 2) if km > 0 else 0,
             "media_kml":          safe_round(km / litros, 2) if litros > 0 else 0,
         })
 
@@ -263,7 +263,7 @@ def get_comparativo(ano_mes: Optional[str] = Query(default=None)):
         comparativo.append({
             "contrato":     contrato,
             "custo_total":  safe_round(custo_total, 2),
-            "custo_km":     safe_round(custo_total / total_km, 4) if total_km > 0 else 0,
+            "custo_km":     safe_round(custo_total / total_km, 2) if total_km > 0 else 0,
             "media_kml":    safe_round(total_km / total_litros, 2) if total_litros > 0 else 0,
             "total_km":     safe_round(total_km, 0),
             "qtd_veiculos": int(g["placa"].nunique()),

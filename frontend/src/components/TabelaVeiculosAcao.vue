@@ -50,7 +50,16 @@
                 {{ flagLabel(v.flag) }}
               </span>
             </td>
-            <td class="mono placa">{{ v.placa }}</td>
+            <td class="mono placa">
+              {{ v.placa }}
+              <span v-if="v.fonte_kml === 'fkm_reconciliado'" class="fonte-tag fonte-fkm" title="km/L calculado com dados do FKM (total real)">FKM</span>
+              <span v-else-if="v.fonte_kml === 'truckpag'" class="fonte-tag fonte-tp" title="km/L calculado apenas com TruckPag (pode estar incompleto)">TP</span>
+              <span
+                v-if="v.fkm_corrigido && v.fkm_discrepancia_pct > 20"
+                class="fonte-tag fonte-warn"
+                :title="`FKM reportou ${v.litros_fkm_reportado}L, TruckPag registrou ${v.litros_truckpag}L (${v.fkm_discrepancia_pct}% diferença) — verificar planilha`"
+              >!</span>
+            </td>
             <td class="modelo-td">{{ v.modelo || '—' }}</td>
             <td class="grupo-td">{{ formatGrupo(v.grupo) }}</td>
             <td class="filial-td">{{ v.filial || '—' }}</td>
@@ -169,7 +178,7 @@ const rowClass = flag => ({
 }[flag] ?? '')
 
 function exportarCSV() {
-  const cols = ['placa','grupo','filial','motorista','modelo','km_litro','media_grupo_km_litro','custo_km','media_grupo_custo_km','pct_vs_grupo','economia_possivel','flag']
+  const cols = ['placa','fonte_kml','grupo','filial','motorista','modelo','km_litro','media_grupo_km_litro','custo_km','media_grupo_custo_km','pct_vs_grupo','economia_possivel','flag']
   const header = cols.join(';')
   const rows = props.data.map(v => cols.map(c => v[c] ?? '').join(';'))
   const blob = new Blob([header + '\n' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' })
@@ -248,6 +257,15 @@ tbody tr.row-baixo   { background: rgba(245,158,11,0.01); }
 .green { color: #10b981; font-weight: 600; }
 .semibold { font-weight: 600; }
 .placa { font-weight: 700; color: #0f172a; }
+.fonte-tag {
+  display: inline-block; margin-left: 5px;
+  font-size: 9px; font-weight: 800; padding: 1px 5px; border-radius: 4px;
+  vertical-align: middle; letter-spacing: 0.04em;
+  font-family: 'JetBrains Mono', monospace;
+}
+.fonte-fkm  { background: #d1fae5; color: #065f46; }
+.fonte-tp   { background: #fef3c7; color: #92400e; }
+.fonte-warn { background: #fef2f2; color: #dc2626; cursor: help; }
 .modelo-td { font-size: 11px; font-weight: 500; color: #475569; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .grupo-td { font-size: 11px; font-weight: 600; color: #64748b; }
 .filial-td { font-weight: 500; font-size: 12px; color: #64748b; max-width: 130px; overflow: hidden; text-overflow: ellipsis; }

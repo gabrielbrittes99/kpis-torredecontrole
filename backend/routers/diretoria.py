@@ -94,61 +94,58 @@ def get_kpis_estrategicos(
     # Projeção Mês Ativo (Run-rate ponderado Dias Úteis vs Fim de Semana)
     df_mes_ativo = df_ano[df_ano["data_transacao"].dt.month == mes_ref].copy()
     gasto_real_mes = float(df_mes_ativo["valor"].sum())
-    
+
     dias_no_mes = calendar.monthrange(ano_ref, mes_ref)[1]
     if eh_mes_atual:
-        # Se for o mês atual, verificamos até que dia temos dados
-        dia_referencia = int(df_mes_ativo["data_transacao"].dt.day.max()) if not df_mes_ativo.empty else hoje.day
+        # Usa a data real do servidor — não a última transação do banco.
+        # Se for cedo e ainda não chegaram transações do dia, o dia atual
+        # é um dia corrente (não restante) mas com dados incompletos.
+        dia_referencia = datetime.now().day
     else:
         dia_referencia = dias_no_mes
     
     proj_restante = 0.0
-    
+    dias_restantes_uteis = 0
+    dias_restantes_fds   = 0
+    media_dia_util       = 0.0
+    media_fds            = 0.0
+
     if dia_referencia > 0 and dia_referencia < dias_no_mes:
-        # Identifica se a data da transação ocorreu em final de semana (5=Sábado, 6=Domingo)
         df_mes_ativo["weekday"] = df_mes_ativo["data_transacao"].dt.dayofweek
-        
-        # Separa transações
-        df_fds = df_mes_ativo[df_mes_ativo["weekday"].isin([5, 6])]
-        df_uteis = df_mes_ativo[~df_mes_ativo["weekday"].isin([5, 6])]
-        
-        # Conta a quantidade de dias úteis e de finais de semana ATÉ o dia de referência
-        dias_passados_uteis = 0
-        dias_passados_fds = 0
-        
-        for d in range(1, dia_referencia + 1):
-            wd = datetime(ano_ref, mes_ref, d).weekday()
-            if wd in [5, 6]:
-                dias_passados_fds += 1
-            else:
-                dias_passados_uteis += 1
-                
-        # Calcula médias
-        media_dia_util = float(df_uteis["valor"].sum()) / dias_passados_uteis if dias_passados_uteis > 0 else 0
-        media_fds = float(df_fds["valor"].sum()) / dias_passados_fds if dias_passados_fds > 0 else 0
-        
-        # Se uma das médias for zero por falta de amostra, usa a média geral como fallback
-        if media_dia_util == 0 and media_fds == 0:
-            media_geral = gasto_real_mes / dia_referencia
-            media_dia_util = media_geral
-            media_fds = media_geral
-        elif media_dia_util == 0:
-            media_dia_util = media_fds
-        elif media_fds == 0:
-            media_fds = media_dia_util
-            
-        # Conta quantos dias úteis e fds FALTAM para o mês acabar
-        dias_restantes_uteis = 0
-        dias_restantes_fds = 0
-        
-        for d in range(dia_referencia + 1, dias_no_mes + 1):
+        df_mes_ativo["dia"]     = df_mes_ativo["data_transacao"].dt.day
+
+        # ── Ritmo baseado nos últimos 30 dias corridos (excluindo hoje) ──
+        # Usa o histórico recente cross-mês para não distorcer com poucos
+        # dias do mês atual. Hoje é excluído por ter dados parciais.
+        from datetime import timedelta
+        hoje_dt = datetime(ano_ref, mes_ref, dia_referencia)
+        ontem_dt = hoje_dt - timedelta(days=1)
+        inicio_30d = ontem_dt - timedelta(days=29)  # 30 dias completos até ontem
+
+        df_30d = df[
+            (df["data_transacao"] >= pd.Timestamp(inicio_30d)) &
+            (df["data_transacao"] <= pd.Timestamp(ontem_dt))
+        ].copy()
+        df_30d["weekday"] = df_30d["data_transacao"].dt.dayofweek
+        df_30d["dia_dt"]  = df_30d["data_transacao"].dt.date
+
+        dias_uteis_30d = df_30d[~df_30d["weekday"].isin([5, 6])]["dia_dt"].nunique()
+        dias_fds_30d   = df_30d[ df_30d["weekday"].isin([5, 6])]["dia_dt"].nunique()
+
+        valor_uteis_30d = float(df_30d[~df_30d["weekday"].isin([5, 6])]["valor"].sum())
+        valor_fds_30d   = float(df_30d[ df_30d["weekday"].isin([5, 6])]["valor"].sum())
+
+        media_dia_util = valor_uteis_30d / dias_uteis_30d if dias_uteis_30d > 0 else 0.0
+        media_fds      = valor_fds_30d   / dias_fds_30d   if dias_fds_30d   > 0 else media_dia_util * 0.1
+
+        # Dias restantes = a partir de hoje (inclusive), pois hoje tem dados parciais
+        for d in range(dia_referencia, dias_no_mes + 1):
             wd = datetime(ano_ref, mes_ref, d).weekday()
             if wd in [5, 6]:
                 dias_restantes_fds += 1
             else:
                 dias_restantes_uteis += 1
-                
-        # Projeta o restante
+
         proj_restante = (media_dia_util * dias_restantes_uteis) + (media_fds * dias_restantes_fds)
 
     proj_total_mes = round(gasto_real_mes + proj_restante, 2)
@@ -166,7 +163,7 @@ def get_kpis_estrategicos(
         "projecao_mes_atual": proj_total_mes,
         "projecao_anual": projecao_anual,
         "kml_medio": kml_medio,
-        "preco_medio_litro": round(gasto_ano / litros_ano, 4) if litros_ano > 0 else 0,
+        "preco_medio_litro": round(gasto_ano / litros_ano, 2) if litros_ano > 0 else 0,
         "custo_por_km": custo_km,
         "saving_acumulado_mes": saving_acumulado,
         "saving_resumo_anp": saving_resumo,
@@ -174,7 +171,9 @@ def get_kpis_estrategicos(
         "score_saude": max(score, 0),
         "veiculos_ativos_mes": int(df_mes_ativo["placa"].nunique()) if not df_mes_ativo.empty else 0,
         "meses_completos": meses_completos,
-        "dia_referencia_proj": dia_referencia
+        "dia_referencia_proj": dia_referencia,
+        "dias_restantes_uteis": dias_restantes_uteis,
+        "media_dia_util": round(media_dia_util, 2),
     }
 
 
@@ -205,7 +204,7 @@ def get_tendencia_12_meses():
         .sort_values("ano_mes")
         .tail(12)
     )
-    agg["preco_medio"] = (agg["total_valor"] / agg["total_litros"]).round(4)
+    agg["preco_medio"] = (agg["total_valor"] / agg["total_litros"]).round(2)
 
     # Variação mês a mês
     agg["variacao_valor"] = agg["total_valor"].diff().round(2)
@@ -451,11 +450,10 @@ def get_comparativo_meses(
     ref_dt = datetime(ano_ref, mes_ref, 1)
     
     if eh_mes_atual:
-        # A referência de "até que dia" é o último dado ou hoje.
-        ultima_transacao = df[df["data_transacao"].dt.month == mes_ref]["data_transacao"].max()
-        dia_referencia = ultima_transacao.day if not pd.isna(ultima_transacao) else hoje.day
+        # Usa a data real do servidor — não a última transação do banco,
+        # que pode não ter chegado ainda se for cedo.
+        dia_referencia = datetime.now().day
     else:
-        # Se for um mês passado, pegamos o mês cheio
         dia_referencia = calendar.monthrange(ano_ref, mes_ref)[1]
 
     def resumo_mes(m, a, ate_dia=None):
@@ -479,14 +477,19 @@ def get_comparativo_meses(
             )
             km_periodo = float((km_agg["max_h"] - km_agg["min_h"]).sum())
 
+        # custo_km só é confiável quando há km suficiente para a frota.
+        # Com poucos dias, hodômetro esparso distorce o cálculo.
+        # Exige mínimo de 50.000 km para garantir representatividade.
+        custo_km = round(valor / km_periodo, 2) if km_periodo >= 50_000 else 0
+
         return {
             "mes": m,
             "ano": a,
             "total_valor": round(valor, 2),
             "total_litros": round(litros, 0),
             "total_km": round(km_periodo, 0),
-            "preco_medio": round(valor / litros, 4) if litros > 0 else 0,
-            "custo_km": round(valor / km_periodo, 3) if km_periodo > 0 else 0,
+            "preco_medio": round(valor / litros, 2) if litros > 0 else 0,
+            "custo_km": custo_km,
             "dias_com_dados": int(sub["data_transacao"].dt.date.nunique()),
         }
 
@@ -512,7 +515,7 @@ def get_comparativo_meses(
         avg_3_meses = {
             "total_valor": round(avg_valor, 2),
             "total_litros": round(avg_litros, 0),
-            "preco_medio": round(avg_preco, 4),
+            "preco_medio": round(avg_preco, 2),
             "custo_km": round(avg_custo_km, 3),
             "meses_base": len(ultimos_3_meses)
         }
@@ -523,9 +526,9 @@ def get_comparativo_meses(
             "valor_abs": round(atual["total_valor"] - anterior["total_valor"], 2),
             "valor_pct": round((atual["total_valor"] - anterior["total_valor"]) / anterior["total_valor"] * 100, 1),
             "litros_pct": round(((atual["total_litros"] / anterior["total_litros"]) - 1) * 100, 1) if anterior["total_litros"] > 0 else 0,
-            "preco_abs": round(atual["preco_medio"] - anterior["preco_medio"], 4),
+            "preco_abs": round(atual["preco_medio"] - anterior["preco_medio"], 2),
             "preco_pct": round((atual["preco_medio"] / anterior["preco_medio"] - 1) * 100, 1) if anterior["preco_medio"] > 0 else 0,
-            "custo_km_abs": round(atual["custo_km"] - anterior["custo_km"], 3),
+            "custo_km_abs": round(atual["custo_km"] - anterior["custo_km"], 2),
             "custo_km_pct": round((atual["custo_km"] / anterior["custo_km"] - 1) * 100, 1) if anterior["custo_km"] > 0 else 0,
         }
 
@@ -535,9 +538,9 @@ def get_comparativo_meses(
             "valor_abs": round(atual["total_valor"] - avg_3_meses["total_valor"], 2),
             "valor_pct": round((atual["total_valor"] - avg_3_meses["total_valor"]) / avg_3_meses["total_valor"] * 100, 1),
             "litros_pct": round(((atual["total_litros"] / avg_3_meses["total_litros"]) - 1) * 100, 1) if avg_3_meses["total_litros"] > 0 else 0,
-            "preco_abs": round(atual["preco_medio"] - avg_3_meses["preco_medio"], 4),
+            "preco_abs": round(atual["preco_medio"] - avg_3_meses["preco_medio"], 2),
             "preco_pct": round((atual["preco_medio"] / avg_3_meses["preco_medio"] - 1) * 100, 1) if avg_3_meses["preco_medio"] > 0 else 0,
-            "custo_km_abs": round(atual["custo_km"] - avg_3_meses["custo_km"], 3),
+            "custo_km_abs": round(atual["custo_km"] - avg_3_meses["custo_km"], 2),
             "custo_km_pct": round((atual["custo_km"] / avg_3_meses["custo_km"] - 1) * 100, 1) if avg_3_meses["custo_km"] > 0 else 0,
         }
 

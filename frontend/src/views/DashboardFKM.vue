@@ -110,6 +110,125 @@
         </div>
       </section>
 
+      <!-- ━━━━━ SEÇÃO: RECONCILIAÇÃO TRUCKPAG × DIRETO ━━━━━ -->
+      <section class="v-block">
+        <div class="section-heading-row">
+          <div class="section-heading" style="margin-bottom:0">
+            Combustível · TruckPag vs Faturado Direto · {{ fmtMes(filtroMes) }}
+          </div>
+          <span v-if="reconciliacao.totais?.qtd_alertas > 0" class="section-badge badge-warn">
+            {{ reconciliacao.totais.qtd_alertas }} alertas de qualidade
+          </span>
+        </div>
+
+        <div v-if="lReconciliacao" class="skel" style="height:160px" />
+        <template v-else-if="reconciliacao.totais">
+
+          <!-- Summary chips -->
+          <div class="recon-chips">
+            <div class="recon-chip">
+              <span class="recon-chip-label">Total FKM (real)</span>
+              <span class="recon-chip-val">{{ fmtR(reconciliacao.totais.valor_fkm) }}</span>
+            </div>
+            <div class="recon-chip recon-chip-tp">
+              <span class="recon-chip-label">Via TruckPag</span>
+              <span class="recon-chip-val">{{ fmtR(reconciliacao.totais.valor_truckpag) }}</span>
+              <span class="recon-chip-pct">{{ reconciliacao.totais.pct_truckpag }}%</span>
+            </div>
+            <div class="recon-chip recon-chip-direto">
+              <span class="recon-chip-label">Faturado Direto</span>
+              <span class="recon-chip-val">{{ fmtR(reconciliacao.totais.valor_direto) }}</span>
+              <span class="recon-chip-pct">{{ (100 - reconciliacao.totais.pct_truckpag).toFixed(1) }}%</span>
+            </div>
+            <div class="recon-chip">
+              <span class="recon-chip-label">Veículos c/ Direto</span>
+              <span class="recon-chip-val">{{ reconciliacao.totais.qtd_com_direto }}</span>
+              <span class="recon-chip-pct">de {{ reconciliacao.totais.qtd_veiculos }} no mês</span>
+            </div>
+          </div>
+
+          <!-- Tabela por filial -->
+          <div class="table-wrap" v-if="reconciliacao.resumo_filiais?.length">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Filial</th>
+                  <th class="right">Total FKM</th>
+                  <th class="right">TruckPag</th>
+                  <th class="right">Direto</th>
+                  <th class="right">% TruckPag</th>
+                  <th class="right">Veículos</th>
+                  <th class="right">c/ Direto</th>
+                  <th class="right">Alertas</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in reconciliacao.resumo_filiais" :key="row.filial">
+                  <td class="filial-cell">{{ row.filial }}</td>
+                  <td class="right mono">{{ fmtR(row.total_valor_fkm) }}</td>
+                  <td class="right mono">{{ fmtR(row.total_valor_truckpag) }}</td>
+                  <td class="right mono" :class="row.total_valor_direto > 100 ? 'text-yellow' : ''">{{ fmtR(row.total_valor_direto) }}</td>
+                  <td class="right mono">
+                    <div class="pct-bar-wrap">
+                      <div class="pct-bar-track">
+                        <div class="pct-bar-fill" :style="{ width: Math.min(row.pct_truckpag, 100) + '%' }" />
+                      </div>
+                      <span :class="row.pct_truckpag >= 95 ? 'text-green' : row.pct_truckpag >= 60 ? '' : 'text-yellow'">
+                        {{ row.pct_truckpag }}%
+                      </span>
+                    </div>
+                  </td>
+                  <td class="right mono">{{ row.qtd_veiculos }}</td>
+                  <td class="right mono" :class="row.qtd_com_direto > 0 ? 'text-yellow' : 'text-green'">{{ row.qtd_com_direto }}</td>
+                  <td class="right mono" :class="row.qtd_alertas > 0 ? 'text-red' : ''">{{ row.qtd_alertas || '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Veículos com alerta de qualidade -->
+          <div v-if="veiculosComAlerta.length">
+            <button class="btn-toggle" @click="showAlertas = !showAlertas">
+              {{ showAlertas ? '▲ Ocultar' : '▼ Ver' }} veículos com alerta ({{ veiculosComAlerta.length }})
+            </button>
+            <div v-if="showAlertas" class="table-wrap" style="margin-top:12px">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Placa</th>
+                    <th>Filial</th>
+                    <th>Combustível</th>
+                    <th class="right">Total FKM</th>
+                    <th class="right">TruckPag</th>
+                    <th class="right">Direto</th>
+                    <th class="right">% TP</th>
+                    <th class="right">Preço/L impl.</th>
+                    <th>Alertas</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="v in veiculosComAlerta" :key="v.placa">
+                    <td class="placa-cell mono">{{ v.placa }}</td>
+                    <td class="filial-cell">{{ v.filial }}</td>
+                    <td>{{ v.tp_combustivel || '—' }}</td>
+                    <td class="right mono">{{ fmtR(v.valor_fkm) }}</td>
+                    <td class="right mono">{{ fmtR(v.valor_truckpag) }}</td>
+                    <td class="right mono" :class="v.valor_direto > 100 ? 'text-yellow' : ''">{{ fmtR(v.valor_direto) }}</td>
+                    <td class="right mono">{{ v.pct_truckpag != null ? v.pct_truckpag + '%' : '—' }}</td>
+                    <td class="right mono">{{ v.preco_litro_implicito != null ? fmtR(v.preco_litro_implicito) + '/L' : '—' }}</td>
+                    <td>
+                      <span v-for="flag in v.flags" :key="flag" class="flag-badge" :class="'flag-' + flag">{{ flagLabel(flag) }}</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </template>
+        <div v-else class="empty">Sem dados de reconciliação para {{ fmtMes(filtroMes) }}</div>
+      </section>
+
       <!-- ━━━━━ SEÇÃO 2: GRÁFICOS ━━━━━ -->
       <div class="two-col">
 
@@ -286,6 +405,7 @@ import {
   fetchFkmCustoPorVeiculo,
   fetchFkmEvolucaoMensal,
   fetchFkmDistribuicaoCategorias,
+  fetchFkmReconciliacao,
 } from '../api/fkm.js'
 import { fetchContratosKpis } from '../api/contratos.js'
 
@@ -303,13 +423,17 @@ const porFilial = ref([])
 const veiculos  = ref([])
 const porContrato = ref([])
 
-const lKpis      = ref(true)
-const lCategorias = ref(true)
-const lEvolucao  = ref(true)
-const lFilial    = ref(true)
-const lVeiculos  = ref(true)
-const lContratos = ref(true)
-const refreshing = ref(false)
+const lKpis           = ref(true)
+const lCategorias     = ref(true)
+const lEvolucao       = ref(true)
+const lFilial         = ref(true)
+const lVeiculos       = ref(true)
+const lContratos      = ref(true)
+const lReconciliacao  = ref(true)
+const refreshing      = ref(false)
+
+const reconciliacao   = ref({})
+const showAlertas     = ref(false)
 
 // ── Formatadores ──────────────────────────────────────────────────────────
 const fmtR = (v) => v == null ? '—' : 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -333,11 +457,24 @@ const custoKmClass = (v) => {
 const grupoBadgeClass = (g) => {
   if (!g) return ''
   const lower = g.toLowerCase()
-  if (lower.includes('caminhão') || lower.includes('caminhao')) return 'badge-truck'
-  if (lower.includes('pesado')) return 'badge-heavy'
-  if (lower.includes('médio') || lower.includes('medio')) return 'badge-medium'
+  if (['bitruck', 'truck', 'toco', '3/4'].includes(lower)) return 'badge-truck'
+  if (lower === 'pesado') return 'badge-heavy'
+  if (lower === 'médio' || lower === 'medio') return 'badge-medium'
   return 'badge-light'
 }
+
+// ── Reconciliação ─────────────────────────────────────────────────────────
+const veiculosComAlerta = computed(() =>
+  (reconciliacao.value.veiculos ?? []).filter(v => v.tem_alerta)
+)
+
+const FLAG_LABELS = {
+  gap_negativo:   'Gap negativo',
+  preco_suspeito: 'Preço/L suspeito',
+  kml_divergente: 'km/L divergente',
+  sem_truckpag:   'Sem TruckPag',
+}
+function flagLabel(f) { return FLAG_LABELS[f] ?? f }
 
 // ── Gráfico Donut ─────────────────────────────────────────────────────────
 const donutSeries  = computed(() => categorias.value.map(c => c.valor))
@@ -380,7 +517,14 @@ const params = () => {
 
 const loadAll = async () => {
   const p = params()
-  lKpis.value = lCategorias.value = lFilial.value = lVeiculos.value = lContratos.value = true
+  lKpis.value = lCategorias.value = lFilial.value = lVeiculos.value = lContratos.value = lReconciliacao.value = true
+  showAlertas.value = false
+
+  // Reconciliação: passa só ano_mes, filial e contrato (sem grupo — TruckPag não tem esse filtro)
+  const pRecon = {}
+  if (filtroMes.value)     pRecon.ano_mes  = filtroMes.value
+  if (filtroFilial.value)  pRecon.filial   = filtroFilial.value
+  if (filtroContrato.value) pRecon.contrato = filtroContrato.value
 
   Promise.all([
     fetchFkmKpis(p).then(d => { kpis.value = d; lKpis.value = false }).catch(() => lKpis.value = false),
@@ -388,6 +532,7 @@ const loadAll = async () => {
     fetchFkmResumoPorFilial(p).then(d => { porFilial.value = d; lFilial.value = false }).catch(() => lFilial.value = false),
     fetchFkmCustoPorVeiculo({ ...p, limit: 50 }).then(d => { veiculos.value = d; lVeiculos.value = false }).catch(() => lVeiculos.value = false),
     fetchContratosKpis({ ano_mes: p.ano_mes, contrato: p.contrato }).then(d => { porContrato.value = d; lContratos.value = false }).catch(() => lContratos.value = false),
+    fetchFkmReconciliacao(pRecon).then(d => { reconciliacao.value = d; lReconciliacao.value = false }).catch(() => lReconciliacao.value = false),
   ])
 }
 
@@ -505,6 +650,45 @@ onMounted(init)
 .badge-heavy   { background: #fee2e2; color: #991b1b; }
 .badge-medium  { background: #dbeafe; color: #1e40af; }
 .badge-light   { background: #d1fae5; color: #065f46; }
+
+/* ── Reconciliação ── */
+.recon-chips {
+  display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 20px;
+}
+.recon-chip {
+  flex: 1; min-width: 160px;
+  background: #f8fafc;
+  border: 1px solid rgba(0,0,0,0.07);
+  border-radius: 12px; padding: 14px 18px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.recon-chip-tp   { border-top: 3px solid #2563eb; }
+.recon-chip-direto { border-top: 3px solid #f59e0b; }
+.recon-chip-label { font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+.recon-chip-val   { font-size: 18px; font-weight: 800; color: #0f172a; font-family: 'JetBrains Mono', monospace; }
+.recon-chip-pct   { font-size: 12px; font-weight: 700; color: #64748b; }
+
+.pct-bar-wrap { display: flex; align-items: center; gap: 8px; }
+.pct-bar-track { flex: 1; height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; min-width: 60px; }
+.pct-bar-fill  { height: 100%; background: #2563eb; border-radius: 3px; transition: width 0.4s ease; }
+
+.btn-toggle {
+  background: none; border: 1px solid #e2e8f0; border-radius: 8px;
+  padding: 6px 14px; font-size: 12px; font-weight: 600; color: #64748b;
+  cursor: pointer; margin-top: 12px; transition: all 0.15s;
+}
+.btn-toggle:hover { background: #f8fafc; border-color: #cbd5e1; }
+
+.flag-badge {
+  display: inline-block; padding: 2px 7px; border-radius: 5px;
+  font-size: 10px; font-weight: 700; margin-right: 4px; white-space: nowrap;
+}
+.flag-gap_negativo   { background: #fef2f2; color: #dc2626; }
+.flag-preco_suspeito { background: #fff7ed; color: #ea580c; }
+.flag-kml_divergente { background: #fffbeb; color: #d97706; }
+.flag-sem_truckpag   { background: #eff6ff; color: #2563eb; }
+
+.badge-warn { background: #fff7ed; color: #ea580c; border: 1px solid rgba(234,88,12,0.2); }
 
 /* ── Utilitários ── */
 .empty { text-align: center; color: #94a3b8; font-size: 13px; padding: 40px 0; }

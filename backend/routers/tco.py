@@ -83,7 +83,7 @@ def _build_tco_row(placa: str, custo_comb: float, custo_pedagio: float,
         "custo_arla":        safe_round(custo_arla, 2),
         "custo_total":       safe_round(custo_total, 2),
         "total_km":          safe_round(total_km, 0),
-        "custo_km":          safe_round(custo_total / total_km, 4) if total_km > 0 else 0,
+        "custo_km":          safe_round(custo_total / total_km, 2) if total_km > 0 else 0,
         "valor_fipe":        safe_round(float(valor_fipe), 2) if valor_fipe else None,
         "pct_custo_vs_fipe": pct_fipe,
     }
@@ -230,7 +230,7 @@ def get_kpis(ano_mes: Optional[str] = Query(default=None)):
         "qtd_veiculos":      qtd_veiculos,
         "custo_total":       safe_round(custo_total, 2),
         "custo_medio_veiculo": safe_round(custo_total / qtd_veiculos, 2) if qtd_veiculos > 0 else 0,
-        "custo_km":          safe_round(custo_total / total_km, 4) if total_km > 0 else 0,
+        "custo_km":          safe_round(custo_total / total_km, 2) if total_km > 0 else 0,
         "total_km":          safe_round(total_km, 0),
         "breakdown": {
             "combustivel": {"valor": safe_round(custo_comb, 2),    "pct": safe_round(custo_comb / custo_total * 100, 1) if custo_total > 0 else 0},
@@ -262,7 +262,7 @@ def get_por_filial(ano_mes: Optional[str] = Query(default=None)):
         resultado.append({
             "filial":        filial,
             "custo_total":   safe_round(custo_total, 2),
-            "custo_km":      safe_round(custo_total / total_km, 4) if total_km > 0 else 0,
+            "custo_km":      safe_round(custo_total / total_km, 2) if total_km > 0 else 0,
             "total_km":      safe_round(total_km, 0),
             "qtd_veiculos":  int(g["placa"].nunique()),
             "pct_comb":      safe_round(custo_comb / custo_total * 100, 1) if custo_total > 0 else 0,
@@ -289,7 +289,7 @@ def get_por_grupo(ano_mes: Optional[str] = Query(default=None)):
         resultado.append({
             "grupo":        grupo,
             "custo_total":  safe_round(custo_total, 2),
-            "custo_km":     safe_round(custo_total / total_km, 4) if total_km > 0 else 0,
+            "custo_km":     safe_round(custo_total / total_km, 2) if total_km > 0 else 0,
             "total_km":     safe_round(total_km, 0),
             "qtd_veiculos": int(g["placa"].nunique()),
         })
@@ -332,7 +332,7 @@ def get_evolucao_mensal(
     res = evolucao.to_dict(orient="records")
     for r in res:
         km = r["total_km"]
-        r["custo_km"]          = safe_round(r["custo_total"] / km, 4) if km > 0 else 0
+        r["custo_km"]          = safe_round(r["custo_total"] / km, 2) if km > 0 else 0
         r["custo_total"]       = safe_round(r["custo_total"], 2)
         r["custo_combustivel"] = safe_round(r["custo_combustivel"], 2)
         r["custo_manutencao"]  = safe_round(r["custo_manutencao"], 2)

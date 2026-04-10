@@ -85,7 +85,7 @@ def get_benchmark_interno(
     )
     
     # Arredondamentos
-    agg["preco_medio"] = agg["preco_medio"].round(4)
+    agg["preco_medio"] = agg["preco_medio"].round(2)
     
     return agg.to_dict(orient="records")
 
@@ -179,15 +179,15 @@ def get_comparativo_frota(
     for _, row in agg.iterrows():
         preco_frota = float(row["preco_frota"])
         preco_anp = float(row["preco_anp_mercado"]) if pd.notna(row["preco_anp_mercado"]) else None
-        desvio_abs = round(preco_frota - preco_anp, 4) if preco_anp else None
+        desvio_abs = round(preco_frota - preco_anp, 2) if preco_anp else None
         desvio_pct = round((preco_frota - preco_anp) / preco_anp * 100, 2) if preco_anp else None
         economia_potencial = round(desvio_abs * float(row["total_litros"]), 2) if desvio_abs else None
 
         resultado.append({
             "uf": row["uf_posto"],
             "combustivel": row["produto_anp"],
-            "preco_frota": round(preco_frota, 4),
-            "preco_anp_mercado": round(preco_anp, 4) if preco_anp else None,
+            "preco_frota": round(preco_frota, 2),
+            "preco_anp_mercado": round(preco_anp, 2) if preco_anp else None,
             "desvio_abs": desvio_abs,
             "desvio_pct": desvio_pct,
             "economia_potencial": economia_potencial,
@@ -249,9 +249,9 @@ def get_comparativo_frota(
         resultado_final.append({
             "uf": v["uf"],
             "combustivel": v["combustivel"],
-            "preco_frota": round(pf, 4),
-            "preco_anp_mercado": round(pa, 4),
-            "desvio_abs": round(desvio_abs, 4),
+            "preco_frota": round(pf, 2),
+            "preco_anp_mercado": round(pa, 2),
+            "desvio_abs": round(desvio_abs, 2),
             "desvio_pct": round(desvio_pct, 2),
             "economia_potencial": round(v["economia_potencial"], 2),
             "total_litros": v["total_litros"],
@@ -382,9 +382,9 @@ def get_comparativo_municipal(
             "uf": row["uf_posto"],
             "municipio": row["cidade_posto_norm"],
             "combustivel": row["produto_anp"],
-            "preco_frota": round(preco_frota, 4),
-            "preco_anp": round(preco_anp, 4) if preco_anp else None,
-            "desvio": round(preco_frota - preco_anp, 4) if preco_anp else 0,
+            "preco_frota": round(preco_frota, 2),
+            "preco_anp": round(preco_anp, 2) if preco_anp else None,
+            "desvio": round(preco_frota - preco_anp, 2) if preco_anp else 0,
             "tem_dados_municipais": pd.notna(row["preco_anp"])
         })
 

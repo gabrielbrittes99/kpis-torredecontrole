@@ -70,15 +70,7 @@ const formattedValue = computed(() => {
 // === TENDÊNCIA E CORES ===
 const trendClass = computed(() => {
   if (props.trendValue == null || props.trendValue === 0) return 'neutral'
-  const isPositive = props.trendValue > 0
-  
-  if (props.trendInvert) {
-    // Invertido: Subir é ruim (Custo), Cair é bom (Economia)
-    return isPositive ? 'bad' : 'good'
-  } else {
-    // Normal: Subir é bom (Receita/Saving), Cair é ruim
-    return isPositive ? 'good' : 'bad'
-  }
+  return props.trendValue > 0 ? 'up' : 'down'
 })
 
 const trendIcon = computed(() => {
@@ -135,10 +127,16 @@ const trendIcon = computed(() => {
 .kpi-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 12px;
   position: relative;
   z-index: 10;
+}
+
+.kpi-title-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .kpi-title {
@@ -211,11 +209,11 @@ const trendIcon = computed(() => {
   font-family: 'JetBrains Mono', ui-monospace, monospace;
 }
 
-.kpi-trend.good {
-  background: #ecfdf5;
-  color: #059669;
+.kpi-trend.up {
+  background: #eff6ff;
+  color: #2563eb;
 }
-.kpi-trend.bad {
+.kpi-trend.down {
   background: #fef2f2;
   color: #dc2626;
 }
@@ -224,8 +222,8 @@ const trendIcon = computed(() => {
   color: #64748b;
 }
 
-.kpi-pro-card.dark .kpi-trend.good { background: rgba(5, 150, 105, 0.2); }
-.kpi-pro-card.dark .kpi-trend.bad { background: rgba(220, 38, 38, 0.2); }
+.kpi-pro-card.dark .kpi-trend.up { background: rgba(37, 99, 235, 0.2); }
+.kpi-pro-card.dark .kpi-trend.down { background: rgba(220, 38, 38, 0.2); }
 .kpi-pro-card.dark .kpi-trend.neutral { background: rgba(100, 116, 139, 0.2); }
 
 /* Footer */

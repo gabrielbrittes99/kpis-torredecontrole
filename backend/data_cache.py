@@ -88,13 +88,16 @@ class DataCache:
             "anp":        {"df": None, "ts": None, "ttl": TTL_ANP},
             "veiculos":   {"df": None, "ts": None, "ttl": TTL_VEICULOS},
         }
-        self._dw_raw: Optional[pd.DataFrame] = None  # Cache do DW bruto
-        self._dw_ts: Optional[datetime] = None
+        self._fuel_map: Optional[dict] = None        # Lookup combustivel_nome → grupo
+        # DW é usado APENAS para tabelas torre.* (enriquecimento de filiais e combustíveis).
+        # Transações/pedágios/estornos sempre vêm do PostgreSQL Railway
+        # (integration_truckpag_transacoes — apenas aprovadas).
+        # silver.truckpag_analitico_transacao inclui recusadas — reservado para painel RT futuro.
         self._use_dw = _has_dw_config()
         if self._use_dw:
-            logger.info("✓ DW configurado — será usado como fonte primária de dados")
+            logger.info("✓ DW configurado — usado para enriquecimento (torre.*). Transações: PostgreSQL Railway")
         else:
-            logger.info("⚠ DW não configurado — usando PostgreSQL Railway como fallback")
+            logger.info("⚠ DW não configurado — usando PostgreSQL Railway")
 
     def _is_stale(self, key: str) -> bool:
         entry = self._cache.get(key)
@@ -106,6 +109,39 @@ class DataCache:
         if self._dw_raw is None or self._dw_ts is None:
             return True
         return datetime.now() - self._dw_ts > TTL_TRANSACOES
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # Mapa de classificação de combustível (torre.combustivel_classificacao)
+    # ═══════════════════════════════════════════════════════════════════════════
+    def _get_fuel_map(self) -> dict:
+        """
+        Retorna dict {combustivel_nome_lower → grupo_combustivel} carregado de
+        torre.combustivel_classificacao. Usa FUEL_GROUP_MAP como fallback se a
+        tabela não existir ou o DW não estiver configurado.
+        """
+        if self._fuel_map is not None:
+            return self._fuel_map
+
+        if self._use_dw:
+            try:
+                from db_dw import get_dw_engine
+                from sqlalchemy import text
+                with get_dw_engine().connect() as conn:
+                    result = conn.execute(text(
+                        "SELECT combustivel_nome, grupo_combustivel FROM torre.combustivel_classificacao"
+                    ))
+                    self._fuel_map = {row[0].lower(): row[1] for row in result.fetchall()}
+                logger.info(f"Cache: mapa de combustíveis carregado ({len(self._fuel_map)} entradas)")
+                return self._fuel_map
+            except Exception as e:
+                logger.warning(f"Cache: falha ao carregar torre.combustivel_classificacao: {e} — usando FUEL_GROUP_MAP")
+
+        self._fuel_map = FUEL_GROUP_MAP
+        return self._fuel_map
+
+    def invalidate_fuel_map(self):
+        """Invalida o cache do mapa de combustíveis (chamar após ETL)."""
+        self._fuel_map = None
 
     # ═══════════════════════════════════════════════════════════════════════════
     # FETCH do Data Warehouse (fonte primária)
@@ -136,37 +172,37 @@ class DataCache:
         existing = set(df.columns)
 
         # data_transacao
-        for candidate in ["data_transacao", "dt_transacao", "data"]:
+        for candidate in ["data_transacao", "transacao_data", "dt_transacao", "data"]:
             if candidate in existing:
                 col_map[candidate] = "data_transacao"
                 break
 
         # valor
-        for candidate in ["valor", "valor_total", "vl_total"]:
+        for candidate in ["valor", "transacao_valor", "valor_total", "vl_total"]:
             if candidate in existing:
                 col_map[candidate] = "valor"
                 break
 
-        # litragem
+        # litragem (já correto no DW)
         for candidate in ["litragem", "litros", "volume", "qtd_litros"]:
             if candidate in existing:
                 col_map[candidate] = "litragem"
                 break
 
         # nome_combustivel
-        for candidate in ["nome_combustivel", "combustivel", "ds_combustivel", "tipo_combustivel"]:
+        for candidate in ["nome_combustivel", "combustivel_nome", "combustivel", "ds_combustivel", "tipo_combustivel"]:
             if candidate in existing:
                 col_map[candidate] = "nome_combustivel"
                 break
 
         # placa
-        for candidate in ["placa", "ds_placa", "placa_veiculo"]:
+        for candidate in ["placa", "veiculo_placa", "ds_placa", "placa_veiculo"]:
             if candidate in existing:
                 col_map[candidate] = "placa"
                 break
 
         # hodometro
-        for candidate in ["hodometro", "hodometro_atual", "km", "odometro"]:
+        for candidate in ["hodometro", "hodometro_anterior", "hodometro_atual", "km", "odometro"]:
             if candidate in existing:
                 col_map[candidate] = "hodometro"
                 break
@@ -184,16 +220,18 @@ class DataCache:
                 break
 
         # motorista
-        for candidate in ["motorista", "nome_motorista", "ds_motorista"]:
+        for candidate in ["motorista", "motorista_nome", "nome_motorista", "ds_motorista"]:
             if candidate in existing:
                 col_map[candidate] = "motorista"
                 break
 
-        # posto
-        for candidate in ["razao_social_posto", "razao_social", "posto"]:
+        # razao_social_posto
+        for candidate in ["razao_social_posto", "razao_social", "estabelecimento_nome", "posto"]:
             if candidate in existing:
                 col_map[candidate] = "razao_social_posto"
                 break
+
+        # nome_fantasia_posto
         for candidate in ["nome_fantasia_posto", "nome_fantasia", "fantasia_posto"]:
             if candidate in existing:
                 col_map[candidate] = "nome_fantasia_posto"
@@ -216,7 +254,7 @@ class DataCache:
                 break
 
         # tipo_abastecimento
-        for candidate in ["tipo_abastecimento", "tipo", "ds_tipo"]:
+        for candidate in ["tipo_abastecimento", "transacao_tipo", "tipo", "ds_tipo"]:
             if candidate in existing:
                 col_map[candidate] = "tipo_abastecimento"
                 break
@@ -232,7 +270,7 @@ class DataCache:
                 break
 
         # cnpj_cliente
-        for candidate in ["cnpj_cliente", "cnpj", "ds_cnpj"]:
+        for candidate in ["cnpj_cliente", "cliente_cnpj", "cnpj", "ds_cnpj"]:
             if candidate in existing:
                 col_map[candidate] = "cnpj_cliente"
                 break
@@ -242,6 +280,10 @@ class DataCache:
         if rename_map:
             df = df.rename(columns=rename_map)
             logger.info(f"Cache DW: Renomeadas colunas: {rename_map}")
+
+        # Se DW não tem nome_fantasia_posto separado, usa razao_social_posto
+        if "nome_fantasia_posto" not in df.columns and "razao_social_posto" in df.columns:
+            df["nome_fantasia_posto"] = df["razao_social_posto"]
 
         return df
 
@@ -271,12 +313,13 @@ class DataCache:
             if col in df.columns:
                 df[col] = df[col].fillna("").astype(str).str.strip()
 
-        # Grupo de combustível
+        # Grupo de combustível — usa tabela torre.combustivel_classificacao (DW)
         if "nome_combustivel" in df.columns:
+            fuel_map = self._get_fuel_map()
             df["grupo_combustivel"] = (
                 df["nome_combustivel"]
                 .str.lower()
-                .map(FUEL_GROUP_MAP)
+                .map(fuel_map)
                 .fillna("Outros")
             )
 
@@ -370,10 +413,11 @@ class DataCache:
 
         # Grupo de combustível (4 grupos: Diesel, Gasolina, Álcool, Arla)
         if "nome_combustivel" in df.columns:
+            fuel_map = self._get_fuel_map()
             df["grupo_combustivel"] = (
                 df["nome_combustivel"]
                 .str.lower()
-                .map(FUEL_GROUP_MAP)
+                .map(fuel_map)
                 .fillna("Outros")
             )
 
@@ -407,76 +451,112 @@ class DataCache:
 
     def _enrich_filiais(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Cruza as transações com o cache de veículos do BlueFleet para preencher filial e idade.
+        Cruza as transações com torre.veiculo_classificacao (DW) para preencher
+        filial, grupo_veiculo, modelo, marca e idade. A tabela é gerada pelo
+        etl_veiculos.py — SQL Server + classificação Python pré-computada.
         """
         try:
-            from db_sqlserver import get_veiculos_df
-            veiculos_raw = get_veiculos_df()[
-                ["Placa", "FilialOperacional", "AnoModelo"]
-            ].copy()
-            veiculos_raw["Placa"] = veiculos_raw["Placa"].apply(norm_placa)
-            veiculos = veiculos_raw.drop_duplicates("Placa")
+            from db_dw import get_dw_engine
+            from sqlalchemy import text
+
+            with get_dw_engine().connect() as conn:
+                result = conn.execute(text("""
+                    SELECT placa, modelo, montadora, grupo_veiculo,
+                           tanque_litros, ano_modelo, filial_operacional
+                    FROM torre.veiculo_classificacao
+                """))
+                veiculos = pd.DataFrame(result.fetchall(), columns=result.keys())
+
+            veiculos["placa"] = veiculos["placa"].apply(norm_placa)
+            veiculos = veiculos.drop_duplicates("placa")
 
             # Lookup: placa → {nome, estado, regiao, original_sigla}
             filial_lookup = {}
             for _, row in veiculos.iterrows():
-                filial_op = row["FilialOperacional"]
+                filial_op = row["filial_operacional"]
                 info = FILIAIS_MAP.get(filial_op)
                 if info:
-                    filial_lookup[row["Placa"]] = {**info, "original_sigla": filial_op}
+                    filial_lookup[row["placa"]] = {**info, "original_sigla": filial_op}
                 elif filial_op:
-                    filial_lookup[row["Placa"]] = {
+                    filial_lookup[row["placa"]] = {
                         "nome": filial_op, "estado": "?", "regiao": "?",
                         "original_sigla": filial_op,
                     }
 
-            # Overrides Manuais
+            # Overrides manuais de filial por placa
             from config import FILIAL_PLATE_OVERRIDES
             for p, sigla in FILIAL_PLATE_OVERRIDES.items():
                 info = FILIAIS_MAP.get(sigla)
                 if info:
                     filial_lookup[norm_placa(p)] = {**info, "original_sigla": sigla}
 
-            # Aplica onde ainda não foi preenchido
+            # Aplica filial onde ainda não foi preenchido
             mask_vazio = (df["filial_nome"] == "") | df["filial_nome"].isna()
-            df.loc[mask_vazio, "filial_nome"] = df.loc[mask_vazio, "placa"].map(
-                lambda p: filial_lookup.get(p, {}).get("nome", "")
-            )
-            df.loc[mask_vazio, "filial_estado"] = df.loc[mask_vazio, "placa"].map(
-                lambda p: filial_lookup.get(p, {}).get("estado", "")
-            )
-            df.loc[mask_vazio, "filial_regiao"] = df.loc[mask_vazio, "placa"].map(
-                lambda p: filial_lookup.get(p, {}).get("regiao", "")
-            )
+            df.loc[mask_vazio, "filial_nome"]   = df.loc[mask_vazio, "placa"].map(lambda p: filial_lookup.get(p, {}).get("nome", ""))
+            df.loc[mask_vazio, "filial_estado"] = df.loc[mask_vazio, "placa"].map(lambda p: filial_lookup.get(p, {}).get("estado", ""))
+            df.loc[mask_vazio, "filial_regiao"] = df.loc[mask_vazio, "placa"].map(lambda p: filial_lookup.get(p, {}).get("regiao", ""))
 
-            # Flag de Venda
+            # Flag de venda
             df["flag_venda"] = df["placa"].map(
                 lambda p: "VENDA" in filial_lookup.get(p, {}).get("original_sigla", "").upper()
             )
 
             # Idade do veículo
-            ano_map = veiculos.set_index("Placa")["AnoModelo"].to_dict()
+            ano_map = veiculos.set_index("placa")["ano_modelo"].to_dict()
             ano_atual = datetime.now().year
             df["ano_modelo"] = df["placa"].map(ano_map).astype("Int64")
-            df["idade_anos"] = df["ano_modelo"].apply(
-                lambda a: (ano_atual - int(a)) if pd.notna(a) else None
-            )
+            df["idade_anos"] = df["ano_modelo"].apply(lambda a: (ano_atual - int(a)) if pd.notna(a) else None)
+
+            # Modelo e Marca — pré-computados no ETL, usados por _add_grupo()
+            modelo_map = veiculos.set_index("placa")["modelo"].to_dict()
+            marca_map  = veiculos.set_index("placa")["montadora"].to_dict()
+            if "modelo_veiculo" not in df.columns or df["modelo_veiculo"].eq("").all():
+                df["modelo_veiculo"] = df["placa"].map(modelo_map).fillna("")
+            else:
+                mask = df["modelo_veiculo"].isna() | (df["modelo_veiculo"] == "")
+                df.loc[mask, "modelo_veiculo"] = df.loc[mask, "placa"].map(modelo_map).fillna("")
+            if "marca_veiculo" not in df.columns or df["marca_veiculo"].eq("").all():
+                df["marca_veiculo"] = df["placa"].map(marca_map).fillna("")
+            else:
+                mask = df["marca_veiculo"].isna() | (df["marca_veiculo"] == "")
+                df.loc[mask, "marca_veiculo"] = df.loc[mask, "placa"].map(marca_map).fillna("")
+
+            # Grupo de veículo pré-computado (evita rodar VEICULO_RULES em cada transação)
+            grupo_map = veiculos.set_index("placa")["grupo_veiculo"].to_dict()
+            df["_grupo_pre"] = df["placa"].map(grupo_map)
 
         except Exception as e:
-            logger.warning(f"Cache: não foi possível enriquecer filiais: {e}")
+            logger.warning(f"Cache: não foi possível enriquecer via torre.veiculo_classificacao: {e}")
+            df["_grupo_pre"] = None
             if "ano_modelo" not in df.columns:
                 df["ano_modelo"] = None
                 df["idade_anos"] = None
         return df
 
     def _add_grupo(self, df: pd.DataFrame) -> pd.DataFrame:
-        modelos = df["modelo_veiculo"].tolist() if "modelo_veiculo" in df.columns else [""] * len(df)
-        marcas  = df["marca_veiculo"].tolist()  if "marca_veiculo"  in df.columns else [""] * len(df)
-        placas  = df["placa"].tolist()          if "placa"          in df.columns else [""] * len(df)
-        df["grupo_veiculo"] = [
-            get_veiculo_group(str(m or ""), str(b or ""), str(p or ""))
-            for m, b, p in zip(modelos, marcas, placas)
-        ]
+        # Usa o grupo pré-computado do ETL quando disponível (mais leve);
+        # cai no get_veiculo_group() apenas para placas não encontradas na tabela.
+        if "_grupo_pre" in df.columns:
+            modelos = df["modelo_veiculo"].tolist() if "modelo_veiculo" in df.columns else [""] * len(df)
+            marcas  = df["marca_veiculo"].tolist()  if "marca_veiculo"  in df.columns else [""] * len(df)
+            placas  = df["placa"].tolist()          if "placa"          in df.columns else [""] * len(df)
+            grupos = []
+            for pre, m, b, p in zip(df["_grupo_pre"], modelos, marcas, placas):
+                if pd.notna(pre) and pre:
+                    grupos.append(pre)
+                else:
+                    grupos.append(get_veiculo_group(str(m or ""), str(b or ""), str(p or "")))
+            df["grupo_veiculo"] = grupos
+            df.drop(columns=["_grupo_pre"], inplace=True)
+        else:
+            modelos = df["modelo_veiculo"].tolist() if "modelo_veiculo" in df.columns else [""] * len(df)
+            marcas  = df["marca_veiculo"].tolist()  if "marca_veiculo"  in df.columns else [""] * len(df)
+            placas  = df["placa"].tolist()          if "placa"          in df.columns else [""] * len(df)
+            df["grupo_veiculo"] = [
+                get_veiculo_group(str(m or ""), str(b or ""), str(p or ""))
+                for m, b, p in zip(modelos, marcas, placas)
+            ]
+
         from config import is_fuel_incompatible
         grupos_comb = df["grupo_combustivel"].tolist() if "grupo_combustivel" in df.columns else [""] * len(df)
         df["flag_combustivel_indevido"] = [
@@ -500,9 +580,8 @@ class DataCache:
     # Interface pública
     # ═══════════════════════════════════════════════════════════════════════════
     def get_df(self, key: str = "transacoes") -> pd.DataFrame:
-        """Retorna o DataFrame do cache, atualizando-o se necessário."""
-        if self._use_dw and key in ["transacoes", "pedagios", "estornos"]:
-            return self._get_df_from_dw(key)
+        """Retorna o DataFrame do cache, atualizando-o se necessário.
+        Transações/pedágios/estornos sempre vêm do PostgreSQL Railway."""
         return self._get_df_legacy(key)
 
     def _get_df_from_dw(self, key: str) -> pd.DataFrame:
@@ -572,21 +651,17 @@ class DataCache:
         return kml if kml is not None else pd.DataFrame()
 
     def force_refresh(self, key: str = "transacoes") -> None:
-        if self._use_dw and key in ["transacoes", "pedagios", "estornos"]:
-            self._dw_ts = None  # Força reload do DW
         if key in self._cache:
             self._cache[key]["ts"] = None
             self.get_df(key)
 
     @property
     def last_updated(self) -> Optional[datetime]:
-        if self._use_dw and self._dw_ts:
-            return self._dw_ts
         return self._cache["transacoes"]["ts"]
 
     @property
     def data_source(self) -> str:
-        return "DW (silver.truckpag_analitico_transacao)" if self._use_dw else "PostgreSQL Railway (legado)"
+        return "PostgreSQL Railway (integration_truckpag_transacoes)"
 
 
 cache = DataCache()

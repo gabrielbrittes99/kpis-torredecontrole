@@ -79,7 +79,7 @@ def get_evolucao_por_tipo(
         .agg(total_valor=("valor", "sum"), total_litros=("litragem", "sum"))
         .reset_index()
     )
-    agg["preco_medio"] = (agg["total_valor"] / agg["total_litros"]).round(4)
+    agg["preco_medio"] = (agg["total_valor"] / agg["total_litros"]).round(2)
 
     # Estrutura: lista de meses com preço por tipo
     meses = sorted(agg["ano_mes"].unique())
@@ -140,7 +140,7 @@ def get_preco_por_uf(
         )
         .reset_index()
     )
-    agg["preco_medio"] = (agg["total_valor"] / agg["total_litros"]).round(4)
+    agg["preco_medio"] = (agg["total_valor"] / agg["total_litros"]).round(2)
     agg = agg.sort_values("uf_posto")
 
     return [
@@ -198,7 +198,7 @@ def get_ranking_postos_preco(
     )
     # Só postos com pelo menos 3 abastecimentos (mais representativos)
     agg = agg[agg["qtd"] >= 3].copy()
-    agg["preco_medio"] = (agg["total_valor"] / agg["total_litros"]).round(4)
+    agg["preco_medio"] = (agg["total_valor"] / agg["total_litros"]).round(2)
 
     if ordem == "mais_barato":
         agg = agg.sort_values("preco_medio", ascending=True).head(limit)
@@ -265,7 +265,7 @@ def get_analise_premium(
         )
         .reset_index()
     )
-    agg["preco_medio"] = (agg["total_valor"] / agg["total_litros"]).round(4)
+    agg["preco_medio"] = (agg["total_valor"] / agg["total_litros"]).round(2)
 
     grupos = [
         {
@@ -312,7 +312,7 @@ def get_variacao_mensal(
         .reset_index()
         .sort_values(["grupo_combustivel", "ano_mes"])
     )
-    agg["preco_medio"] = (agg["total_valor"] / agg["total_litros"]).round(4)
+    agg["preco_medio"] = (agg["total_valor"] / agg["total_litros"]).round(2)
     agg["variacao_pct"] = agg.groupby("grupo_combustivel")["preco_medio"].pct_change() * 100
     agg["variacao_pct"] = agg["variacao_pct"].round(2)
 

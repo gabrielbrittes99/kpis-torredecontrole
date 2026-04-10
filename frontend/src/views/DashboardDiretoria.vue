@@ -26,7 +26,9 @@
           title="Projeção (Mês)"
           :value="kpis.projecao_mes_atual || 0"
           format="currency"
-          :description="(kpis.veiculos_ativos_mes || 0) + ' veículos ativos'"
+          :description="kpis.dias_restantes_uteis
+            ? `${kpis.dias_restantes_uteis} dias úteis restantes · ritmo ${fmtR(kpis.media_dia_util)}/dia`
+            : (kpis.veiculos_ativos_mes || 0) + ' veículos ativos'"
         />
         <KpiCardPro
           title="Preço Médio/L"
@@ -34,7 +36,7 @@
           :trendValue="comparativo.variacao?.preco_pct"
           trendInvert
           format="currency"
-          :decimals="3"
+          :decimals="2"
           description="Média ponderada geral"
         />
         <KpiCardPro
@@ -43,8 +45,8 @@
           :trendValue="comparativo.variacao?.custo_km_pct"
           trendInvert
           format="currency"
-          :decimals="3"
-          description="Gasto Year-to-Date"
+          :decimals="2"
+          description="Acumulado no ano"
         />
       </div>
 
@@ -80,7 +82,7 @@
           <div class="metric-comp-card">
             <div class="metric-header">
               <span class="label">VOLUME DE CONSUMO</span>
-              <span class="unit">LITROS BOMBEADOS</span>
+              <span class="unit">LITROS ABASTECIDOS</span>
             </div>
             <div class="metric-value">{{ fmtN(comparativo.mes_atual?.total_litros) }} <span class="sub-unit">L</span></div>
             <div class="metric-comparisons">
@@ -105,18 +107,29 @@
               <span class="label">CUSTO POR QUILÔMETRO</span>
               <span class="unit">EFICIÊNCIA REAL</span>
             </div>
-            <div class="metric-value">R$ {{ comparativo.mes_atual?.custo_km?.toFixed(3) }} <span class="sub-unit">/KM</span></div>
+            <div class="metric-value">
+              <template v-if="comparativo.mes_atual?.custo_km">
+                R$ {{ comparativo.mes_atual.custo_km.toFixed(2) }} <span class="sub-unit">/KM</span>
+              </template>
+              <template v-else><span style="font-size:1rem;color:var(--text-3)">Dados insuficientes</span></template>
+            </div>
             <div class="metric-comparisons">
               <div class="comp-row">
                 <span class="comp-label">vs Mês Anterior</span>
-                <span class="comp-val" :class="getTrendClass(comparativo.variacao?.custo_km_abs, 0.01)">
-                  {{ comparativo.variacao?.custo_km_abs > 0 ? '▲' : '▼' }} R$ {{ Math.abs(comparativo.variacao?.custo_km_abs).toFixed(3) }}
+                <span class="comp-val" :class="comparativo.variacao?.custo_km_abs ? getTrendClass(comparativo.variacao.custo_km_abs, 0.01) : ''">
+                  <template v-if="comparativo.variacao?.custo_km_abs">
+                    {{ comparativo.variacao.custo_km_abs > 0 ? '▲' : '▼' }} R$ {{ Math.abs(comparativo.variacao.custo_km_abs).toFixed(2) }}
+                  </template>
+                  <template v-else>—</template>
                 </span>
               </div>
               <div class="comp-row">
                 <span class="comp-label">vs Média 3 Meses</span>
-                <span class="comp-val" :class="getTrendClass(comparativo.variacao_vs_media?.custo_km_abs, 0.01)">
-                  {{ comparativo.variacao_vs_media?.custo_km_abs > 0 ? '▲' : '▼' }} R$ {{ Math.abs(comparativo.variacao_vs_media?.custo_km_abs).toFixed(3) }}
+                <span class="comp-val" :class="comparativo.variacao_vs_media?.custo_km_abs ? getTrendClass(comparativo.variacao_vs_media.custo_km_abs, 0.01) : ''">
+                  <template v-if="comparativo.variacao_vs_media?.custo_km_abs">
+                    {{ comparativo.variacao_vs_media.custo_km_abs > 0 ? '▲' : '▼' }} R$ {{ Math.abs(comparativo.variacao_vs_media.custo_km_abs).toFixed(2) }}
+                  </template>
+                  <template v-else>—</template>
                 </span>
               </div>
             </div>

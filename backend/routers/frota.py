@@ -94,7 +94,7 @@ def get_eficiencia_km_litro(
             "total_litros": round(total_litros, 0),
             "total_valor": round(total_valor, 2),
             "qtd_abastecimentos": int(len(grupo)),
-            "custo_por_km": round(total_valor / total_km, 4) if total_km > 0 else None,
+            "custo_por_km": round(total_valor / total_km, 2) if total_km > 0 else None,
         })
 
     if not resultados:
@@ -131,7 +131,7 @@ def get_custo_por_placa(
         .sort_values("total_valor", ascending=False)
         .head(limit)
     )
-    agg["preco_medio"] = (agg["total_valor"] / agg["total_litros"]).round(4)
+    agg["preco_medio"] = (agg["total_valor"] / agg["total_litros"]).round(2)
 
     return [
         {
@@ -173,7 +173,7 @@ def get_ranking_motoristas(
         .reset_index()
     )
     agg = agg[agg["qtd"] >= 3]  # Mínimo 3 abastecimentos
-    agg["preco_medio"] = (agg["total_valor"] / agg["total_litros"]).round(4)
+    agg["preco_medio"] = (agg["total_valor"] / agg["total_litros"]).round(2)
     agg = agg.sort_values("preco_medio").head(limite)
 
     preco_min = float(agg["preco_medio"].min()) if not agg.empty else 0
@@ -185,7 +185,7 @@ def get_ranking_motoristas(
             "total_litros": round(float(row["total_litros"]), 0),
             "preco_medio": float(row["preco_medio"]),
             "qtd_abastecimentos": int(row["qtd"]),
-            "desvio_do_minimo": round((float(row["preco_medio"]) - preco_min), 4),
+            "desvio_do_minimo": round((float(row["preco_medio"]) - preco_min), 2),
         }
         for _, row in agg.iterrows()
     ]
@@ -294,7 +294,7 @@ def get_abastecimentos_suspeitos(
     for _, row in df_preco.iterrows():
         alertas.append({
             "tipo": "preco_alto",
-            "descricao": f"R${row['preco_litro']:.3f}/L muito acima da média R${row['media_preco']:.3f}/L para {row['nome_combustivel']}",
+            "descricao": f"R${row['preco_litro']:.2f}/L muito acima da média R${row['media_preco']:.2f}/L para {row['nome_combustivel']}",
             "data": str(row["data_transacao"].date()),
             "placa": row["placa"],
             "motorista": row["motorista"],
@@ -364,7 +364,7 @@ def get_custo_mensal_frota(
         .reset_index()
         .sort_values("ano_mes")
     )
-    agg["preco_medio"] = (agg["total_valor"] / agg["total_litros"]).round(4)
+    agg["preco_medio"] = (agg["total_valor"] / agg["total_litros"]).round(2)
 
     return [
         {

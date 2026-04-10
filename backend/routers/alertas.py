@@ -107,7 +107,7 @@ def get_alertas():
                             "descricao": (
                                 f"{total} abastecimentos nos últimos 15 dias com preço > 8% acima da ANP. "
                                 f"Maior desvio: {caros_ord[0]['posto']} — {caros_ord[0]['desvio_pct']:+.1f}% "
-                                f"(pago R${caros_ord[0]['preco_pago']:.3f} vs ANP R${caros_ord[0]['preco_anp']:.3f})."
+                                f"(pago R${caros_ord[0]['preco_pago']:.2f} vs ANP R${caros_ord[0]['preco_anp']:.2f})."
                             ),
                             "detalhes": caros_ord,
                         })
