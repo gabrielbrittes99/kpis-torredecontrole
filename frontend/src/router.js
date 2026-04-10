@@ -21,6 +21,18 @@ const routes = [
 
   // ── Referência ────────────────────────────────────────────────────────────
   { path: '/sumario', name: 'sumario', component: () => import('./views/SistemaLegenda.vue') },
+
+  // ── Gestão de Transações ──────────────────────────────────────────────────
+  { path: '/transacoes', name: 'transacoes', component: () => import('./views/GestaoTransacoes.vue') },
+
+  // ── Pedágios ──────────────────────────────────────────────────────────────
+  { path: '/pedagios', name: 'pedagios', component: () => import('./views/PedagiosGeral.vue') },
+
+  // ── Estornos (Auditoria) ──────────────────────────────────────────────────
+  { path: '/estornos', name: 'estornos', component: () => import('./views/EstornosAuditoria.vue') },
+
+  // ── TCO (Custo Total) ─────────────────────────────────────────────────────
+  { path: '/tco', name: 'tco', component: () => import('./views/TcoGeral.vue') },
 ]
 
 const router = createRouter({

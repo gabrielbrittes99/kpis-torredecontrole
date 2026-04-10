@@ -90,7 +90,7 @@ def get_kpis(
 
     total_valor = round(float(df_mes["valor"].sum()), 2)
     total_litros = round(float(df_mes["litragem"].sum()), 3)
-    preco_medio = round(total_valor / total_litros, 4) if total_litros > 0 else 0
+    preco_medio = round(total_valor / total_litros, 2) if total_litros > 0 else 0
     qtd_abastecimentos = int(len(df_mes))
     dias_com_dados = int(df_mes["data_transacao"].dt.date.nunique())
 
@@ -102,7 +102,7 @@ def get_kpis(
     ]
     valor_mes_anterior = round(float(df_mes_ant["valor"].sum()), 2)
     litros_mes_anterior = round(float(df_mes_ant["litragem"].sum()), 3)
-    preco_medio_ant = round(valor_mes_anterior / litros_mes_anterior, 4) if litros_mes_anterior > 0 else 0
+    preco_medio_ant = round(valor_mes_anterior / litros_mes_anterior, 2) if litros_mes_anterior > 0 else 0
 
     # Variação de preço/L vs mês anterior (para o KPI card)
     variacao_preco_pct = (
@@ -445,7 +445,7 @@ def get_historico_mensal(
                         "ano_mes": mes,
                         "total_valor": round(valor, 2),
                         "total_litros": round(litros, 0),
-                        "preco_medio_litro": round(valor / litros, 4) if litros > 0 else 0,
+                        "preco_medio_litro": round(valor / litros, 2) if litros > 0 else 0,
                     })
                 else:
                     pontos.append({"ano_mes": mes, "total_valor": 0, "total_litros": 0, "preco_medio_litro": None})
@@ -462,7 +462,7 @@ def get_historico_mensal(
         {
             "ano_mes": row["ano_mes"],
             "preco_medio_litro": (
-                round(float(row["total_valor"]) / float(row["total_litros"]), 4)
+                round(float(row["total_valor"]) / float(row["total_litros"]), 2)
                 if float(row["total_litros"]) > 0 else 0
             ),
             "total_valor": round(float(row["total_valor"]), 2),
@@ -605,8 +605,8 @@ def get_impacto_preco(
         result.append({
             "combustivel": comb,
             "media_litros_mes": round(media_litros_mes, 0),
-            "preco_historico": round(preco_hist, 4),
-            "preco_atual": round(preco_atual, 4),
+            "preco_historico": round(preco_hist, 2),
+            "preco_atual": round(preco_atual, 2),
             "custo_hist_mensal": round(custo_hist_mensal, 2),
             "custo_atual_mensal": round(custo_atual_mensal, 2),
             "variacao_valor": round(variacao_valor, 2),
@@ -673,7 +673,7 @@ def get_resumo_periodo(
     def _agg(g: pd.DataFrame):
         tv = float(g["valor"].sum())
         tl = float(g["litragem"].sum())
-        return tv, tl, round(tv / tl, 4) if tl > 0 else 0
+        return tv, tl, round(tv / tl, 2) if tl > 0 else 0
 
     combustiveis = []
     for comb in sorted(df_p["grupo_combustivel"].dropna().unique()):
@@ -695,7 +695,7 @@ def get_resumo_periodo(
             "preco_litro_ant":  pl_a,
             "var_valor":  round(tv - tv_a, 2) if tv_a is not None else None,
             "var_pct":    round((tv - tv_a) / tv_a * 100, 1) if tv_a else None,
-            "var_preco":  round(pl - pl_a, 4) if pl_a is not None else None,
+            "var_preco":  round(pl - pl_a, 2) if pl_a is not None else None,
             "var_litros": round(tl - tl_a, 0) if tl_a is not None else None,
         })
 
@@ -716,7 +716,7 @@ def get_resumo_periodo(
         "total": {
             "total_valor":    round(tv_tot, 2),
             "total_litros":   round(tl_tot, 0),
-            "preco_medio":    round(tv_tot / tl_tot, 4) if tl_tot > 0 else 0,
+            "preco_medio":    round(tv_tot / tl_tot, 2) if tl_tot > 0 else 0,
             "total_valor_ant":  round(tv_tot_a, 2) if tv_tot_a is not None else None,
             "total_litros_ant": round(tl_tot_a, 0) if tl_tot_a is not None else None,
             "var_valor":  round(tv_tot - tv_tot_a, 2) if tv_tot_a is not None else None,

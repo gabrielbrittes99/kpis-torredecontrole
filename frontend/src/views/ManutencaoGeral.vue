@@ -1,43 +1,35 @@
 <template>
   <div class="page">
-    <header class="topbar">
-      <div class="topbar-main">
-        <div class="topbar-left">
-          <span class="logo">
-            GRITSCH <span class="divider">//</span>
-            <div class="title-group">
-              <span class="subtitle">Manutenção · Visão Geral</span>
-              <span class="page-subtitle">Custos de manutenção, pneus e lataria — consolidado frota</span>
-            </div>
-          </span>
-        </div>
-        <div class="topbar-center">
-          <div class="fkm-filters">
-            <div class="filter-group">
-              <label>Mês</label>
-              <select v-model="filtroMes" @change="loadAll">
-                <option v-for="m in filtros.meses" :key="m" :value="m">{{ fmtMes(m) }}</option>
-              </select>
-            </div>
-            <div class="filter-group">
-              <label>Filial</label>
-              <select v-model="filtroFilial" @change="loadAll">
-                <option value="">Todas</option>
-                <option v-for="f in filtros.filiais" :key="f" :value="f">{{ f }}</option>
-              </select>
-            </div>
-            <div class="filter-group">
-              <label>Grupo</label>
-              <select v-model="filtroGrupo" @change="loadAll">
-                <option value="">Todos</option>
-                <option v-for="g in filtros.grupos" :key="g" :value="g">{{ g }}</option>
-              </select>
-            </div>
+    <GlobalTopbar
+      title="Manutenção · Visão Geral"
+      subtitle="Custos de manutenção, pneus e lataria — consolidado frota"
+      :showPeriod="false" :showFilters="false"
+    >
+      <template #center>
+        <div class="topbar-filters">
+          <div class="filter-group">
+            <label>Mês</label>
+            <select v-model="filtroMes" @change="loadAll">
+              <option v-for="m in filtros.meses" :key="m" :value="m">{{ fmtMes(m) }}</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Filial</label>
+            <select v-model="filtroFilial" @change="loadAll">
+              <option value="">Todas</option>
+              <option v-for="f in filtros.filiais" :key="f" :value="f">{{ f }}</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label>Grupo</label>
+            <select v-model="filtroGrupo" @change="loadAll">
+              <option value="">Todos</option>
+              <option v-for="g in filtros.grupos" :key="g" :value="g">{{ g }}</option>
+            </select>
           </div>
         </div>
-        <div class="topbar-right"></div>
-      </div>
-    </header>
+      </template>
+    </GlobalTopbar>
 
     <div class="page-body">
 
@@ -136,7 +128,7 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>#</th><th>Placa</th><th>Modelo</th><th>Grupo</th><th>Filial</th><th>Motorista</th>
+                <th>#</th><th>Placa</th><th>Modelo</th><th>Grupo</th><th>Filial</th>
                 <th class="right">Manutenção</th><th class="right">Pneus</th><th class="right">Lataria</th>
                 <th class="right">Total</th><th class="right">KM</th><th class="right">Custo/KM</th>
               </tr>
@@ -148,7 +140,6 @@
                 <td>{{ v.modelo || '—' }}</td>
                 <td><span class="grupo-badge" :class="gbClass(v.grupo)">{{ v.grupo || '—' }}</span></td>
                 <td class="filial-cell">{{ v.filial || '—' }}</td>
-                <td>{{ v.motorista || '—' }}</td>
                 <td class="right mono">{{ fmtR(v.total_manutencao) }}</td>
                 <td class="right mono">{{ fmtR(v.total_pneus) }}</td>
                 <td class="right mono">{{ fmtR(v.total_lataria) }}</td>
@@ -191,6 +182,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import GlobalTopbar from '../components/GlobalTopbar.vue'
 import KpiCardPro from '../components/KpiCardPro.vue'
 import {
   fetchManutencaoFiltros, fetchManutencaoKpis, fetchManutencaoEvolucaoMensal,
@@ -292,29 +284,14 @@ onMounted(init)
 </script>
 
 <style scoped>
-.page { min-height: 100vh; background: var(--void); }
-
-.topbar { background: white; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; z-index: 1000; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
-.topbar-main { display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 64px; gap: 24px; }
-.topbar-left { flex-shrink: 0; }
-.logo { font-size: 16px; font-weight: 800; letter-spacing: 0.05em; color: #0f172a; display: flex; align-items: center; white-space: nowrap; }
-.logo .divider { color: #C41230; margin: 0 12px; font-weight: 400; opacity: 0.5; }
-.title-group { display: flex; flex-direction: column; line-height: 1.2; }
-.logo .subtitle { color: #64748b; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; }
-.page-subtitle { color: #94a3b8; font-size: 10px; font-weight: 500; }
-.topbar-center { flex: 1; display: flex; justify-content: center; }
-.topbar-right { flex-shrink: 0; min-width: 120px; }
-.fkm-filters { display: flex; gap: 12px; align-items: flex-end; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 8px 12px; }
-.filter-group { display: flex; flex-direction: column; gap: 3px; }
-.filter-group label { font-size: 9px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; }
-.filter-group select { background: white; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 12px; font-weight: 600; color: #1e293b; padding: 5px 10px; outline: none; cursor: pointer; min-width: 120px; }
-.filter-group select:focus { border-color: #C41230; }
+.page { min-height: 100vh; background: #f8fafc; }
 
 .page-body { padding: 24px 32px; display: flex; flex-direction: column; gap: 20px; max-width: 1600px; }
 
 .kpi-pro-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
 
-.cat-kpis { display: flex; gap: 24px; border-top: 1px solid #e2e8f0; padding-top: 16px; flex-wrap: wrap; }
+.cat-kpis { display: flex; gap: 24px; border-top: none; padding-top: 16px; flex-wrap: wrap; position: relative; }
+.cat-kpis::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(to right, transparent, rgba(0,0,0,0.10) 20%, rgba(0,0,0,0.10) 80%, transparent); }
 .cat-kpi { display: flex; align-items: flex-start; gap: 10px; }
 .cat-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 3px; }
 .cat-kpi > div { display: flex; flex-direction: column; gap: 2px; }
@@ -331,8 +308,8 @@ onMounted(init)
 
 .table-wrap { overflow-x: auto; }
 .data-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-.data-table th { background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 8px 12px; font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
-.data-table td { padding: 9px 12px; border-bottom: 1px solid #f1f5f9; color: #1e293b; white-space: nowrap; }
+.data-table th { background: #f8fafc; border-bottom: 1px solid rgba(0,0,0,0.07); padding: 8px 12px; font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
+.data-table td { padding: 9px 12px; border-bottom: 1px solid rgba(0,0,0,0.04); color: #1e293b; white-space: nowrap; }
 .data-table tbody tr:hover { background: #fafafa; }
 .right { text-align: right; }
 .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
@@ -357,5 +334,5 @@ onMounted(init)
 @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
 @media (max-width: 1200px) { .two-col { grid-template-columns: 1fr; } .kpi-pro-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 768px) { .page-body { padding: 16px; } .kpi-pro-grid { grid-template-columns: 1fr; } .fkm-filters { flex-wrap: wrap; } .topbar-main { flex-wrap: wrap; height: auto; padding: 12px 16px; } }
+@media (max-width: 768px) { .page-body { padding: 16px; } .kpi-pro-grid { grid-template-columns: 1fr; } }
 </style>

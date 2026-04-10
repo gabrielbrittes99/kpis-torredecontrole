@@ -46,6 +46,7 @@ def _apply_fkm_filters(
     ano_mes: Optional[str] = None,
     filial: Optional[str] = None,
     grupo: Optional[str] = None,
+    contrato: Optional[str] = None,
 ) -> pd.DataFrame:
     df = df.copy()
     if ano_mes:
@@ -54,6 +55,8 @@ def _apply_fkm_filters(
         df = df[df["filial"] == filial]
     if grupo:
         df = df[df["grupo_veiculo"] == grupo]
+    if contrato:
+        df = df[df["contrato"] == contrato]
     return df
 
 
@@ -75,14 +78,15 @@ def _mes_anterior(df: pd.DataFrame, ano_mes: str) -> str:
 def get_filtros():
     df = get_fkm_df()
     if df.empty:
-        return {"meses": [], "filiais": [], "grupos": []}
+        return {"meses": [], "filiais": [], "grupos": [], "contratos": []}
 
     df = _fkm_man(df)
     meses   = sorted(df["ano_mes"].dropna().unique().tolist(), reverse=True)
     filiais = sorted([f for f in df["filial"].dropna().unique() if f and f != "nan"])
     grupos  = sorted([g for g in df["grupo_veiculo"].dropna().unique() if g and g != "nan"])
+    contratos = sorted([c for c in df["contrato"].dropna().unique() if c and c != "nan"])
 
-    return {"meses": meses, "filiais": filiais, "grupos": grupos}
+    return {"meses": meses, "filiais": filiais, "grupos": grupos, "contratos": contratos}
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -93,6 +97,7 @@ def get_kpis(
     ano_mes: Optional[str] = Query(default=None),
     filial:  Optional[str] = None,
     grupo:   Optional[str] = None,
+    contrato: Optional[str] = None,
 ):
     """KPIs gerais de manutenção do mês: totais, categorias, comparativo vs mês anterior."""
     df_all = _fkm_man(get_fkm_df())
@@ -102,8 +107,8 @@ def get_kpis(
     if not ano_mes:
         ano_mes = _ultimo_mes(df_all)
 
-    df = _apply_fkm_filters(df_all, ano_mes, filial, grupo)
-    df_ant = _apply_fkm_filters(df_all, _mes_anterior(df_all, ano_mes), filial, grupo)
+    df = _apply_fkm_filters(df_all, ano_mes, filial, grupo, contrato)
+    df_ant = _apply_fkm_filters(df_all, _mes_anterior(df_all, ano_mes), filial, grupo, contrato)
 
     def _totals(d):
         return {
@@ -153,10 +158,11 @@ def get_kpis(
 def get_evolucao_mensal(
     filial: Optional[str] = None,
     grupo:  Optional[str] = None,
+    contrato: Optional[str] = None,
 ):
     """Evolução mensal de manutenção: total + categorias."""
     df = _fkm_man(get_fkm_df())
-    df = _apply_fkm_filters(df, None, filial, grupo)
+    df = _apply_fkm_filters(df, None, filial, grupo, contrato)
     if df.empty:
         return []
 
@@ -186,12 +192,13 @@ def get_top_veiculos(
     ano_mes: Optional[str] = Query(default=None),
     filial:  Optional[str] = None,
     grupo:   Optional[str] = None,
+    contrato: Optional[str] = None,
     limit:   int = Query(default=20, le=100),
 ):
     df = _fkm_man(get_fkm_df())
     if not ano_mes:
         ano_mes = _ultimo_mes(df)
-    df = _apply_fkm_filters(df, ano_mes, filial, grupo)
+    df = _apply_fkm_filters(df, ano_mes, filial, grupo, contrato)
     if df.empty:
         return []
 

@@ -1,17 +1,7 @@
-const BASE = import.meta.env.VITE_API_URL
+import { cachedFetch, TTL } from './apiCache'
 
-async function get(path, params = {}) {
-  const url = new URL(`${BASE}${path}`, location.origin)
-  Object.entries(params).forEach(([k, v]) => {
-    if (v !== null && v !== undefined && v !== '') url.searchParams.set(k, v)
-  })
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
-  return res.json()
-}
-
-export function fetchKpisOperacional(params = {})      { return get('/api/operacional/kpis', params) }
-export function fetchCustoPorGrupo(params = {})        { return get('/api/operacional/custo-por-grupo', params) }
-export function fetchCustoPorFilial(params = {})       { return get('/api/operacional/custo-por-filial', params) }
-export function fetchEvolucaoMensal(params = {})       { return get('/api/operacional/evolucao-mensal', params) }
-export function fetchVeiculosAcao(params = {})         { return get('/api/operacional/veiculos-acao', params) }
+export function fetchKpisOperacional(params = {})      { return cachedFetch('/api/operacional/kpis', params, { ttl: TTL.DASHBOARD }) }
+export function fetchCustoPorGrupo(params = {})        { return cachedFetch('/api/operacional/custo-por-grupo', params, { ttl: TTL.DASHBOARD }) }
+export function fetchCustoPorFilial(params = {})       { return cachedFetch('/api/operacional/custo-por-filial', params, { ttl: TTL.DASHBOARD }) }
+export function fetchEvolucaoMensal(params = {})       { return cachedFetch('/api/operacional/evolucao-mensal', params, { ttl: TTL.EVOLUCAO }) }
+export function fetchVeiculosAcao(params = {})         { return cachedFetch('/api/operacional/veiculos-acao', params, { ttl: TTL.DASHBOARD }) }

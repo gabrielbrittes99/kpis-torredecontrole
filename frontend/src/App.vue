@@ -23,7 +23,7 @@
       <!-- COMBUSTÍVEL -->
       <div class="nav-group">
         <span v-show="!collapsed" class="group-label">Combustível</span>
-        <div v-show="collapsed" class="group-rule" />
+        <div v-show="collapsed" class="group-rule"></div>
 
         <button class="nav-btn" :class="{ active: is('visao-geral') }" @click="go('visao-geral')" :title="collapsed ? 'Visão Geral' : ''">
           <span class="nav-icon">
@@ -62,7 +62,7 @@
       <!-- MANUTENÇÃO -->
       <div class="nav-group">
         <span v-show="!collapsed" class="group-label">Manutenção</span>
-        <div v-show="collapsed" class="group-rule" />
+        <div v-show="collapsed" class="group-rule"></div>
 
         <button class="nav-btn" :class="{ active: is('manutencao') }" @click="go('manutencao')" :title="collapsed ? 'Visão Geral — Manutenção' : ''">
           <span class="nav-icon">
@@ -97,10 +97,42 @@
         </button>
       </div>
 
+      <!-- PEDÁGIOS -->
+      <div class="nav-group">
+        <span v-show="!collapsed" class="group-label">Pedágios</span>
+        <div v-show="collapsed" class="group-rule"></div>
+
+        <button class="nav-btn" :class="{ active: is('pedagios') }" @click="go('pedagios')" :title="collapsed ? 'Visão Geral — Pedágios' : ''">
+          <span class="nav-icon">
+            <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 6h10M4 12h10M9 2v14M2 9h14"/>
+            </svg>
+          </span>
+          <span v-show="!collapsed" class="nav-text">Tags & Operação</span>
+        </button>
+      </div>
+
+      <!-- TCO -->
+      <div class="nav-group">
+        <span v-show="!collapsed" class="group-label">Custo Total (TCO)</span>
+        <div v-show="collapsed" class="group-rule"></div>
+
+        <button class="nav-btn" :class="{ active: is('tco') }" @click="go('tco')" :title="collapsed ? 'Análise de TCO' : ''">
+          <span class="nav-icon">
+            <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="4" width="14" height="10" rx="2"/>
+              <circle cx="9" cy="9" r="2"/>
+              <path d="M2 9h4M12 9h4"/>
+            </svg>
+          </span>
+          <span v-show="!collapsed" class="nav-text">Consolidado por Veículo</span>
+        </button>
+      </div>
+
       <!-- FKM -->
       <div class="nav-group">
-        <span v-show="!collapsed" class="group-label">FKM</span>
-        <div v-show="collapsed" class="group-rule" />
+        <span v-show="!collapsed" class="group-label">Contratos (FKM)</span>
+        <div v-show="collapsed" class="group-rule"></div>
 
         <button class="nav-btn" :class="{ active: is('fkm') }" @click="go('fkm')" :title="collapsed ? 'FKM · Fechamento Mensal' : ''">
           <span class="nav-icon">
@@ -111,28 +143,36 @@
               <line x1="7" y1="7"  x2="7"  y2="17"/>
             </svg>
           </span>
-          <span v-show="!collapsed" class="nav-text">Fechamento Mensal</span>
+          <span v-show="!collapsed" class="nav-text">Visão por Contrato</span>
         </button>
       </div>
 
-      <!-- PNEUS -->
+      <!-- TRANSAÇÕES & AUDITORIA -->
       <div class="nav-group">
-        <span v-show="!collapsed" class="group-label">Pneus</span>
-        <div v-show="collapsed" class="group-rule" />
+        <span v-show="!collapsed" class="group-label">Monitoramento</span>
+        <div v-show="collapsed" class="group-rule"></div>
 
-        <button class="nav-btn" :class="{ active: is('pneus') }" @click="go('pneus')" :title="collapsed ? 'Pneus' : ''">
+        <button class="nav-btn" :class="{ active: is('transacoes') }" @click="go('transacoes')" :title="collapsed ? 'Gestão de Transações' : ''">
           <span class="nav-icon">
             <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="9" cy="9" r="7"/>
-              <circle cx="9" cy="9" r="3"/>
-              <circle cx="9" cy="9" r="1" fill="currentColor" stroke="none"/>
+              <path d="M2 9h14M9 2l7 7-7 7"/>
             </svg>
           </span>
-          <span v-show="!collapsed" class="nav-text">Gestão de Pneus</span>
+          <span v-show="!collapsed" class="nav-text">Transações (Live)</span>
         </button>
-      </div>
 
-      <div class="sidebar-spacer" />
+        <button class="nav-btn" :class="{ active: is('estornos') }" @click="go('estornos')" :title="collapsed ? 'Auditoria de Estornos' : ''">
+          <span class="nav-icon">
+            <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 4h-2a4 4 0 00-8 0H2M2 4l4-4M2 4l4 4"/>
+              <path d="M2 14h2a4 4 0 008 0h4M16 14l-4-4M16 14l-4 4"/>
+            </svg>
+          </span>
+          <span v-show="!collapsed" class="nav-text">Estornos (Auditoria)</span>
+        </button>
+      </div> <!-- fim monitoramento -->
+
+      <div class="sidebar-spacer"></div>
 
       <!-- REFERÊNCIA -->
       <div class="nav-group nav-group--bottom">
@@ -161,12 +201,15 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { prefetchAllModules } from './api/prefetch.js'
+import { useFiltrosStore } from './stores/filtros'
 
 const router = useRouter()
 const route  = useRoute()
 const collapsed = ref(false)
+const store = useFiltrosStore()
 
 const is = (name) => {
   if (route.path === '/' && name === 'visao-geral') return true
@@ -174,6 +217,16 @@ const is = (name) => {
 }
 
 const go = (name) => router.push({ name })
+
+// ── Pré-carregamento global ──────────────────────────────────────────────────
+onMounted(() => {
+  // 1. Carrega filtros globais (estados, filiais, etc.)
+  store.loadOpcoesFiltros()
+
+  // 2. Dispara prefetch de TODAS as telas em background
+  //    Quando o usuário clicar em qualquer aba, os dados já estarão no cache
+  prefetchAllModules()
+})
 </script>
 
 <style>

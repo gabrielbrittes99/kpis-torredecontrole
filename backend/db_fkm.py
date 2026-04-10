@@ -127,6 +127,11 @@ def get_fkm_df() -> pd.DataFrame:
         df["placa"] = df["placa"].astype(str).str.upper().str.replace("-", "", regex=False).str.strip()
         df = df[df["placa"].str.len() >= 7]  # descarta linhas sem placa válida
 
+        # Remove placas fictícias/administrativas
+        from config import IGNORAR_PLACAS
+        if IGNORAR_PLACAS:
+            df = df[~df["placa"].isin(IGNORAR_PLACAS)]
+
         # Converte numéricos
         for col in _NUMERICAS:
             if col in df.columns:
@@ -142,17 +147,24 @@ def get_fkm_df() -> pd.DataFrame:
                 df[col] = df[col].astype(str).str.strip()
                 df[col] = df[col].replace("None", "")
 
-        # Normaliza capitalização do grupo (Leve / LEVE / leve → Leve)
-        _GRUPO_NORM = {
-            "leve": "Leve", "médio": "Médio", "medio": "Médio",
-            "pesado": "Pesado", "kombi": "Kombi", "moto": "Moto",
-        }
+        # Normaliza grupo para nome de exibição (Caminhão5Ton → Toco, Kombi → Médio…)
+        from config import get_fkm_grupo_display
         df["grupo_veiculo"] = df["grupo_veiculo"].apply(
-            lambda g: _GRUPO_NORM.get(g.lower(), g) if isinstance(g, str) else g
+            lambda g: get_fkm_grupo_display(g) if isinstance(g, str) else g
         )
 
+        # Remove linhas com km negativo (erro de digitação em transferências de filial)
+        antes = len(df)
+        df = df[df["total_km"] >= 0]
+        removidos_km = antes - len(df)
+        if removidos_km > 0:
+            logger.warning(f"FKM: {removidos_km} linha(s) com total_km negativo removida(s)")
+
         # Remove duplicatas exatas (mesma placa+mês pode aparecer 2x no xlsb por causa de pivôs)
-        df = df.drop_duplicates(subset=["placa", "ano_mes", "filial", "contrato"])
+        # Quando a mesma placa aparece em duas filiais no mesmo mês (transferência),
+        # mantém a linha com maior km — é a filial que efetivamente operou o veículo.
+        df = df.sort_values("total_km", ascending=False)
+        df = df.drop_duplicates(subset=["placa", "ano_mes"], keep="first")
 
         _fkm_cache = df
         _fkm_cache_ts = agora

@@ -153,7 +153,7 @@ const options = computed(() => {
 </script>
 
 <style scoped>
-.card { background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; }
+.card { background: linear-gradient(white, white) padding-box, linear-gradient(135deg, rgba(0,0,0,0.09) 0%, rgba(0,0,0,0.04) 40%, rgba(0,0,0,0.04) 60%, rgba(0,0,0,0.09) 100%) border-box; border: 1px solid transparent; border-radius: 16px; padding: 24px; }
 .card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
 .card-title { font-size: 14px; font-weight: 700; color: #0f172a; }
 .card-hint { font-size: 12px; color: #94a3b8; margin-top: 2px; }

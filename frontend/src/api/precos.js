@@ -1,31 +1,21 @@
-const BASE = import.meta.env.VITE_API_URL
-
-async function get(path, params = {}) {
-  const url = new URL(`${BASE}${path}`, location.origin)
-  Object.entries(params).forEach(([k, v]) => {
-    if (v !== null && v !== undefined && v !== '') url.searchParams.set(k, v)
-  })
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
-  return res.json()
-}
+import { cachedFetch, TTL } from './apiCache'
 
 export function fetchEvolucaoPorTipo(filtros = {}) {
-  return get('/api/precos/evolucao-por-tipo', filtros)
+  return cachedFetch('/api/precos/evolucao-por-tipo', filtros, { ttl: TTL.EVOLUCAO })
 }
 
 export function fetchPrecoPorUF(filtros = {}) {
-  return get('/api/precos/preco-por-uf', filtros)
+  return cachedFetch('/api/precos/preco-por-uf', filtros, { ttl: TTL.DASHBOARD })
 }
 
 export function fetchRankingPostosPreco(params = {}) {
-  return get('/api/precos/ranking-postos-preco', params)
+  return cachedFetch('/api/precos/ranking-postos-preco', params, { ttl: TTL.DASHBOARD })
 }
 
 export function fetchAnalisePremium(filtros = {}) {
-  return get('/api/precos/analise-premium', filtros)
+  return cachedFetch('/api/precos/analise-premium', filtros, { ttl: TTL.DASHBOARD })
 }
 
 export function fetchVariacaoMensal(filtros = {}) {
-  return get('/api/precos/variacao-mensal', filtros)
+  return cachedFetch('/api/precos/variacao-mensal', filtros, { ttl: TTL.EVOLUCAO })
 }

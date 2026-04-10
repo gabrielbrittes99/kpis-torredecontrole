@@ -3,7 +3,10 @@
     
     <!-- Header: Título e Ícone -->
     <div class="kpi-header">
-      <span class="kpi-title">{{ title }}</span>
+      <div class="kpi-title-stack">
+        <span class="kpi-title">{{ title }}</span>
+        <span v-if="period" class="kpi-period">{{ period }}</span>
+      </div>
       <span v-if="icon" class="kpi-icon">{{ icon }}</span>
     </div>
 
@@ -43,6 +46,7 @@ const props = defineProps({
   trendDecimals: { type: Number, default: 1 },
   
   description: { type: String, default: '' },
+  period: { type: String, default: '' },
   icon: { type: String, default: '' },
   
   theme: { type: String, default: 'neutral' }, // 'neutral', 'primary', 'dark'
@@ -66,15 +70,7 @@ const formattedValue = computed(() => {
 // === TENDÊNCIA E CORES ===
 const trendClass = computed(() => {
   if (props.trendValue == null || props.trendValue === 0) return 'neutral'
-  const isPositive = props.trendValue > 0
-  
-  if (props.trendInvert) {
-    // Invertido: Subir é ruim (Custo), Cair é bom (Economia)
-    return isPositive ? 'bad' : 'good'
-  } else {
-    // Normal: Subir é bom (Receita/Saving), Cair é ruim
-    return isPositive ? 'good' : 'bad'
-  }
+  return props.trendValue > 0 ? 'up' : 'down'
 })
 
 const trendIcon = computed(() => {
@@ -86,8 +82,10 @@ const trendIcon = computed(() => {
 <style scoped>
 .kpi-pro-card {
   position: relative;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background:
+    linear-gradient(#ffffff, #ffffff) padding-box,
+    linear-gradient(135deg, rgba(0,0,0,0.09) 0%, rgba(0,0,0,0.04) 40%, rgba(0,0,0,0.04) 60%, rgba(0,0,0,0.09) 100%) border-box;
+  border: 1px solid transparent;
   border-radius: 16px;
   padding: 20px 24px;
   display: flex;
@@ -110,8 +108,10 @@ const trendIcon = computed(() => {
   border-left: 4px solid #C41230;
 }
 .kpi-pro-card.dark {
-  background: #0f172a;
-  border-color: #1e293b;
+  background:
+    linear-gradient(#0f172a, #0f172a) padding-box,
+    linear-gradient(135deg, rgba(255,255,255,0.13) 0%, rgba(255,255,255,0.05) 40%, rgba(255,255,255,0.05) 60%, rgba(255,255,255,0.13) 100%) border-box;
+  border: 1px solid transparent;
   color: white;
 }
 .kpi-pro-card.dark .kpi-title, 
@@ -127,10 +127,16 @@ const trendIcon = computed(() => {
 .kpi-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 12px;
   position: relative;
   z-index: 10;
+}
+
+.kpi-title-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .kpi-title {
@@ -139,6 +145,15 @@ const trendIcon = computed(() => {
   color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+  line-height: 1.2;
+}
+
+.kpi-period {
+  font-size: 10px;
+  font-weight: 600;
+  color: #94a3b8;
+  opacity: 0.8;
+  margin-top: 1px;
 }
 
 .kpi-icon {
@@ -194,11 +209,11 @@ const trendIcon = computed(() => {
   font-family: 'JetBrains Mono', ui-monospace, monospace;
 }
 
-.kpi-trend.good {
-  background: #ecfdf5;
-  color: #059669;
+.kpi-trend.up {
+  background: #eff6ff;
+  color: #2563eb;
 }
-.kpi-trend.bad {
+.kpi-trend.down {
   background: #fef2f2;
   color: #dc2626;
 }
@@ -207,8 +222,8 @@ const trendIcon = computed(() => {
   color: #64748b;
 }
 
-.kpi-pro-card.dark .kpi-trend.good { background: rgba(5, 150, 105, 0.2); }
-.kpi-pro-card.dark .kpi-trend.bad { background: rgba(220, 38, 38, 0.2); }
+.kpi-pro-card.dark .kpi-trend.up { background: rgba(37, 99, 235, 0.2); }
+.kpi-pro-card.dark .kpi-trend.down { background: rgba(220, 38, 38, 0.2); }
 .kpi-pro-card.dark .kpi-trend.neutral { background: rgba(100, 116, 139, 0.2); }
 
 /* Footer */

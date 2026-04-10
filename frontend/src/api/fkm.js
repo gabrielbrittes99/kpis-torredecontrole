@@ -1,19 +1,10 @@
-const BASE = import.meta.env.VITE_API_URL
+import { cachedFetch, TTL } from './apiCache'
 
-async function get(path, params = {}) {
-  const url = new URL(`${BASE}${path}`, location.origin)
-  Object.entries(params).forEach(([k, v]) => {
-    if (v !== null && v !== undefined && v !== '') url.searchParams.set(k, v)
-  })
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
-  return res.json()
-}
-
-export function fetchFkmFiltros()                          { return get('/api/fkm/filtros') }
-export function fetchFkmKpis(params = {})                  { return get('/api/fkm/kpis', params) }
-export function fetchFkmResumoPorFilial(params = {})        { return get('/api/fkm/resumo-por-filial', params) }
-export function fetchFkmCustoPorVeiculo(params = {})        { return get('/api/fkm/custo-por-veiculo', params) }
-export function fetchFkmEvolucaoMensal(params = {})         { return get('/api/fkm/evolucao-mensal', params) }
-export function fetchFkmDistribuicaoCategorias(params = {}) { return get('/api/fkm/distribuicao-categorias', params) }
-export function fetchFkmRankingKmLitro(params = {})         { return get('/api/fkm/ranking-km-litro', params) }
+export function fetchFkmFiltros()                          { return cachedFetch('/api/fkm/filtros', {}, { ttl: TTL.FILTROS }) }
+export function fetchFkmKpis(params = {})                  { return cachedFetch('/api/fkm/kpis', params, { ttl: TTL.DASHBOARD }) }
+export function fetchFkmResumoPorFilial(params = {})        { return cachedFetch('/api/fkm/resumo-por-filial', params, { ttl: TTL.DASHBOARD }) }
+export function fetchFkmCustoPorVeiculo(params = {})        { return cachedFetch('/api/fkm/custo-por-veiculo', params, { ttl: TTL.DASHBOARD }) }
+export function fetchFkmEvolucaoMensal(params = {})         { return cachedFetch('/api/fkm/evolucao-mensal', params, { ttl: TTL.EVOLUCAO }) }
+export function fetchFkmDistribuicaoCategorias(params = {}) { return cachedFetch('/api/fkm/distribuicao-categorias', params, { ttl: TTL.DASHBOARD }) }
+export function fetchFkmRankingKmLitro(params = {})         { return cachedFetch('/api/fkm/ranking-km-litro', params, { ttl: TTL.DASHBOARD }) }
+export function fetchFkmReconciliacao(params = {})          { return cachedFetch('/api/fkm/reconciliacao', params, { ttl: TTL.DASHBOARD }) }

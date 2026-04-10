@@ -48,9 +48,14 @@ FUEL_GROUP_MAP: dict[str, str] = {
     "arla":                      "Arla",
     "arla 32":                   "Arla",
     "arla32":                    "Arla",
+    # GNV
+    "gnv":                       "GNV",
+    "gas natural":               "GNV",
+    "gás natural":               "GNV",
+    "gás natural veicular":      "GNV",
 }
 
-FUEL_GROUPS = ["Diesel", "Gasolina", "Álcool", "Arla"]
+FUEL_GROUPS = ["Diesel", "Gasolina", "Álcool", "Arla", "GNV"]
 
 
 def get_fuel_group(nome_combustivel: str) -> str:
@@ -128,7 +133,11 @@ PLACAS_RENOMEADAS: dict[str, str] = {
     "TBI2068": "UBO0E91",  # Placa trocada — nova: UBO-0E91 (GRITSCH - MATRIZ)
 }
 
-IGNORAR_PLACAS: set[str] = set()
+IGNORAR_PLACAS: set[str] = {
+    # Placas fictícias / administrativas — nunca tiveram consumo real de combustível
+    "TBI2067",
+    "TBI2068",
+}
 
 
 def get_filial_info(sigla_sqlserver: str) -> dict:
@@ -151,6 +160,58 @@ def get_filial_by_placa(placa: str) -> dict | None:
 
 
 REGIOES = ["Sul", "Centro-Oeste", "Sudeste", "Nordeste", "Norte"]
+
+
+# ---------------------------------------------------------------------------
+# MAPEAMENTO DE GRUPOS FKM → NOME DE EXIBIÇÃO
+# ---------------------------------------------------------------------------
+# A planilha FKM usa nomes internos como "Caminhão4.2Ton", "Kombi", "Moto".
+# Este mapa converte para os nomes de exibição usados em toda a plataforma.
+# Comparação feita em lowercase para tolerar variações de caixa.
+
+FKM_GRUPO_MAP: dict[str, str] = {
+    # Leves
+    "leve":             "Leve",
+    "moto":             "Leve",   # Moto → Leve (confirmado pelo usuário)
+    # Médios
+    "médio":            "Médio",
+    "medio":            "Médio",
+    "kombi":            "Pesado", # Kombi → Pesado (confirmado pelo usuário)
+    # Pesados (vans/furgões grandes)
+    "pesado":           "Pesado",
+    # 3/4
+    "caminhão4.2ton":   "3/4",
+    "caminhao4.2ton":   "3/4",
+    "caminhão9ton":     "3/4",
+    "caminhao9ton":     "3/4",
+    "caminhão10.5ton":  "3/4",
+    "caminhao10.5ton":  "3/4",
+    # Toco
+    "caminhão5ton":     "Toco",
+    "caminhao5ton":     "Toco",
+    "caminhão5.5ton":   "Toco",
+    "caminhao5.5ton":   "Toco",
+    "caminhão6ton":     "Toco",
+    "caminhao6ton":     "Toco",
+    "caminhão7.5ton":   "Toco",
+    "caminhao7.5ton":   "Toco",
+    # Truck
+    "caminhão12ton":    "Truck",
+    "caminhao12ton":    "Truck",
+    # Bitruck
+    "caminhão17ton":    "Bitruck",
+    "caminhao17ton":    "Bitruck",
+}
+
+
+def get_fkm_grupo_display(grupo_fkm: str) -> str:
+    """Converte nome interno do FKM para nome de exibição.
+
+    Retorna o mapeado ou o valor original se não encontrado.
+    """
+    if not grupo_fkm:
+        return grupo_fkm
+    return FKM_GRUPO_MAP.get(grupo_fkm.lower().strip(), grupo_fkm)
 
 
 # ---------------------------------------------------------------------------

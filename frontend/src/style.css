@@ -18,6 +18,31 @@
   --border:  rgba(0, 0, 0, 0.05);
   --border2: rgba(0, 0, 0, 0.08);
 
+  /* ── Sistema de Bordas Gradiente ───────────────────────────────────── */
+  --border-gradient: linear-gradient(
+    135deg,
+    rgba(0,0,0,0.09) 0%,
+    rgba(0,0,0,0.04) 40%,
+    rgba(0,0,0,0.04) 60%,
+    rgba(0,0,0,0.09) 100%
+  );
+  --border-gradient-dark: linear-gradient(
+    135deg,
+    rgba(255,255,255,0.13) 0%,
+    rgba(255,255,255,0.05) 40%,
+    rgba(255,255,255,0.05) 60%,
+    rgba(255,255,255,0.13) 100%
+  );
+
+  /* ── Sistema de Divisores ───────────────────────────────────────────── */
+  --divider-fade: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(0,0,0,0.10) 20%,
+    rgba(0,0,0,0.10) 80%,
+    transparent 100%
+  );
+
   /* ── Semânticas ────────────────────────────────────────────────────── */
   --red:     #EF4444;
   --red2:    #FEE2E2;
@@ -76,9 +101,11 @@ h1, h2, h3, h4 {
 
 /* Cards Professional Light */
 .v-block {
-  background: white;
-  border: 1px solid var(--border);
-  border-radius: 16px; 
+  background:
+    linear-gradient(white, white) padding-box,
+    var(--border-gradient) border-box;
+  border: 1px solid transparent;
+  border-radius: 16px;
   padding: 24px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.02), 0 4px 6px -1px rgba(0,0,0,0.03);
 }
@@ -94,7 +121,21 @@ h1, h2, h3, h4 {
   align-items: center;
   gap: 12px;
 }
-.section-title::after { content: ""; flex: 1; height: 1px; background: var(--s2); }
+.section-title::after { content: ""; flex: 1; height: 1px; background: var(--divider-fade); }
+
+/* Divisores estilo Stripe/AbacatePay */
+.section-divider {
+  height: 1px;
+  background: var(--divider-fade);
+  border: none;
+  margin: 0;
+}
+.section-divider--heavy {
+  height: 1px;
+  background: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.13) 25%, rgba(0,0,0,0.13) 75%, transparent 100%);
+  border: none;
+  margin: 0;
+}
 
 /* Utility Classes */
 .font-syne { font-family: 'Inter', sans-serif; }

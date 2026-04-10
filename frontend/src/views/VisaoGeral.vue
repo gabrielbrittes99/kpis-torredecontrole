@@ -36,6 +36,7 @@
           :trendValue="hero.gasto_mes_var_pct"
           :trendInvert="true"
           theme="primary"
+          :period="mesMesLabel"
           :description="hero.trend_label ? 'vs ' + hero.trend_label : ''"
         />
         <KpiCardPro
@@ -43,6 +44,10 @@
           :value="hero.litros_mes || 0"
           format="number"
           unit="L"
+          :trendValue="hero.litros_mes_var_pct"
+          :trendInvert="false"
+          :period="mesMesLabel"
+          :description="hero.trend_label ? 'vs ' + hero.trend_label : ''"
         />
         <KpiCardPro
           title="Preço Médio"
@@ -50,11 +55,30 @@
           format="currency"
           :decimals="3"
           unit="/ L"
+          :trendValue="hero.preco_medio_var_pct"
+          :trendInvert="true"
+          :period="mesMesLabel"
+          :description="hero.trend_label ? 'vs ' + hero.trend_label : ''"
         />
         <KpiCardPro
-          title="Abastecimentos"
-          :value="hero.total_abastecimentos || 0"
+          title="Km / Litro"
+          :value="hero.kml_medio ?? 0"
           format="number"
+          :decimals="2"
+          unit="km/L"
+          :trendValue="null"
+          :period="mesMesLabel"
+          :description="hero.kml_fonte === 'fkm_reconciliado' ? 'Eficiência real · fonte FKM' : 'Eficiência via TruckPag (parcial)'"
+        />
+        <KpiCardPro
+          title="Custo por KM"
+          :value="hero.custo_km ?? 0"
+          format="currency"
+          :decimals="2"
+          unit="/ km"
+          :trendValue="null"
+          :period="mesMesLabel"
+          :description="hero.kml_fonte === 'fkm_reconciliado' ? 'Custo real · fonte FKM' : 'Custo via TruckPag (parcial)'"
         />
       </div>
 
@@ -166,6 +190,32 @@
           >{{ c }}</button>
         </div>
       </div>
+      <!-- Diário — largura total, só dias úteis + linha de média -->
+      <section class="v-block charts-block" style="margin-bottom: 16px;">
+        <div class="section-title">GASTO DIÁRIO — DIAS ÚTEIS (30 DIAS){{ filtroLabel }}</div>
+        <apexchart v-if="grafDiarioUtil.length" height="260" :options="optDiarioGeral" :series="seriesDiarioGeral" />
+        <div v-else class="empty-msg">Sem dados no período</div>
+        <!-- Resumo FDS / Feriado -->
+        <div class="diario-resumo">
+          <div class="diario-chip">
+            <span class="chip-dot" style="background:#1D4ED8"></span>
+            <span class="chip-label">Média dia útil</span>
+            <span class="chip-val">{{ fmtR(avgDiarioUtil) }}</span>
+          </div>
+          <div class="diario-sep">vs</div>
+          <div class="diario-chip">
+            <span class="chip-dot" style="background:#7C3AED"></span>
+            <span class="chip-label">Média FDS + feriado</span>
+            <span class="chip-val">{{ fmtR(avgDiarioFDSFeriado) }}</span>
+          </div>
+          <div v-if="avgDiarioUtil > 0 && avgDiarioFDSFeriado > 0" class="diario-ratio">
+            {{ ((avgDiarioFDSFeriado / avgDiarioUtil - 1) * 100).toFixed(0) > 0
+               ? '+' + ((avgDiarioFDSFeriado / avgDiarioUtil - 1) * 100).toFixed(0)
+               : ((avgDiarioFDSFeriado / avgDiarioUtil - 1) * 100).toFixed(0) }}% no FDS/feriado
+          </div>
+        </div>
+      </section>
+
       <div class="charts-grid-top">
         <section class="v-block charts-block">
           <div class="section-title">GASTO MENSAL (12 MESES){{ filtroLabel }}</div>
@@ -196,41 +246,6 @@
         <GraficoPrecoPorUF :data="precoPorUF" :loading="lUF" :color="filtroUFComb ? combustivelColor(filtroUFComb) : '#3b82f6'" />
       </section>
 
-      <!-- ══════════════════════════════════════════════════════════════════ -->
-      <!--  GRÁFICO DIÁRIO — Dias Úteis · Fim de Semana · Feriados        -->
-      <!-- ══════════════════════════════════════════════════════════════════ -->
-      <div class="section-title-row" style="margin-bottom: 12px;">
-        <span class="section-hint">Gasto diário nos últimos 30 dias</span>
-        <div class="uf-comb-tabs">
-          <button :class="{ active: filtroCombDiario === null }" :style="filtroCombDiario === null ? { background: TODOS_COLOR, borderColor: TODOS_COLOR, color: 'white' } : { borderColor: TODOS_COLOR, color: TODOS_COLOR }" @click="setFiltroCombDiario(null)">Todos</button>
-          <button
-            v-for="c in opcoesUFComb" :key="c"
-            :class="{ active: filtroCombDiario === c }"
-            :style="filtroCombDiario === c ? { background: combustivelColor(c), borderColor: combustivelColor(c), color: 'white' } : { borderColor: combustivelColor(c), color: combustivelColor(c) }"
-            @click="setFiltroCombDiario(c)"
-          >{{ c }}</button>
-        </div>
-      </div>
-      <div :class="grafDiarioFeriado.length ? 'charts-grid-three' : 'charts-grid-top'" style="margin-bottom: 24px;">
-        <section class="v-block charts-block" style="margin-bottom: 0;">
-          <div class="section-title" style="color: #1D4ED8;">GASTO DIAS ÚTEIS (30 DIAS)</div>
-          <div v-if="grafDiarioUtil.length">
-            <apexchart type="area" height="200" :options="optDiarioUtil" :series="seriesDiarioUtil" />
-          </div>
-          <div v-else class="empty-msg">Sem dados no período</div>
-        </section>
-        <section class="v-block charts-block" style="margin-bottom: 0;">
-          <div class="section-title" style="color: #7C3AED;">GASTO FIM DE SEMANA (30 DIAS)</div>
-          <div v-if="grafDiarioFDS.length">
-            <apexchart type="area" height="200" :options="optDiarioFDS" :series="seriesDiarioFDS" />
-          </div>
-          <div v-else class="empty-msg">Sem dados no período</div>
-        </section>
-        <section v-if="grafDiarioFeriado.length" class="v-block charts-block" style="margin-bottom: 0;">
-          <div class="section-title" style="color: #EA580C;">GASTO FERIADOS (30 DIAS)</div>
-          <apexchart type="area" height="200" :options="optDiarioFeriado" :series="seriesDiarioFeriado" />
-        </section>
-      </div>
 
       <!-- ══════════════════════════════════════════════════════════════════ -->
       <!--  INSIGHTS POR DIMENSÃO — Combustível · Região · Grupo · Filial  -->
@@ -498,45 +513,46 @@
             </div>
           </div>
         </section>
-        <section class="v-block filiais-block">
-          <div class="section-title">GASTO POR FILIAL — {{ mesMesLabel }}</div>
-          <div v-if="filiaisVisiveis.length === 0" class="empty-msg">Dados de filial não disponíveis</div>
-          <div v-else class="filiais-cards">
-            <div v-for="f in filiaisLimitadas" :key="f.filial" class="filial-row">
-              <div class="filial-row-top">
-                <div class="filial-info">
-                  <span class="filial-dot" :style="{ background: combustivelColor(f.combustivel_pred) }"></span>
-                  <span class="filial-nome">{{ f.filial.replace('Gritsch ', '') }}</span>
-                  <span class="filial-uf mono">{{ f.estado || '—' }}</span>
-                </div>
-                <div class="filial-nums">
-                  <span class="filial-gasto mono">{{ fmtR(f.gasto) }}</span>
-                  <span class="filial-pct mono">{{ filiaisTotalGasto > 0 ? (f.gasto / filiaisTotalGasto * 100).toFixed(1) + '%' : '—' }}</span>
-                  <button class="btn-drill" @click="irParaOperacionalFilial(f.filial)" title="Ver operacional desta filial">
-                    <span class="icon-drill">→</span>
-                  </button>
-                </div>
+      </div>
+
+      <section class="v-block filiais-block">
+        <div class="section-title">GASTO POR FILIAL — {{ mesMesLabel }}</div>
+        <div v-if="filiaisVisiveis.length === 0" class="empty-msg">Dados de filial não disponíveis</div>
+        <div v-else class="filiais-cards">
+          <div v-for="f in filiaisLimitadas" :key="f.filial" class="filial-row">
+            <div class="filial-row-top">
+              <div class="filial-info">
+                <span class="filial-dot" :style="{ background: combustivelColor(f.combustivel_pred) }"></span>
+                <span class="filial-nome">{{ f.filial.replace('Gritsch ', '') }}</span>
+                <span class="filial-uf mono">{{ f.estado || '—' }}</span>
               </div>
-              <div class="filial-bar-wrap">
-                <div
-                  class="filial-bar-fill"
-                  :style="{
-                    width: filiaisTotalGasto > 0 ? Math.min((f.gasto / filiaisTotalGasto * 100), 100) + '%' : '0%',
-                    background: combustivelColor(f.combustivel_pred)
-                  }"
-                ></div>
-              </div>
-              <div class="filial-meta mono">
-                {{ fmtN(f.litros) }} L · {{ f.veiculos }} veíc.
-                <span v-if="f.combustivel_pred" class="comb-badge" :style="{ color: combustivelColor(f.combustivel_pred) }">{{ f.combustivel_pred }}</span>
+              <div class="filial-nums">
+                <span class="filial-gasto mono">{{ fmtR(f.gasto) }}</span>
+                <span class="filial-pct mono">{{ filiaisTotalGasto > 0 ? (f.gasto / filiaisTotalGasto * 100).toFixed(1) + '%' : '—' }}</span>
+                <button class="btn-drill" @click="irParaOperacionalFilial(f.filial)" title="Ver operacional desta filial">
+                  <span class="icon-drill">→</span>
+                </button>
               </div>
             </div>
-            <button v-if="filiaisVisiveis.length > 8" class="btn-ver-mais" @click="mostrarTodasFiliais = !mostrarTodasFiliais">
-              {{ mostrarTodasFiliais ? '▴ Recolher' : '▾ Ver todas (' + filiaisVisiveis.length + ')' }}
-            </button>
+            <div class="filial-bar-wrap">
+              <div
+                class="filial-bar-fill"
+                :style="{
+                  width: filiaisTotalGasto > 0 ? Math.min((f.gasto / filiaisTotalGasto * 100), 100) + '%' : '0%',
+                  background: combustivelColor(f.combustivel_pred)
+                }"
+              ></div>
+            </div>
+            <div class="filial-meta mono">
+              {{ fmtN(f.litros) }} L · {{ f.veiculos }} veíc.
+              <span v-if="f.combustivel_pred" class="comb-badge" :style="{ color: combustivelColor(f.combustivel_pred) }">{{ f.combustivel_pred }}</span>
+            </div>
           </div>
-        </section>
-      </div>
+          <button v-if="filiaisVisiveis.length > 8" class="btn-ver-mais" @click="mostrarTodasFiliais = !mostrarTodasFiliais">
+            {{ mostrarTodasFiliais ? '▴ Recolher' : '▾ Ver todas (' + filiaisVisiveis.length + ')' }}
+          </button>
+        </div>
+      </section>
     </div>
   </div>
 </template>
@@ -555,6 +571,25 @@ import { useFiltrosStore } from '../stores/filtros'
 const apexchart = VueApexCharts
 const router = useRouter()
 const store = useFiltrosStore()
+
+/**
+ * Helper para converter os parâmetros da seleção da store (que podem ser camelCase)
+ * no formato esperado pela API (snake_case), garantindo que filtros temporais
+ * funcionem em todas as seções.
+ */
+function getApiParams(extras = {}) {
+  const s = store.selecao
+  const params = {
+    ...store.paramsTempo, // Já converte modoTempo -> modo_tempo
+    combustivel: s.combustivel || undefined,
+    regiao: s.regiao || undefined,
+    estado: s.estado || undefined,
+    filial: s.filial || undefined,
+    grupo: s.grupo || undefined,
+    ...extras
+  }
+  return params
+}
 
 function irParaOperacional(grupo) {
   store.selecao.grupo = grupo
@@ -594,9 +629,9 @@ async function setFiltroUF(comb) {
   filtroUFComb.value = comb
   lUF.value = true
   try {
-    precoPorUF.value = await fetchPrecoPorUF({
-      combustivel: comb ?? store.selecao.combustivel ?? undefined,
-    })
+    precoPorUF.value = await fetchPrecoPorUF(getApiParams({
+      combustivel: comb ?? undefined,
+    }))
   } finally {
     lUF.value = false
   }
@@ -624,11 +659,11 @@ const dadosAgressores = ref(null)
 const abaDetalhe      = ref('destaques')
 
 async function _dashboardComb(comb) {
-  return fetchVisaoGeralDashboard({ ...store.selecao, combustivel: comb || undefined })
+  return fetchVisaoGeralDashboard(getApiParams({ combustivel: comb || undefined }))
 }
 
 async function _dashboardRegiao(reg) {
-  return fetchVisaoGeralDashboard({ ...store.selecao, regiao: reg || undefined })
+  return fetchVisaoGeralDashboard(getApiParams({ regiao: reg || undefined }))
 }
 
 async function toggleAgressores(grupo) {
@@ -642,17 +677,8 @@ async function toggleAgressores(grupo) {
   lAgressores.value = true
   dadosAgressores.value = null
   try {
-    const s = store.selecao
-    dadosAgressores.value = await fetchAgressores({
-      grupo,
-      modo_tempo: s.modo_tempo,
-      mes: s.mes,
-      ano: s.ano,
-      bimestre: s.bimestre,
-      semestre: s.semestre,
-      data_inicio: s.data_inicio,
-      data_fim: s.data_fim,
-    })
+    const params = getApiParams({ grupo })
+    dadosAgressores.value = await fetchAgressores(params)
   } catch (e) {
     console.error('Erro ao buscar agressores:', e)
     dadosAgressores.value = null
@@ -678,6 +704,7 @@ async function setFiltroCombTendencia(comb) {
     const d = await _dashboardComb(comb)
     grafMensal.value  = d.grafico_mensal  ?? []
     grafSemanal.value = d.grafico_semanal ?? []
+    grafDiario.value  = d.grafico_diario  ?? []
   } finally { lTendencia.value = false }
 }
 
@@ -964,21 +991,62 @@ const corTendencia = computed(() =>
   filtroCombTendencia.value ? combustivelColor(filtroCombTendencia.value) : '#1D4ED8'
 )
 
-const optMensal = computed(() => ({
-  ...chartBase,
-  colors: [corTendencia.value],
-  xaxis: { ...chartBase.xaxis, categories: grafMensal.value.map(d => d.label) },
-  plotOptions: { bar: { borderRadius: 6 } },
-}))
-const seriesMensal = computed(() => [{ name: 'Gasto', data: grafMensal.value.map(d => d.valor) }])
+const _fmtY = v => {
+  if (v >= 1_000_000) return 'R$ ' + (v / 1_000_000).toFixed(1).replace('.', ',') + 'M'
+  if (v >= 1_000)     return 'R$ ' + (v / 1_000).toFixed(0) + 'k'
+  return 'R$ ' + v.toFixed(0)
+}
+const _fmtTip = v => 'R$ ' + Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 0 })
 
-const optSemanal = computed(() => ({
+const _barOpts = (categories, color) => ({
   ...chartBase,
-  colors: [corTendencia.value],
-  xaxis: { ...chartBase.xaxis, categories: grafSemanal.value.map(d => d.label) },
-  plotOptions: { bar: { borderRadius: 6 } },
-}))
+  colors: [color],
+  plotOptions: { bar: { borderRadius: 6, columnWidth: '55%' } },
+  xaxis: {
+    categories,
+    labels: { style: { colors: '#94a3b8', fontSize: '11px' }, rotate: -35, rotateAlways: false, trim: true },
+    axisBorder: { show: false },
+    axisTicks: { show: false },
+  },
+  yaxis: { labels: { style: { colors: '#94a3b8', fontSize: '11px' }, formatter: _fmtY } },
+  tooltip: { theme: 'light', y: { formatter: _fmtTip } },
+})
+
+const optMensal  = computed(() => _barOpts(grafMensal.value.map(d => d.label),  corTendencia.value))
+const seriesMensal  = computed(() => [{ name: 'Gasto', data: grafMensal.value.map(d => d.valor) }])
+
+const optSemanal = computed(() => _barOpts(grafSemanal.value.map(d => d.label), corTendencia.value))
 const seriesSemanal = computed(() => [{ name: 'Gasto', data: grafSemanal.value.map(d => d.valor) }])
+
+const avgDiarioUtil = computed(() => {
+  const vals = grafDiarioUtil.value.map(d => d.valor).filter(v => v > 0)
+  return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0
+})
+const avgDiarioFDSFeriado = computed(() => {
+  const vals = [...grafDiarioFDS.value, ...grafDiarioFeriado.value].map(d => d.valor).filter(v => v > 0)
+  return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0
+})
+
+const optDiarioGeral = computed(() => ({
+  ...chartBase,
+  colors: [corTendencia.value, '#f97316'],
+  plotOptions: { bar: { borderRadius: 5, columnWidth: '60%' } },
+  stroke: { width: [0, 2.5], curve: 'straight', dashArray: [0, 6] },
+  markers: { size: [0, 0] },
+  legend: { show: false },
+  xaxis: {
+    categories: grafDiarioUtil.value.map(d => d.label),
+    labels: { style: { colors: '#94a3b8', fontSize: '11px' }, rotate: -35, rotateAlways: false },
+    axisBorder: { show: false },
+    axisTicks: { show: false },
+  },
+  yaxis: { labels: { style: { colors: '#94a3b8', fontSize: '11px' }, formatter: _fmtY } },
+  tooltip: { theme: 'light', y: { formatter: _fmtTip } },
+}))
+const seriesDiarioGeral = computed(() => [
+  { name: 'Gasto dia útil', type: 'bar',  data: grafDiarioUtil.value.map(d => d.valor) },
+  { name: 'Média',          type: 'line', data: grafDiarioUtil.value.map(() => Math.round(avgDiarioUtil.value)) },
+])
 
 // ── Gráfico diário split por tipo_dia ────────────────────────────────────
 function _getTipoDia(d) {
@@ -1025,7 +1093,7 @@ const seriesDiarioFeriado = computed(() => [{ name: 'Gasto', data: grafDiarioFer
 async function load() {
   carregando.value = true
   try {
-    const d = await fetchVisaoGeralDashboard(store.selecao)
+    const d = await fetchVisaoGeralDashboard(getApiParams())
     hero.value          = d.hero ?? {}
     porGrupo.value      = d.por_grupo_veiculo ?? []
     
@@ -1051,9 +1119,7 @@ async function load() {
     filtroCombFilial.value    = null
     lUF.value = true
     try {
-      precoPorUF.value = await fetchPrecoPorUF({
-        combustivel: store.selecao.combustivel ?? undefined,
-      })
+      precoPorUF.value = await fetchPrecoPorUF(getApiParams())
     } catch (e) {
       console.error('[VisaoGeral] Erro Preço UF', e)
     } finally {
@@ -1118,7 +1184,7 @@ onMounted(() => {
 
 .kpi-pro-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 16px;
   margin-bottom: 24px;
 }
@@ -1174,7 +1240,7 @@ onMounted(() => {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   padding: 0 10px 10px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid rgba(0,0,0,0.04);
   white-space: nowrap;
 }
 .bd-table td {
@@ -1191,7 +1257,7 @@ onMounted(() => {
   background: #f8fafc;
 }
 .bd-row:not(:last-child) td {
-  border-bottom: 1px solid #f8fafc;
+  border-bottom: 1px solid rgba(0,0,0,0.02);
 }
 
 /* Interactive Filter States */
@@ -1307,8 +1373,10 @@ tbody.has-filter .bd-row.dimmed:hover {
 /*  SHARED                                                                   */
 /* ═══════════════════════════════════════════════════════════════════════════ */
 .v-block {
-  background: white;
-  border: 1px solid #e2e8f0;
+  background:
+    linear-gradient(white, white) padding-box,
+    linear-gradient(135deg, rgba(0,0,0,0.09) 0%, rgba(0,0,0,0.04) 40%, rgba(0,0,0,0.04) 60%, rgba(0,0,0,0.09) 100%) border-box;
+  border: 1px solid transparent;
   border-radius: 16px;
   padding: 24px;
   margin-bottom: 20px;
@@ -1328,6 +1396,9 @@ tbody.has-filter .bd-row.dimmed:hover {
 .animate-in { animation: fadeIn 0.25s ease-out; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
+@media (max-width: 1300px) {
+  .kpi-pro-grid { grid-template-columns: repeat(3, 1fr); }
+}
 @media (max-width: 1200px) {
   .kpi-pro-grid { grid-template-columns: repeat(2, 1fr); }
   .kpi-sep:nth-child(n+6) { display: none; }
@@ -1352,12 +1423,12 @@ tbody.has-filter .bd-row.dimmed:hover {
   width: 100%; border-collapse: collapse; font-size: 13px;
 }
 .grupo-table thead tr {
-  background: #f8fafc; border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc; border-bottom: 1px solid rgba(0,0,0,0.07);
 }
 .grupo-table th {
   padding: 12px 14px; text-align: left; font-size: 11px; font-weight: 700;
   color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;
-  border-right: 1px solid #e2e8f0;
+  border-right: 1px solid rgba(0,0,0,0.07);
 }
 .grupo-table th:last-child { border-right: none; }
 .grupo-table th.right, .grupo-table td.right { text-align: right; }
@@ -1368,7 +1439,7 @@ tbody.has-filter .bd-row.dimmed:hover {
 .grupo-row.row-expanded { background: #f1f5f9; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); }
 .grupo-row td { 
   padding: 14px 14px; color: #334155; vertical-align: middle;
-  border-right: 1px solid #f1f5f9;
+  border-right: 1px solid rgba(0,0,0,0.04);
 }
 .grupo-row td:last-child { border-right: none; }
 .col-kml { min-width: 140px; }
@@ -1439,20 +1510,20 @@ tbody.has-filter .bd-row.dimmed:hover {
 .ag-title { font-size: 13px; font-weight: 700; color: #1e293b; }
 .ag-total-waste { font-size: 12px; color: #dc2626; }
 .ag-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.ag-table thead tr { background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+.ag-table thead tr { background: #f8fafc; border-bottom: 1px solid rgba(0,0,0,0.07); }
 .ag-table th {
   padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700;
   color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;
-  border-right: 1px solid #f1f5f9;
+  border-right: 1px solid rgba(0,0,0,0.04);
 }
 .ag-table th:last-child { border-right: none; }
 .ag-table th.right, .ag-table td.right { text-align: right; }
-.ag-row { border-bottom: 1px solid #e2e8f0; transition: background 0.15s; }
+.ag-row { border-bottom: 1px solid rgba(0,0,0,0.07); transition: background 0.15s; }
 .ag-row:hover { background: #f8fafc; }
 .ag-row:last-child { border-bottom: none; }
 .ag-row td { 
   padding: 12px 14px; color: #334155; font-weight: 500; 
-  border-right: 1px solid #f8fafc; vertical-align: middle;
+  border-right: 1px solid rgba(0,0,0,0.02); vertical-align: middle;
 }
 .ag-row td:last-child { border-right: none; }
 .ag-row td.right { font-weight: 700; color: #0f172a; }
@@ -1466,7 +1537,7 @@ tbody.has-filter .bd-row.dimmed:hover {
 /* Detail tabs */
 .detail-header { margin-bottom: 8px; }
 .detail-tabs {
-  display: flex; gap: 6px; margin-bottom: 14px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;
+  display: flex; gap: 6px; margin-bottom: 14px; border-bottom: 1px solid rgba(0,0,0,0.07); padding-bottom: 8px;
 }
 .detail-tab {
   background: transparent; border: 1.5px solid #e2e8f0; color: #64748b;
@@ -1541,7 +1612,7 @@ tbody.has-filter .bd-row.dimmed:hover {
 
 /* ── Filiais Cards ───────────────────────────────────────────────────────── */
 .filiais-cards { display: flex; flex-direction: column; gap: 10px; }
-.filial-row { padding: 10px 0; border-bottom: 1px solid #f1f5f9; }
+.filial-row { padding: 10px 0; border-bottom: 1px solid rgba(0,0,0,0.04); }
 .filial-row:last-child { border-bottom: none; }
 .filial-row-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
 .filial-info { display: flex; align-items: center; gap: 8px; }
@@ -1559,5 +1630,58 @@ tbody.has-filter .bd-row.dimmed:hover {
 .filial-row:hover .btn-drill { opacity: 1; }
 
 .empty-msg { font-size: 13px; color: #94a3b8; padding: 24px; text-align: center; border: 1px dashed #e2e8f0; border-radius: 8px; }
+
+/* ── Resumo diário (chips média) ─────────────────────────────────────────── */
+.diario-resumo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #f1f5f9;
+  flex-wrap: wrap;
+}
+.diario-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 8px 14px;
+}
+.chip-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.chip-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.chip-val {
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+.diario-sep {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+}
+.diario-ratio {
+  font-size: 12px;
+  font-weight: 700;
+  color: #7C3AED;
+  background: #f5f3ff;
+  border: 1px solid #ddd6fe;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
 
 </style>

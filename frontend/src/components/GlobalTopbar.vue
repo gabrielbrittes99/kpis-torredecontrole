@@ -12,7 +12,8 @@
       </div>
       
       <div class="topbar-center">
-        <!-- Seletor de Período Inteligente -->
+        <slot name="center">
+        <!-- Seletor de Período Inteligente (padrão — substituído por slot#center nas views com filtros próprios) -->
         <div v-if="showPeriod" class="smart-period">
           <select v-model="filtrosState.selecao.modoTempo" class="mode-select">
             <option value="mes">Mensal</option>
@@ -59,8 +60,9 @@
             </template>
           </div>
         </div>
+        </slot>
       </div>
-      
+
       <div class="topbar-right">
         <button v-if="showFilters" 
                 class="btn-advanced" 
@@ -162,9 +164,9 @@ onMounted(() => filtrosState.loadOpcoesFiltros())
 
 <style scoped>
 .topbar {
-  background: white; border-bottom: 1px solid #e2e8f0;
+  background: white; border-bottom: none;
   position: sticky; top: 0; z-index: 1000;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02), inset 0 -1px 0 rgba(0,0,0,0.07);
 }
 
 .topbar-main {
@@ -212,9 +214,33 @@ onMounted(() => filtrosState.loadOpcoesFiltros())
 
 .update-badge { font-size: 11px; color: #94a3b8; font-family: 'JetBrains Mono', monospace; font-weight: 500; }
 
+/* Filtros no slot#center (usados por FKM, Manutenção, etc.) */
+:slotted(.topbar-filters) {
+  display: flex; gap: 8px; align-items: flex-end;
+  background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 6px 12px;
+}
+:slotted(.filter-group) { display: flex; flex-direction: column; gap: 4px; }
+:slotted(.filter-group label) {
+  font-size: 10px; font-weight: 800; color: #94a3b8;
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+:slotted(.filter-group select) {
+  background: white; border: 1px solid #e2e8f0; border-radius: 8px;
+  padding: 6px 10px; font-size: 12px; font-weight: 600; color: #1e293b;
+  outline: none; cursor: pointer; min-width: 110px;
+}
+:slotted(.filter-group select:focus) { border-color: #C41230; }
+:slotted(.btn-topbar) {
+  padding: 8px 14px; background: white; border: 1px solid #e2e8f0; border-radius: 8px;
+  font-size: 12px; font-weight: 700; color: #475569; cursor: pointer; transition: 0.2s;
+  align-self: flex-end;
+}
+:slotted(.btn-topbar:hover:not(:disabled)) { border-color: #C41230; color: #C41230; }
+:slotted(.btn-topbar:disabled) { opacity: 0.5; cursor: not-allowed; }
+
 /* Filter Drawer */
 .filter-drawer {
-  background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 16px 40px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+  background: #f8fafc; border-bottom: 1px solid rgba(0,0,0,0.07); padding: 16px 40px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
 }
 .drawer-content { display: flex; gap: 24px; align-items: flex-end; flex-wrap: wrap; }
 .filter-item { display: flex; flex-direction: column; gap: 6px; }

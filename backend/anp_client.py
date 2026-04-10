@@ -1,139 +1,88 @@
 """
-Cliente ANP — Série Histórica de Preços de Combustíveis
-Fonte: https://www.gov.br/anp/pt-br/centrais-de-conteudo/dados-abertos/serie-historica-de-precos-de-combustiveis
-
-Baixa os CSVs mensais públicos da ANP e retorna preço médio por UF e produto.
-Cache local de 24h para evitar downloads repetidos.
+Cliente ANP — Preços de Combustíveis
+DADOS VÊM EXCLUSIVAMENTE DO DW (torre.anp_precos)
+Sem downloads, sem chamadas HTTP externas na API.
+Execute o ETL separadamente para atualizar os dados no DW.
 """
-import io
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from typing import Optional
 
-import httpx
 import pandas as pd
 
 logger = logging.getLogger(__name__)
-
-# URLs dos CSVs mensais da ANP (padrão: MM-dados-abertos-precos-PRODUTO.csv)
-_ANP_BASE = "https://www.gov.br/anp/pt-br/centrais-de-conteudo/dados-abertos/arquivos/shpc/dsan"
-
-# Mapeamento de nome ANP → nome interno do sistema
-PRODUTO_MAP = {
-    "GASOLINA COMUM": "gasolina",
-    "GASOLINA": "gasolina",
-    "GASOLINA ADITIVADA": "gasolina aditivada",
-    "ETANOL HIDRATADO": "etanol",
-    "ETANOL": "etanol",
-    "DIESEL": "diesel",
-    "DIESEL S10": "diesel s10",
-    "GNV": "gnv",
-}
 
 _cache_df: Optional[pd.DataFrame] = None
 _cache_ts: Optional[datetime] = None
 _CACHE_TTL = timedelta(hours=24)
 
 
-def _csv_urls(ano: int, mes: int) -> list[str]:
-    mm = f"{mes:02d}"
-    base = f"{_ANP_BASE}/{ano}"
-    return [
-        f"{base}/{mm}-dados-abertos-precos-diesel-gnv.csv",
-        f"{base}/{mm}-dados-abertos-precos-gasolina-etanol.csv",
-    ]
+def _has_dw_config() -> bool:
+    """Verifica se as credenciais do DW estão configuradas."""
+    import os
+    from dotenv import load_dotenv
+    load_dotenv()
+    return bool(
+        os.getenv("DW_HOST")
+        and os.getenv("DW_USER")
+        and os.getenv("DW_PASSWORD")
+        and os.getenv("DW_PASSWORD") != "COLOQUE_SUA_SENHA_AQUI"
+    )
 
 
-def _download_csv(url: str) -> Optional[pd.DataFrame]:
+def _read_from_dw() -> pd.DataFrame | None:
+    """Lê dados do DW (torre.anp_precos)."""
+    if not _has_dw_config():
+        logger.warning("ANP: DW não configurado")
+        return None
+    
     try:
-        with httpx.Client(timeout=12, follow_redirects=True) as client:
-            r = client.get(url)
-            r.raise_for_status()
-        df = pd.read_csv(
-            io.StringIO(r.text),
-            sep=";",
-            decimal=",",
-            usecols=["Estado - Sigla", "Municipio", "Produto", "Valor de Venda", "Data da Coleta"],
-            dtype={"Estado - Sigla": str, "Municipio": str, "Produto": str},
-        )
-        df.rename(columns={
-            "Estado - Sigla": "uf",
-            "Municipio": "municipio",
-            "Produto": "produto",
-            "Valor de Venda": "preco",
-            "Data da Coleta": "data_coleta"
-        }, inplace=True)
-        df["data_coleta"] = pd.to_datetime(df["data_coleta"], format="%d/%m/%Y", errors="coerce")
-        df["preco"] = pd.to_numeric(df["preco"], errors="coerce")
-        df["municipio"] = df["municipio"].fillna("").str.strip().str.upper()
-        df.dropna(subset=["preco"], inplace=True)
+        from db_dw import get_dw_engine
+        from sqlalchemy import text
+        
+        engine = get_dw_engine()
+        with engine.connect() as conn:
+            result = conn.execute(text("""
+                SELECT uf, municipio, produto, preco, data_coleta
+                FROM torre.anp_precos
+                ORDER BY data_coleta DESC
+            """))
+            df = pd.DataFrame(result.fetchall(), columns=result.keys())
+        
+        if df.empty:
+            logger.warning("ANP: tabela vazia no DW")
+            return None
+        
+        logger.info(f"ANP: {len(df)} registros carregados do DW")
         return df
     except Exception as e:
-        logger.warning(f"ANP: falha ao baixar {url}: {e}")
+        logger.warning(f"ANP: falha ao ler do DW: {e}")
         return None
 
 
-def _build_cache() -> pd.DataFrame:
-    """Baixa os CSVs da ANP em paralelo (máx 4 threads)."""
-    hoje = datetime.now()
-
-    # Monta lista de URLs candidatas (mês atual + 3 anteriores × 2 categorias)
-    candidatas: list[tuple[int, str]] = []  # (idx_categoria, url)
-    for delta in range(4):
-        d = hoje - pd.DateOffset(months=delta)
-        for idx, url in enumerate(_csv_urls(d.year, d.month)):
-            candidatas.append((idx, url))
-
-    # Baixa tudo em paralelo; para cada categoria pega só a primeira que funcionar
-    resultados: dict[int, pd.DataFrame] = {}  # idx_categoria → df
-
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        future_to_meta = {pool.submit(_download_csv, url): (idx, url) for idx, url in candidatas}
-        for future in as_completed(future_to_meta):
-            idx, url = future_to_meta[future]
-            if idx in resultados:
-                continue  # Já temos os dados dessa categoria
-            try:
-                df = future.result()
-                if df is not None and not df.empty:
-                    resultados[idx] = df
-                    logger.info(f"ANP: {url} carregado ({len(df)} registros)")
-            except Exception as e:
-                logger.warning(f"ANP: erro {url}: {e}")
-
-    if not resultados:
-        logger.error("ANP: nenhum CSV disponível nos últimos 4 meses")
-        return pd.DataFrame(columns=["uf", "municipio", "produto", "preco", "data_coleta"])
-
-    return pd.concat(list(resultados.values()), ignore_index=True)
-
-
 def get_anp_df() -> pd.DataFrame:
+    """Retorna dados ANP do DW. Retorna vazio se não houver dados."""
     global _cache_df, _cache_ts
     agora = datetime.now()
-    if _cache_df is None or _cache_ts is None or (agora - _cache_ts) > _CACHE_TTL:
-        logger.info("ANP: atualizando cache de preços...")
-        _cache_df = _build_cache()
-        _cache_ts = agora
-        logger.info(f"ANP: {len(_cache_df)} registros carregados")
+    
+    if _cache_df is not None and _cache_ts is not None and (agora - _cache_ts) <= _CACHE_TTL:
+        return _cache_df
+    
+    df = _read_from_dw()
+    
+    _cache_df = df if df is not None else pd.DataFrame(columns=["uf", "municipio", "produto", "preco", "data_coleta"])
+    _cache_ts = agora
+    
     return _cache_df
 
 
 def get_benchmark_por_uf() -> list[dict]:
-    """
-    Retorna preço médio ANP por UF e produto (combustível).
-    Usado para comparar com o preço pago pela frota.
-    """
+    """Preço médio ANP por UF e produto."""
     df = get_anp_df()
     if df.empty:
         return []
 
-    agg = (
-        df.groupby(["uf", "produto"])["preco"]
-        .agg(preco_medio="mean", qtd_postos="count")
-        .reset_index()
-    )
+    agg = df.groupby(["uf", "produto"])["preco"].agg(preco_medio="mean", qtd_postos="count").reset_index()
     agg["preco_medio"] = agg["preco_medio"].round(4)
 
     return [
@@ -148,18 +97,12 @@ def get_benchmark_por_uf() -> list[dict]:
 
 
 def get_benchmark_nacional() -> list[dict]:
-    """
-    Retorna preço médio ANP nacional por produto.
-    """
+    """Preço médio ANP nacional por produto."""
     df = get_anp_df()
     if df.empty:
         return []
 
-    agg = (
-        df.groupby("produto")["preco"]
-        .agg(preco_medio="mean", qtd_postos="count")
-        .reset_index()
-    )
+    agg = df.groupby("produto")["preco"].agg(preco_medio="mean", qtd_postos="count").reset_index()
     agg["preco_medio"] = agg["preco_medio"].round(4)
 
     return [
