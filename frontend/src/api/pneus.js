@@ -23,3 +23,5 @@ export function fetchPneusPorTipo(params = {})        { return get('/api/pneus/p
 export function fetchPneusTimeline(params = {})       { return get('/api/pneus/timeline', params) }
 export function fetchPneusTopCaros(params = {})       { return get('/api/pneus/top-caros', params) }
 export function fetchPneusPorPlaca(params = {})       { return get('/api/pneus/por-placa', params) }
+export function fetchPneusTrimestres(params = {})     { return get('/api/pneus/trimestres', params) }
+export function fetchAnomaliasPneu(params = {})      { return get('/api/pneus/anomalias', params) }
