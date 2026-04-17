@@ -141,7 +141,7 @@
       <!-- MIDDLE SECTION: Análise Profunda -->
       <div class="middle-layout">
         
-        <!-- Coluna Esquerda: Gráficos -->
+        <!-- Coluna Esquerda -->
         <div class="col-charts">
           <section class="v-block">
              <div class="section-title">TENDÊNCIA DE CUSTO (12 MESES)</div>
@@ -153,7 +153,6 @@
              <BenchmarkANP :data="benchmark" :resumo="kpis.saving_resumo_anp" :loading="lBenchmark" />
           </section>
 
-          <!-- MATRIZ DE GASTOS POR FILIAL -->
           <section class="v-block">
              <div class="section-title">MATRIZ DE GASTOS POR FILIAL (REAL MÊS vs MÉDIA 3M)</div>
              <div class="spreadsheet-wrap">
@@ -199,21 +198,17 @@
           </section>
         </div>
 
-        <!-- Coluna Direita: Detalhes Executivos -->
+        <!-- Coluna Direita: Mix -->
         <aside class="col-aside">
-
-          <!-- Mix de Operação Mês -->
           <div class="v-block">
-             <div class="label-tiny mono">MIX DE COMBUSTÍVEL (ESTE MÊS)</div>
+             <div class="label-tiny mono">MIX DE COMBUSTÍVEL (MÊS)</div>
              <GraficoMixCombustiveis :data="mix.mes" :loading="lMix" />
           </div>
 
-          <!-- Mix de Operação Ano -->
           <div class="v-block">
-             <div class="label-tiny mono">MIX DE COMBUSTÍVEL (ACUMULADO ANO)</div>
+             <div class="label-tiny mono">MIX DE COMBUSTÍVEL (ANO)</div>
              <GraficoMixCombustiveis :data="mix.ano" :loading="lMix" />
           </div>
-
         </aside>
       </div>
 
@@ -325,7 +320,38 @@ onMounted(() => {
 
 /* Middle Layout */
 .middle-layout {
-  display: grid; grid-template-columns: 1fr 340px; gap: 40px;
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 40px;
+}
+
+.col-charts {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.col-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+@media (max-width: 1200px) {
+  .middle-layout {
+    grid-template-columns: 1fr;
+  }
+  .col-aside {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .col-aside {
+    grid-template-columns: 1fr;
+  }
 }
 
 .v-block {
@@ -402,6 +428,25 @@ onMounted(() => {
 .spreadsheet .trend { text-align: center; font-weight: 800; font-size: 10px; }
 .spreadsheet .total-val { background: #f1f5f9; font-weight: 800; text-align: right; }
 .spreadsheet .total-head { background: #e2e8f0; color: #475569; }
+
+/* Two Column Grid for Mix positioning */
+.two-col-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 1200px) {
+  .two-col-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Full Width Container for Tendência */
+.v-block-full {
+  width: 100%;
+}
 
 
 /* Utils */

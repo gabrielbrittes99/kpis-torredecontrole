@@ -198,10 +198,111 @@ def get_manutencao_df() -> pd.DataFrame:
     return _manutencao_cache
 
 
+def get_custos_matriz_df(ano_mes: str) -> pd.DataFrame:
+    """
+    Retorna custos alocados a GRITSCH - MATRIZ (A DEFINIR no BlueFleet) para um mês.
+    Reutiliza o cache de get_manutencao_df() — sem nova query ao SQL Server.
+
+    Categoriza os itens em:
+      manutencao  — manutenção geral
+      combustivel — itens com 'COMBUSTÍVEL' no GrupoDespesa
+      arla        — itens com 'ARLA' no GrupoDespesa
+
+    Parâmetro: ano_mes = "2026-03"
+    """
+    df = get_manutencao_df()
+    if df.empty:
+        return pd.DataFrame()
+
+    # Filtra filiais "A DEFINIR" — são as que virariam GRITSCH - MATRIZ no FKM
+    mask = df["FilialOperacional"].str.contains("DEFINIR", case=False, na=False)
+    df_mat = df[mask].copy()
+    if df_mat.empty:
+        return df_mat
+
+    # Filtra pelo mês usando DataCriacaoOcorrencia
+    ano, mes = int(ano_mes.split("-")[0]), int(ano_mes.split("-")[1])
+    df_mat["DataCriacaoOcorrencia"] = pd.to_datetime(df_mat["DataCriacaoOcorrencia"], errors="coerce")
+    df_mat = df_mat[
+        (df_mat["DataCriacaoOcorrencia"].dt.year == ano) &
+        (df_mat["DataCriacaoOcorrencia"].dt.month == mes)
+    ].copy()
+
+    # Categoria de custo
+    def _cat(grp: str) -> str:
+        g = str(grp).upper()
+        if "COMBUSTÍVEL" in g or "COMBUSTIVEL" in g:
+            return "combustivel"
+        if "ARLA" in g:
+            return "arla"
+        return "manutencao"
+
+    df_mat["_categoria"] = df_mat["GrupoDespesa"].apply(_cat)
+    return df_mat
+
+
 # ── Cache de trocas de pneu ─────────────────────────────────────────────────
 _trocas_pneu_cache: Optional[pd.DataFrame] = None
 _trocas_pneu_cache_ts: Optional[datetime] = None
 _TROCAS_PNEU_TTL = timedelta(hours=6)
+
+
+def get_filiais_no_mes(ano_mes: str) -> pd.DataFrame:
+    """
+    Retorna a filial de cada veículo no final do mês indicado,
+    usando a tabela de movimentações do SQL Server.
+
+    Para cada placa, pega o último movimento cuja Data_da_movimentacao
+    seja <= último dia do mês → Unidade_de_Destino é a filial do veículo
+    naquele mês.
+
+    Placas sem nenhum movimento até o fim do mês não aparecem
+    no resultado — para essas, o chamador deve usar FilialOperacional
+    da tabela Veiculos como fallback.
+
+    Parâmetro: ano_mes = "2026-03"
+    Retorna DataFrame com colunas: Placa, FilialNoMes
+    """
+    import calendar
+    ano, mes = int(ano_mes.split("-")[0]), int(ano_mes.split("-")[1])
+    ultimo_dia = calendar.monthrange(ano, mes)[1]
+    data_limite = f"{ano}-{mes:02d}-{ultimo_dia} 23:59:59"
+
+    try:
+        conn = get_sqlserver_conn()
+        cursor = conn.cursor(as_dict=True)
+        cursor.execute("""
+            SELECT placa, Unidade_de_Destino AS FilialNoMes
+            FROM (
+                SELECT
+                    placa,
+                    Unidade_de_Destino,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY placa
+                        ORDER BY Data_da_movimentação DESC
+                    ) AS rn
+                FROM movimentos
+                WHERE Data_da_movimentação <= %s
+                  AND unidade_movimentada = 'OPERAÇÃO'
+            ) t
+            WHERE rn = 1
+        """, (data_limite,))
+        rows = cursor.fetchall()
+        conn.close()
+        df = pd.DataFrame(rows)
+        if df.empty:
+            return pd.DataFrame(columns=["Placa", "FilialNoMes"])
+        # Normaliza nomes de coluna (pymssql retorna como estão no SQL)
+        df.columns = [c if c != "placa" else "Placa" for c in df.columns]
+        # A coluna do alias pode vir como "FilialNoMes" ou "FilialNoMes"
+        placa_col = next((c for c in df.columns if c.lower() == "placa"), None)
+        if placa_col and placa_col != "Placa":
+            df = df.rename(columns={placa_col: "Placa"})
+        df["Placa"] = df["Placa"].apply(_norm_placa)
+        return df
+    except Exception as e:
+        logger.warning(f"SQL Server: falha ao buscar movimentações do mês {ano_mes}: {e}")
+        return pd.DataFrame(columns=["Placa", "FilialNoMes"])
 
 
 def get_trocas_pneu_df() -> pd.DataFrame:

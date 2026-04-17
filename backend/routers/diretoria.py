@@ -190,6 +190,15 @@ def get_tendencia_12_meses():
         return []
 
     df = df.copy()
+    
+    # Identificar o último mês com dados completos vs mês atual parcial
+    hoje = df["data_transacao"].max()
+    if pd.isna(hoje): hoje = datetime.now()
+    
+    mes_atual = hoje.month
+    ano_atual = hoje.year
+    mes_parcial = f"{ano_atual}-{mes_atual:02d}"
+    
     df["ano_mes"] = df["data_transacao"].dt.to_period("M").astype(str)
 
     agg = (
@@ -199,6 +208,7 @@ def get_tendencia_12_meses():
             total_litros=("litragem", "sum"),
             qtd_veiculos=("placa", "nunique"),
             qtd_abastecimentos=("valor", "count"),
+            dias_com_dados=("data_transacao", lambda x: x.dt.date.nunique()),
         )
         .reset_index()
         .sort_values("ano_mes")
@@ -209,6 +219,10 @@ def get_tendencia_12_meses():
     # Variação mês a mês
     agg["variacao_valor"] = agg["total_valor"].diff().round(2)
     agg["variacao_pct"] = (agg["total_valor"].pct_change() * 100).round(2)
+    
+    # Identificar se o mês é parcial (mês atual com menos de 25 dias de dados)
+    # ou seja, um mês completo tem pelo menos 25 dias úteis
+    agg["parcial"] = (agg["ano_mes"] == mes_parcial) & (agg["dias_com_dados"] < 25)
 
     return [
         {
@@ -218,6 +232,8 @@ def get_tendencia_12_meses():
             "preco_medio": float(row["preco_medio"]),
             "qtd_veiculos": int(row["qtd_veiculos"]),
             "qtd_abastecimentos": int(row["qtd_abastecimentos"]),
+            "dias_com_dados": int(row["dias_com_dados"]),
+            "parcial": bool(row["parcial"]),
             "variacao_valor": float(row["variacao_valor"]) if pd.notna(row["variacao_valor"]) else None,
             "variacao_pct": float(row["variacao_pct"]) if pd.notna(row["variacao_pct"]) else None,
         }

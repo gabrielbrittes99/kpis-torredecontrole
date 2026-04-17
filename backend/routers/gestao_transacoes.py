@@ -1,9 +1,18 @@
-import logging
-from typing import Optional, List, Dict, Any
-from datetime import datetime, timedelta
-from fastapi import APIRouter, Query, HTTPException
+"""
+Gestão de Transações — Monitoramento de aprovadas/recusadas
 
-from truckpag_api import truckpag_api
+Fonte: DW silver.truckpag_analitico_transacao
+(alimentado pela API TruckPag, contém aprovadas E recusadas)
+"""
+import logging
+from typing import Optional, Dict, Any
+
+import pandas as pd
+from datetime import datetime
+from fastapi import APIRouter, Query
+
+from db_dw import get_dw_engine
+from sqlalchemy import text
 from utils import safe_round
 
 logger = logging.getLogger(__name__)
@@ -25,75 +34,122 @@ MOTIVOS_RECUSA: Dict[int, str] = {
 }
 
 
-def _get_today() -> tuple[str, str]:
-    hoje = datetime.now().strftime("%Y-%m-%d")
-    return hoje, hoje
+def _get_today() -> str:
+    return datetime.now().strftime("%Y-%m-%d")
 
 
-def _get_default_dates() -> tuple[str, str]:
-    fim = datetime.now()
-    inicio = fim - timedelta(days=7)
-    return inicio.strftime("%Y-%m-%d"), fim.strftime("%Y-%m-%d")
+def _fetch_dw(data_inicio: str, data_fim: str, status: Optional[str] = None) -> pd.DataFrame:
+    """Consulta transações do DW silver por período e status opcional."""
+    engine = get_dw_engine()
 
+    where_status = ""
+    if status:
+        where_status = f"AND transacao_status = '{status.upper()}'"
 
-def _extract_motivo(tx: Dict[str, Any]) -> str:
+    sql = f"""
+        SELECT
+            transacao_id,
+            transacao_data,
+            transacao_valor,
+            transacao_tipo,
+            transacao_status,
+            veiculo_placa,
+            motorista_nome,
+            combustivel_nome,
+            litragem,
+            quilometragem,
+            hodometro_anterior,
+            valor_litro,
+            estabelecimento_nome,
+            estabelecimento_cnpj,
+            mensagem,
+            motivo_estorno_id,
+            motivo_estorno_descricao
+        FROM silver.truckpag_analitico_transacao
+        WHERE transacao_data::date >= '{data_inicio}'
+          AND transacao_data::date <= '{data_fim}'
+          {where_status}
+        ORDER BY transacao_data DESC
     """
-    Extrai o motivo de recusa.
-    Ordem de preferência:
-    1. motivo_estorno_descricao (campo direto)
-    2. MOTIVOS_RECUSA[motivo_estorno_id] (mapa local)
-    3. mensagem (campo livre da API — remove sufixo " - Transacao XXXXXX")
-    4. "Motivo não informado"
-    """
-    if tx.get("motivo_estorno_descricao"):
-        return tx["motivo_estorno_descricao"]
-    motivo_id = tx.get("motivo_estorno_id")
-    if motivo_id and motivo_id in MOTIVOS_RECUSA:
-        return MOTIVOS_RECUSA[motivo_id]
-    mensagem = tx.get("mensagem", "") or ""
+
+    with engine.connect() as conn:
+        df = pd.read_sql(text(sql), conn)
+
+    return df
+
+
+def _extract_motivo(row) -> str:
+    """Extrai motivo de recusa de uma linha do DataFrame."""
+    if pd.notna(row.get("motivo_estorno_descricao")) and str(row["motivo_estorno_descricao"]).strip():
+        return str(row["motivo_estorno_descricao"]).strip()
+    motivo_id = row.get("motivo_estorno_id")
+    if pd.notna(motivo_id) and int(motivo_id) in MOTIVOS_RECUSA:
+        return MOTIVOS_RECUSA[int(motivo_id)]
+    mensagem = str(row.get("mensagem") or "").strip()
     if mensagem:
-        # A mensagem vem no formato "Motivo - TPAG v2 - Posto X - Transacao 123"
-        # Pegamos apenas o primeiro segmento (o motivo real)
         return mensagem.split(" - ")[0].strip()
     return "Motivo não informado"
 
 
-def _enrich(tx: Dict[str, Any]) -> Dict[str, Any]:
-    """Normaliza campos e adiciona descrição amigável do motivo."""
-    tx["motivo_descricao"] = _extract_motivo(tx)
-    return tx
+def _df_to_list(df: pd.DataFrame) -> list[dict]:
+    """Converte DataFrame para lista de dicts com motivo descritivo."""
+    records = []
+    for _, row in df.iterrows():
+        r = {
+            "transacao_id": int(row["transacao_id"]) if pd.notna(row.get("transacao_id")) else None,
+            "transacao_data": str(row["transacao_data"]) if pd.notna(row.get("transacao_data")) else None,
+            "transacao_valor": float(row["transacao_valor"]) if pd.notna(row.get("transacao_valor")) else 0,
+            "transacao_status": str(row.get("transacao_status", "")),
+            "veiculo_placa": str(row.get("veiculo_placa", "")),
+            "motorista_nome": str(row.get("motorista_nome", "")),
+            "combustivel_nome": str(row.get("combustivel_nome", "")),
+            "litragem": float(row["litragem"]) if pd.notna(row.get("litragem")) else 0,
+            "valor_litro": float(row["valor_litro"]) if pd.notna(row.get("valor_litro")) else 0,
+            "estabelecimento_nome": str(row.get("estabelecimento_nome", "")),
+            "motivo_descricao": _extract_motivo(row),
+        }
+        records.append(r)
+    return records
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # ENDPOINT: KPIs do Dia
 # ═══════════════════════════════════════════════════════════════════════════
 @router.get("/kpis-dia")
-async def get_kpis_dia():
+def get_kpis_dia():
     """KPIs consolidados do dia: aprovadas, recusadas, taxa, volume."""
-    data_ini, data_fim = _get_today()
+    hoje = _get_today()
 
     try:
-        todas = await truckpag_api.get_transacoes_analitico(data_ini, data_fim)
+        df = _fetch_dw(hoje, hoje)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Gestão transações: falha ao consultar DW: {e}")
+        return {
+            "valor_total": 0, "qtd_aprovadas": 0, "qtd_recusadas": 0,
+            "taxa_aprovacao": 0, "taxa_recusa": 0,
+            "veiculos_unicos": 0, "total_transacoes": 0,
+        }
 
-    total = len(todas)
-    qtd_recusadas = sum(1 for t in todas if t.get("transacao_status") == "RECUSADA")
-    qtd_aprovadas = sum(1 for t in todas if t.get("transacao_status") == "APROVADA")
+    total = len(df)
+    if total == 0:
+        return {
+            "valor_total": 0, "qtd_aprovadas": 0, "qtd_recusadas": 0,
+            "taxa_aprovacao": 0, "taxa_recusa": 0,
+            "veiculos_unicos": 0, "total_transacoes": 0,
+        }
 
-    valor_total = sum(float(t.get("transacao_valor") or 0) for t in todas)
-    placas = {t.get("veiculo_placa") for t in todas if t.get("veiculo_placa")}
-
-    taxa_aprovacao = safe_round(qtd_aprovadas / total * 100, 1) if total > 0 else 0
-    taxa_recusa    = safe_round(qtd_recusadas / total * 100, 1) if total > 0 else 0
+    qtd_aprovadas = int((df["transacao_status"] == "APROVADA").sum())
+    qtd_recusadas = int((df["transacao_status"] == "RECUSADA").sum())
+    valor_total = float(df["transacao_valor"].fillna(0).sum())
+    placas = df["veiculo_placa"].dropna().nunique()
 
     return {
-        "valor_total":    safe_round(valor_total, 2),
-        "qtd_aprovadas":  qtd_aprovadas,
-        "qtd_recusadas":  qtd_recusadas,
-        "taxa_aprovacao": taxa_aprovacao,
-        "taxa_recusa":    taxa_recusa,
-        "veiculos_unicos": len(placas),
+        "valor_total": safe_round(valor_total, 2),
+        "qtd_aprovadas": qtd_aprovadas,
+        "qtd_recusadas": qtd_recusadas,
+        "taxa_aprovacao": safe_round(qtd_aprovadas / total * 100, 1) if total > 0 else 0,
+        "taxa_recusa": safe_round(qtd_recusadas / total * 100, 1) if total > 0 else 0,
+        "veiculos_unicos": int(placas),
         "total_transacoes": total,
     }
 
@@ -102,92 +158,81 @@ async def get_kpis_dia():
 # ENDPOINT: Transações Recusadas
 # ═══════════════════════════════════════════════════════════════════════════
 @router.get("/recusadas")
-async def get_recusadas(
+def get_recusadas(
     data_inicio: Optional[str] = Query(default=None, description="AAAA-MM-DD"),
     data_fim:    Optional[str] = Query(default=None, description="AAAA-MM-DD"),
     limit:       int = Query(default=50),
 ):
     """Lista de transações recusadas, ordenadas da mais recente."""
-    if not data_inicio or not data_fim:
-        data_inicio, data_fim = _get_today()
+    hoje = _get_today()
+    data_inicio = data_inicio or hoje
+    data_fim = data_fim or hoje
 
     try:
-        dados = await truckpag_api.get_transacoes_analitico(data_inicio, data_fim, status=["RECUSADA"])
+        df = _fetch_dw(data_inicio, data_fim, status="RECUSADA")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Gestão transações recusadas: {e}")
+        return []
 
-    dados = [_enrich(d) for d in dados]
-    dados.sort(key=lambda x: x.get("transacao_data", ""), reverse=True)
-    return dados[:limit]
+    return _df_to_list(df.head(limit))
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # ENDPOINT: Ranking de Motivos de Recusa
 # ═══════════════════════════════════════════════════════════════════════════
 @router.get("/motivos-ranking")
-async def get_motivos_ranking(
+def get_motivos_ranking(
     data_inicio: Optional[str] = Query(default=None),
     data_fim:    Optional[str] = Query(default=None),
 ):
     """Ranking dos motivos de recusa com contagem e percentual."""
-    if not data_inicio or not data_fim:
-        data_inicio, data_fim = _get_today()
+    hoje = _get_today()
+    data_inicio = data_inicio or hoje
+    data_fim = data_fim or hoje
 
     try:
-        recusadas = await truckpag_api.get_transacoes_analitico(data_inicio, data_fim, status=["RECUSADA"])
+        df = _fetch_dw(data_inicio, data_fim, status="RECUSADA")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-    if not recusadas:
+        logger.error(f"Gestão transações motivos: {e}")
         return []
 
-    contagem: Dict[str, int] = {}
-    for r in recusadas:
-        descricao = _extract_motivo(r)
-        contagem[descricao] = contagem.get(descricao, 0) + 1
+    if df.empty:
+        return []
 
-    total = len(recusadas)
-    resultado = [
-        {
-            "motivo": m,
-            "qtd": q,
-            "pct": safe_round(q / total * 100, 1),
-        }
+    motivos = df.apply(_extract_motivo, axis=1)
+    contagem = motivos.value_counts()
+    total = len(df)
+
+    return [
+        {"motivo": m, "qtd": int(q), "pct": safe_round(q / total * 100, 1)}
         for m, q in contagem.items()
     ]
-    resultado.sort(key=lambda x: x["qtd"], reverse=True)
-    return resultado
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # ENDPOINT: Analítico completo (todas as transações)
 # ═══════════════════════════════════════════════════════════════════════════
 @router.get("/analitico")
-async def get_analitico(
+def get_analitico(
     data_inicio: Optional[str] = Query(default=None, description="AAAA-MM-DD"),
     data_fim:    Optional[str] = Query(default=None, description="AAAA-MM-DD"),
     status:      Optional[str] = Query(default=None, description="recusada | aprovada"),
 ):
     """Todas as transações do período, com filtro opcional de status."""
-    if not data_inicio or not data_fim:
-        data_inicio, data_fim = _get_default_dates()
+    hoje = _get_today()
+    data_inicio = data_inicio or hoje
+    data_fim = data_fim or hoje
 
     status_filter = None
     if status and status.lower() in ("recusada", "recusadas"):
-        status_filter = ["RECUSADA"]
+        status_filter = "RECUSADA"
+    elif status and status.lower() in ("aprovada", "aprovadas"):
+        status_filter = "APROVADA"
 
     try:
-        dados = await truckpag_api.get_transacoes_analitico(data_inicio, data_fim, status=status_filter)
+        df = _fetch_dw(data_inicio, data_fim, status=status_filter)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Gestão transações analítico: {e}")
+        return []
 
-    return [_enrich(d) for d in dados]
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# ENDPOINT: Veículos Live
-# ═══════════════════════════════════════════════════════════════════════════
-@router.get("/veiculos")
-async def get_veiculos_live():
-    """Lista de veículos cadastrados na TruckPag."""
-    return await truckpag_api.get_veiculos()
+    return _df_to_list(df)

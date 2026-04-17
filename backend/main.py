@@ -18,7 +18,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 from data_cache import cache
-from routers import combustivel, precos, frota, diretoria, veiculos, operacional, alertas, visao_geral, sistema, benchmark, fkm, manutencao, gestao_transacoes, pedagios, contratos, estornos, tco, pneus, gestao_pneus
+from routers import combustivel, precos, frota, diretoria, veiculos, operacional, alertas, visao_geral, sistema, benchmark, fkm, manutencao, gestao_transacoes, pedagios, contratos, estornos, tco, fkm_direto, veiculo_contrato
 
 
 def _warmup_all():
@@ -47,12 +47,12 @@ def _warmup_all():
         except Exception as e:
             logger.warning(f"✗ Warmup SQL Server: {e}")
 
-    # 3. FKM (planilha Excel)
+    # 3. FKM (on-demand: SQL Server + PostgreSQL + DW)
     def _fkm():
         try:
-            from db_fkm import get_fkm_df
+            from db_fkm_ondemand import get_fkm_df
             get_fkm_df()
-            logger.info("✓ Cache FKM carregado.")
+            logger.info("✓ Cache FKM on-demand carregado.")
         except Exception as e:
             logger.warning(f"✗ Warmup FKM: {e}")
 
@@ -132,8 +132,8 @@ app.include_router(pedagios.router)
 app.include_router(contratos.router)
 app.include_router(estornos.router)
 app.include_router(tco.router)
-app.include_router(pneus.router)
-app.include_router(gestao_pneus.router)
+app.include_router(fkm_direto.router)
+app.include_router(veiculo_contrato.router)
 
 
 @app.get("/health", tags=["sistema"])

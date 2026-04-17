@@ -12,7 +12,7 @@ import pandas as pd
 from fastapi import APIRouter, Query
 
 from data_cache import cache
-from db_fkm import get_fkm_df, refresh_fkm_cache
+from db_fkm_ondemand import get_fkm_df, refresh_fkm_cache
 
 logger = logging.getLogger(__name__)
 

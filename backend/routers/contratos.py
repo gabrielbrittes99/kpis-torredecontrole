@@ -3,7 +3,7 @@ from typing import Optional
 import pandas as pd
 from fastapi import APIRouter, Query
 
-from db_fkm import get_fkm_df
+from db_fkm_ondemand import get_fkm_df_completo as get_fkm_df
 from utils import safe_round
 
 logger = logging.getLogger(__name__)

@@ -89,7 +89,7 @@ def _ensure_table():
 # ── Extração ──────────────────────────────────────────────────────────────────
 
 def _load_fkm(ano_mes: str | None) -> pd.DataFrame:
-    from db_fkm import get_fkm_df
+    from db_fkm_ondemand import get_fkm_df
     df = get_fkm_df()
     if df.empty:
         raise RuntimeError("FKM vazio — verifique o arquivo xlsb")

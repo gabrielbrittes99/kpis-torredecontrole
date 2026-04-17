@@ -131,6 +131,7 @@ CWB_BASE_PLACAS: set[str] = set()
 # permitindo lookup de filial e continuidade dos dados.
 PLACAS_RENOMEADAS: dict[str, str] = {
     "TBI2068": "UBO0E91",  # Placa trocada — nova: UBO-0E91 (GRITSCH - MATRIZ)
+    "BCQ7B58": "BCQ7158",  # Erro de digitação no TruckPag (B confundido com 1)
 }
 
 IGNORAR_PLACAS: set[str] = {
@@ -160,6 +161,42 @@ def get_filial_by_placa(placa: str) -> dict | None:
 
 
 REGIOES = ["Sul", "Centro-Oeste", "Sudeste", "Nordeste", "Norte"]
+
+
+# Sigla usada no NOME DO ARQUIVO FKM → chave do FILIAIS_MAP (SQL Server)
+# Exemplo: "FKM CHA 0326.xls" → sigla "CHA" → "GRITSCH - CHA"
+FKM_SIGLA_FILIAL: dict[str, str] = {
+    "BLN": "GRITSCH - BLN",
+    "BSB": "GRITSCH - BSB",
+    "CGB": "GRITSCH - CGB",
+    "CGR": "GRITSCH - CGR",
+    "CHA": "GRITSCH - CHA",
+    "CRI": "GRITSCH - CRI",
+    "CSC": "GRITSCH - CSC",
+    "CTB": "GRITSCH - CTB",
+    "CWB": "GRITSCH - CWB (BASE)",
+    "CXJ": "GRITSCH - CXJ",
+    "FLN": "GRITSCH - FLN",
+    "GOI": "GRITSCH - GOI",
+    "GPA": "GRITSCH - GPA",
+    "ITR": "GRITSCH - ITR",
+    "JOI": "GRITSCH - JOI",
+    "LDB": "GRITSCH - LDB",
+    "MGA": "GRITSCH - MGA",
+    "PBC": "GRITSCH - PBC",
+    "PGR": "GRITSCH - PGR",
+    "PMW": "GRITSCH - PMW",
+    "POA": "GRITSCH - POA",
+    "RDN": "GRITSCH - RDN",
+    "RVD": "GRITSCH - RVD",
+    "SAO": "GRITSCH - SAO (PERUS)",
+    "SNO": "GRITSCH - SNO",
+    "SSA": "GRITSCH - SSA",
+    "UMU": "GRITSCH - UMU",
+}
+
+# Situações de veículos considerados "frota ativa" no SQL Server
+SITUACOES_FROTA_ATIVA = {"Locado", "Disponível", "Uso Interno", "Locado veículo reserva", "Em Mobilização"}
 
 
 # ---------------------------------------------------------------------------
