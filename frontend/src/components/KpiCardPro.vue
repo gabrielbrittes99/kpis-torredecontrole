@@ -1,6 +1,6 @@
 <template>
   <div class="kpi-pro-card" :class="[theme]">
-    
+
     <!-- Header: Título e Ícone -->
     <div class="kpi-header">
       <div class="kpi-title-stack">
@@ -16,16 +16,28 @@
         <span class="kpi-value mono">{{ formattedValue }}</span>
         <span v-if="unit" class="kpi-unit">{{ unit }}</span>
       </div>
-      
+
       <div v-if="trendValue != null" class="kpi-trend" :class="trendClass">
         <span class="trend-icon">{{ trendIcon }}</span>
         <span class="trend-text">{{ Math.abs(trendValue).toFixed(trendDecimals) }}%</span>
       </div>
     </div>
 
-    <!-- Footer: Descrição / Label Secundário -->
+    <!-- Linha de delta absoluto + ref -->
+    <div v-if="deltaAbsolute || refLabel" class="kpi-delta-line">
+      <span v-if="deltaAbsolute" class="kpi-delta mono" :class="deltaClass">{{ deltaAbsolute }}</span>
+      <span v-if="refLabel" class="kpi-ref">vs {{ refLabel }}</span>
+    </div>
+
+    <!-- Footer: Descrição / Métricas secundárias -->
     <div class="kpi-footer">
-      <span class="kpi-desc">{{ description }}</span>
+      <span v-if="description" class="kpi-desc">{{ description }}</span>
+      <div v-if="secondaryMetrics && secondaryMetrics.length" class="kpi-secondary">
+        <div v-for="(m, i) in secondaryMetrics" :key="i" class="kpi-sec-row">
+          <span class="kpi-sec-label" :style="m.color ? { color: m.color } : {}">{{ m.label }}</span>
+          <span class="kpi-sec-value mono">{{ m.value }}</span>
+        </div>
+      </div>
     </div>
 
   </div>
@@ -48,8 +60,15 @@ const props = defineProps({
   description: { type: String, default: '' },
   period: { type: String, default: '' },
   icon: { type: String, default: '' },
-  
+
   theme: { type: String, default: 'neutral' }, // 'neutral', 'primary', 'dark'
+
+  // Δ absoluto pré-formatado (ex: "+R$ 142.380" ou "-1.2k L"); aparece abaixo do valor
+  deltaAbsolute: { type: String, default: '' },
+  // Rótulo do período de referência (ex: "Mar/26") — aparece ao lado do delta
+  refLabel: { type: String, default: '' },
+  // Lista de métricas secundárias no rodapé: [{label, value, color?}]
+  secondaryMetrics: { type: Array, default: () => [] },
 })
 
 // === FORMATAÇÃO DE VALORES ===
@@ -76,6 +95,14 @@ const trendClass = computed(() => {
 const trendIcon = computed(() => {
   if (props.trendValue == null || props.trendValue === 0) return '—'
   return props.trendValue > 0 ? '▲' : '▼'
+})
+
+// Cor do delta absoluto: segue o mesmo sinal do trendValue + trendInvert
+const deltaClass = computed(() => {
+  if (props.trendValue == null || props.trendValue === 0) return 'neutral'
+  const positive = props.trendValue > 0
+  const good = props.trendInvert ? !positive : positive
+  return good ? 'delta-good' : 'delta-bad'
 })
 </script>
 
@@ -237,4 +264,57 @@ const trendIcon = computed(() => {
   color: #94a3b8;
   font-weight: 500;
 }
+
+/* Delta absolute line */
+.kpi-delta-line {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: -2px;
+  margin-bottom: 8px;
+  position: relative;
+  z-index: 10;
+}
+.kpi-delta {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.kpi-delta.delta-good { color: #059669; }
+.kpi-delta.delta-bad  { color: #dc2626; }
+.kpi-delta.neutral    { color: #64748b; }
+.kpi-ref {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+/* Secondary metrics (mini breakdown) */
+.kpi-secondary {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.kpi-sec-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+}
+.kpi-sec-label {
+  color: #64748b;
+  font-weight: 600;
+}
+.kpi-sec-value {
+  color: #1e293b;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.kpi-pro-card.dark .kpi-secondary { border-top-color: rgba(255,255,255,0.1); }
+.kpi-pro-card.dark .kpi-sec-label { color: #94a3b8; }
+.kpi-pro-card.dark .kpi-sec-value { color: #f1f5f9; }
 </style>

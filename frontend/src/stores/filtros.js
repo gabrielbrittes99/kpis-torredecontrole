@@ -21,7 +21,11 @@ export const useFiltrosStore = defineStore('filtros', {
       filial: null,
       grupo: null,
       combustivel: null,
-      contrato: null
+      contrato: null,
+
+      // Mês de referência para comparativo (null = backend resolve default = mês anterior)
+      mes_ref: null,
+      ano_ref: null,
     },
     
     // Opções disponíveis que vêm da API
@@ -102,6 +106,16 @@ export const useFiltrosStore = defineStore('filtros', {
       this.selecao.grupo = null
       this.selecao.combustivel = null
       this.selecao.contrato = null
+    },
+
+    setMesReferencia(ano, mes) {
+      this.selecao.ano_ref = ano
+      this.selecao.mes_ref = mes
+    },
+
+    resetMesReferencia() {
+      this.selecao.ano_ref = null
+      this.selecao.mes_ref = null
     }
   }
 })

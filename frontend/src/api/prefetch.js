@@ -40,9 +40,6 @@ export function prefetchAllModules() {
   prefetch('/api/visao-geral/dashboard', p)
 
   // ── Operacional ─────────────────────────────────────────────────────────
-  prefetch('/api/operacional/kpis', { ...p, familia: 'todos' })
-  prefetch('/api/operacional/custo-por-grupo', { ...p, familia: 'todos' })
-  prefetch('/api/operacional/custo-por-filial', { ...p, familia: 'todos' })
   prefetch('/api/operacional/evolucao-mensal', { ...p, familia: 'todos' })
   prefetch('/api/operacional/veiculos-acao', { ...p, familia: 'todos' })
 
@@ -66,7 +63,6 @@ export function prefetchAllModules() {
 
   // ── Preços ──────────────────────────────────────────────────────────────
   prefetch('/api/precos/preco-por-uf', p)
-  prefetch('/api/precos/variacao-mensal', p)
 
   // ── Benchmark ───────────────────────────────────────────────────────────
   prefetch('/api/benchmark/comparativo-frota', p)

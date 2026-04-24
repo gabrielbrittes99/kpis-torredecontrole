@@ -114,7 +114,7 @@ const options = computed(() => {
                <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Composição da frota</div>
                ${r.composicao_grupos.slice(0, 4).map(c => {
                  const grp = c.grupo.replace('Caminhão', 'Cam.').replace('Ton', 'T')
-                 const ck = c.custo_km ? `R$ ${c.custo_km.toFixed(3)}/km` : '—'
+                 const ck = c.custo_km ? `R$ ${c.custo_km.toFixed(2)}/km` : '—'
                  return `<div style="display:flex;justify-content:space-between;gap:16px;margin-bottom:3px">
                    <span style="color:#64748b">${grp} · ${c.qtd_veiculos}v · ${c.pct_valor}%</span>
                    <span style="color:#0f172a;font-family:monospace;font-size:11px;font-weight:600">${ck}</span>

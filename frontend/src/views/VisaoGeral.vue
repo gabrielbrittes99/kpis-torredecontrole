@@ -27,6 +27,39 @@
       </div>
 
       <!-- ══════════════════════════════════════════════════════════════════ -->
+      <!--  CONTEXTO TEMPORAL — Período atual e mês de referência           -->
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <div v-if="store.selecao.modoTempo === 'mes'" class="periodo-bar">
+        <div class="periodo-info">
+          <span class="periodo-label">Período:</span>
+          <strong class="periodo-atual">{{ periodoLabel }}</strong>
+          <span v-if="hero.dias_uteis_periodo" class="periodo-du">({{ hero.dias_uteis_periodo }} dias úteis)</span>
+        </div>
+        <div class="periodo-sep">comparando com</div>
+        <div class="periodo-ref" tabindex="0" @click="toggleRefPopover" @blur="fecharRefPopoverBlur">
+          <strong class="periodo-ref-label">{{ hero.mes_ref_label || '—' }}</strong>
+          <span v-if="hero.dias_uteis_ref" class="periodo-du">({{ hero.dias_uteis_ref }} dias úteis)</span>
+          <span class="periodo-caret">▾</span>
+
+          <!-- Popover de seleção -->
+          <div v-if="refPopoverAberto" class="ref-popover" @mousedown.prevent @click.stop>
+            <div class="ref-popover-title">Escolher mês de referência</div>
+            <div class="ref-popover-list">
+              <button
+                v-for="m in mesesRefDisponiveis" :key="`${m.ano}-${m.mes}`"
+                class="ref-popover-item"
+                :class="{ selected: m.ano === (hero.ano_ref ?? -1) && m.mes === (hero.mes_ref ?? -1) }"
+                @click="aplicarMesRef(m.ano, m.mes)"
+              >
+                {{ m.label }}
+              </button>
+            </div>
+            <button class="ref-popover-reset" @click="redefinirMesRef">↺ Redefinir (mês anterior)</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════════════ -->
       <!--  FAIXA HERO — KPIs Redesenhados (Moderno e Agradável)           -->
       <div class="kpi-pro-grid">
         <KpiCardPro
@@ -37,7 +70,9 @@
           :trendInvert="true"
           theme="primary"
           :period="mesMesLabel"
-          :description="hero.trend_label ? 'vs ' + hero.trend_label : ''"
+          :deltaAbsolute="fmtDeltaR$(hero.gasto_mes_delta_abs)"
+          :refLabel="hero.mes_ref_label || ''"
+          :secondaryMetrics="kpiGastoSecundarias"
         />
         <KpiCardPro
           title="Volume (Litros)"
@@ -47,7 +82,9 @@
           :trendValue="hero.litros_mes_var_pct"
           :trendInvert="false"
           :period="mesMesLabel"
-          :description="hero.trend_label ? 'vs ' + hero.trend_label : ''"
+          :deltaAbsolute="fmtDeltaL(hero.litros_mes_delta_abs)"
+          :refLabel="hero.mes_ref_label || ''"
+          :secondaryMetrics="kpiVolumeSecundarias"
         />
         <KpiCardPro
           title="Preço Médio"
@@ -58,7 +95,9 @@
           :trendValue="hero.preco_medio_var_pct"
           :trendInvert="true"
           :period="mesMesLabel"
-          :description="hero.trend_label ? 'vs ' + hero.trend_label : ''"
+          :deltaAbsolute="fmtDeltaPreco(hero.preco_medio_delta_abs)"
+          :refLabel="hero.mes_ref_label || ''"
+          :secondaryMetrics="kpiPrecoSecundarias"
         />
         <KpiCardPro
           title="Km / Litro"
@@ -69,6 +108,7 @@
           :trendValue="null"
           :period="mesMesLabel"
           :description="hero.kml_fonte === 'fkm_reconciliado' ? 'Eficiência real · fonte FKM' : 'Eficiência via TruckPag (parcial)'"
+          :secondaryMetrics="kpiKmlSecundarias"
         />
         <KpiCardPro
           title="Custo por KM"
@@ -79,6 +119,7 @@
           :trendValue="null"
           :period="mesMesLabel"
           :description="hero.kml_fonte === 'fkm_reconciliado' ? 'Custo real · fonte FKM' : 'Custo via TruckPag (parcial)'"
+          :secondaryMetrics="kpiCustoKmSecundarias"
         />
       </div>
 
@@ -111,7 +152,7 @@
                 <td class="bd-name">{{ m.grupo }}</td>
                 <td class="right mono bd-val">{{ fmtR(m.valor) }}</td>
                 <td class="right mono bd-sub-val">{{ fmtN(m.litros) }}</td>
-                <td class="right mono bd-sub-val">{{ m.litros > 0 ? (m.valor / m.litros).toFixed(3) : '—' }}</td>
+                <td class="right mono bd-sub-val">{{ m.litros > 0 ? (m.valor / m.litros).toFixed(2) : '—' }}</td>
                 <td>
                   <div class="bd-bar-cell">
                     <div class="bd-bar-track">
@@ -248,10 +289,10 @@
 
 
       <!-- ══════════════════════════════════════════════════════════════════ -->
-      <!--  INSIGHTS POR DIMENSÃO — Combustível · Região · Grupo · Filial  -->
+      <!--  INSIGHTS POR DIMENSÃO — Combustível · Região                   -->
       <!-- ══════════════════════════════════════════════════════════════════ -->
       <div class="insights-donut-row">
-        <!-- Donut: Combustível -->
+        <!-- Barras horizontais: Combustível -->
         <section class="v-block insights-card">
           <div class="section-title-row" style="margin-bottom: 10px;">
             <div class="section-title" style="margin-bottom:0">GASTO POR COMBUSTÍVEL — {{ mesMesLabel }}</div>
@@ -265,17 +306,29 @@
               >{{ r }}</button>
             </div>
           </div>
-          <apexchart
-            v-if="mixCombustivel.length"
-            type="donut"
-            height="260"
-            :options="optDonutComb"
-            :series="seriesDonutComb"
-          />
+          <div v-if="mixCombustivel.length" class="fuel-bar-list">
+            <div v-for="m in mixCombustivelOrdenado" :key="m.grupo" class="fuel-bar-row">
+              <div class="fuel-bar-head">
+                <span class="fuel-bar-dot" :style="{ background: combustivelColor(m.grupo) }"></span>
+                <span class="fuel-bar-name">{{ m.grupo }}</span>
+                <span class="fuel-bar-pct mono">{{ m.pct_local || m.pct }}%</span>
+                <span class="fuel-bar-val mono">{{ fmtR(m.valor) }}</span>
+              </div>
+              <div class="fuel-bar-track">
+                <div
+                  class="fuel-bar-fill"
+                  :style="{ width: (m.pct_local || m.pct) + '%', background: combustivelColor(m.grupo) }"
+                ></div>
+              </div>
+              <div class="fuel-bar-meta mono">
+                {{ fmtN(m.litros) }} L · R$ {{ m.litros > 0 ? (m.valor / m.litros).toFixed(2) : '—' }}/L
+              </div>
+            </div>
+          </div>
           <div v-else class="empty-msg">Sem dados</div>
         </section>
 
-        <!-- Donut: Região -->
+        <!-- Donut + lista: Região -->
         <section class="v-block insights-card">
           <div class="section-title-row" style="margin-bottom: 10px;">
             <div class="section-title" style="margin-bottom:0">GASTO POR REGIÃO — {{ mesMesLabel }}</div>
@@ -289,13 +342,34 @@
               >{{ c }}</button>
             </div>
           </div>
-          <apexchart
-            v-if="porRegiao.length"
-            type="donut"
-            height="240"
-            :options="optDonutRegiao"
-            :series="seriesDonutRegiao"
-          />
+          <div v-if="porRegiao.length" class="regiao-layout">
+            <div class="regiao-donut-wrap">
+              <apexchart
+                type="donut"
+                height="240"
+                width="240"
+                :options="optDonutRegiao"
+                :series="seriesDonutRegiao"
+              />
+              <div class="regiao-donut-caption">{{ porRegiao.length }} regiões</div>
+            </div>
+            <div class="regiao-list">
+              <div v-for="r in porRegiaoOrdenado" :key="r.regiao" class="regiao-row">
+                <div class="regiao-row-head">
+                  <span class="regiao-dot" :style="{ background: regiaoColor(r.regiao) }"></span>
+                  <span class="regiao-nome">{{ r.regiao }}</span>
+                  <span class="regiao-pct mono">{{ r.pct }}%</span>
+                  <span class="regiao-val mono">{{ fmtR(r.valor) }}</span>
+                </div>
+                <div class="regiao-bar-track">
+                  <div class="regiao-bar-fill" :style="{ width: r.pct + '%', background: regiaoColor(r.regiao) }"></div>
+                </div>
+                <div class="regiao-meta mono">
+                  {{ fmtN(r.litros) }} L · {{ r.veiculos }} veíc · {{ r.filiais }} {{ r.filiais === 1 ? 'filial' : 'filiais' }}
+                </div>
+              </div>
+            </div>
+          </div>
           <div v-else class="empty-msg">Sem dados</div>
         </section>
       </div>
@@ -374,7 +448,7 @@
                     <span class="grupo-nome-tbl">{{ g.grupo }}</span>
                   </td>
                   <td class="right mono">
-                    <span class="val-currency">R$</span> <span class="val-primary">{{ g.custo_km != null ? g.custo_km.toFixed(3) : '—' }}</span>
+                    <span class="val-currency">R$</span> <span class="val-primary">{{ g.custo_km != null ? g.custo_km.toFixed(2) : '—' }}</span>
                   </td>
                   <td class="col-kml">
                     <div class="kml-modern">
@@ -496,63 +570,6 @@
         </div>
       </section>
 
-      <div class="bottom-row">
-        <section class="v-block mix-block">
-          <div class="section-title">MIX DE COMBUSTÍVEL — {{ mesMesLabel }}</div>
-          <div class="donut-mix-wrap">
-            <div class="donut-chart-container">
-              <apexchart type="donut" height="200" width="200" :options="donutMixOptions" :series="donutMixSeries" />
-            </div>
-            <div class="donut-legend">
-              <div v-for="m in mixCombustivel" :key="m.grupo" class="dl-row">
-                <span class="dl-dot" :style="{ background: combustivelColor(m.grupo) }"></span>
-                <span class="dl-nome">{{ m.grupo }}</span>
-                <span class="dl-pct mono">{{ m.pct_local || m.pct }}%</span>
-                <span class="dl-val mono">{{ fmtR(m.valor) }}</span>
-              </div>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      <section class="v-block filiais-block">
-        <div class="section-title">GASTO POR FILIAL — {{ mesMesLabel }}</div>
-        <div v-if="filiaisVisiveis.length === 0" class="empty-msg">Dados de filial não disponíveis</div>
-        <div v-else class="filiais-cards">
-          <div v-for="f in filiaisLimitadas" :key="f.filial" class="filial-row">
-            <div class="filial-row-top">
-              <div class="filial-info">
-                <span class="filial-dot" :style="{ background: combustivelColor(f.combustivel_pred) }"></span>
-                <span class="filial-nome">{{ f.filial.replace('Gritsch ', '') }}</span>
-                <span class="filial-uf mono">{{ f.estado || '—' }}</span>
-              </div>
-              <div class="filial-nums">
-                <span class="filial-gasto mono">{{ fmtR(f.gasto) }}</span>
-                <span class="filial-pct mono">{{ filiaisTotalGasto > 0 ? (f.gasto / filiaisTotalGasto * 100).toFixed(1) + '%' : '—' }}</span>
-                <button class="btn-drill" @click="irParaOperacionalFilial(f.filial)" title="Ver operacional desta filial">
-                  <span class="icon-drill">→</span>
-                </button>
-              </div>
-            </div>
-            <div class="filial-bar-wrap">
-              <div
-                class="filial-bar-fill"
-                :style="{
-                  width: filiaisTotalGasto > 0 ? Math.min((f.gasto / filiaisTotalGasto * 100), 100) + '%' : '0%',
-                  background: combustivelColor(f.combustivel_pred)
-                }"
-              ></div>
-            </div>
-            <div class="filial-meta mono">
-              {{ fmtN(f.litros) }} L · {{ f.veiculos }} veíc.
-              <span v-if="f.combustivel_pred" class="comb-badge" :style="{ color: combustivelColor(f.combustivel_pred) }">{{ f.combustivel_pred }}</span>
-            </div>
-          </div>
-          <button v-if="filiaisVisiveis.length > 8" class="btn-ver-mais" @click="mostrarTodasFiliais = !mostrarTodasFiliais">
-            {{ mostrarTodasFiliais ? '▴ Recolher' : '▾ Ver todas (' + filiaisVisiveis.length + ')' }}
-          </button>
-        </div>
-      </section>
     </div>
   </div>
 </template>
@@ -586,6 +603,8 @@ function getApiParams(extras = {}) {
     estado: s.estado || undefined,
     filial: s.filial || undefined,
     grupo: s.grupo || undefined,
+    mes_ref: s.mes_ref ?? undefined,
+    ano_ref: s.ano_ref ?? undefined,
     ...extras
   }
   return params
@@ -752,10 +771,6 @@ const filiaisVisiveis = computed(() =>
 const filiaisTotalGasto = computed(() =>
   filiaisVisiveis.value.reduce((s, f) => s + (f.gasto || 0), 0)
 )
-const mostrarTodasFiliais = ref(false)
-const filiaisLimitadas = computed(() =>
-  mostrarTodasFiliais.value ? filiaisVisiveis.value : filiaisVisiveis.value.slice(0, 8)
-)
 
 const veiculosSemFilial = computed(() => {
   const sf = filiais.value.find(f => f.filial === "Sem filial identificada")
@@ -795,6 +810,26 @@ const fmtN = v => v != null
 
 const varClass = v => v == null ? 'badge-neutral' : v > 0 ? 'badge-red' : 'badge-green'
 const varIcon  = v => v == null ? '' : v > 0 ? '▲' : '▼'
+
+// ── Formatadores de delta absoluto para cards KPI ────────────────────────
+const fmtDeltaR$ = v => {
+  if (v == null) return ''
+  const sign = v > 0 ? '+' : v < 0 ? '−' : ''
+  return sign + 'R$ ' + Math.abs(v).toLocaleString('pt-BR', { maximumFractionDigits: 0 })
+}
+const fmtDeltaL = v => {
+  if (v == null) return ''
+  const sign = v > 0 ? '+' : v < 0 ? '−' : ''
+  return sign + Math.abs(v).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) + ' L'
+}
+const fmtDeltaPreco = v => {
+  if (v == null) return ''
+  const sign = v > 0 ? '+' : v < 0 ? '−' : ''
+  return sign + 'R$ ' + Math.abs(v).toFixed(2) + '/L'
+}
+
+// Rótulo do período atual (ex: "Abril/2026") — backend envia em hero.periodo_label quando modoTempo === 'mes'
+const periodoLabel = computed(() => hero.value.periodo_label || mesMesLabel.value)
 
 // Cor do botão "Todos" (neutro, distinto dos combustíveis)
 const TODOS_COLOR = '#334155'
@@ -842,68 +877,45 @@ const fmtRShort = v => {
   return 'R$ ' + v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
 }
 
-// ── Donut: Combustível ────────────────────────────────────────────────────
-const seriesDonutComb = computed(() => mixCombustivel.value.map(m => m.valor))
-const optDonutComb = computed(() => ({
-  chart: { background: 'transparent', fontFamily: 'Inter, sans-serif' },
-  theme: { mode: 'light' },
-  labels: mixCombustivel.value.map(m => m.grupo),
-  colors: mixCombustivel.value.map(m => FUEL_COLORS[m.grupo] ?? '#6b7280'),
-  legend: { position: 'bottom', fontSize: '12px', fontFamily: 'Inter, sans-serif' },
-  dataLabels: { enabled: true, formatter: (val) => val.toFixed(1) + '%', style: { fontSize: '11px' } },
-  plotOptions: { pie: { donut: { size: '60%', labels: {
-    show: true,
-    total: { show: true, label: 'Total', fontSize: '12px',
-      formatter: () => fmtRShort(mixCombustivel.value.reduce((s, m) => s + m.valor, 0)) }
-  } } } },
-  tooltip: { y: { formatter: v => 'R$ ' + Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) } },
-  stroke: { width: 2 },
-}))
+// ── Mix combustível — ordenado por valor desc (para barras horizontais) ───
+const mixCombustivelOrdenado = computed(() =>
+  [...mixCombustivel.value].sort((a, b) => b.valor - a.valor)
+)
 
-// ── Donut: Mix Combustível (seção inferior) ──────────────────────────────
-const donutMixSeries = computed(() => mixCombustivel.value.map(m => m.valor))
-const donutMixOptions = computed(() => ({
+// ── Por região — ordenado por valor desc (para lista lateral) ─────────────
+const porRegiaoOrdenado = computed(() =>
+  [...porRegiao.value].sort((a, b) => b.valor - a.valor)
+)
+
+// ── Donut: Região (versão compacta — lista lateral já mostra detalhes) ───
+const seriesDonutRegiao = computed(() => porRegiaoOrdenado.value.map(r => r.valor))
+const regiaoTotalValor = computed(() => porRegiao.value.reduce((s, r) => s + r.valor, 0))
+const optDonutRegiao = computed(() => ({
   chart: { background: 'transparent', fontFamily: 'Inter, sans-serif' },
   theme: { mode: 'light' },
-  labels: mixCombustivel.value.map(m => m.grupo),
-  colors: mixCombustivel.value.map(m => FUEL_COLORS[m.grupo] ?? '#6b7280'),
+  labels: porRegiaoOrdenado.value.map(r => r.regiao),
+  colors: porRegiaoOrdenado.value.map(r => REGIAO_COLORS[r.regiao] ?? '#6b7280'),
   legend: { show: false },
   dataLabels: { enabled: false },
   plotOptions: { pie: { donut: { size: '72%', labels: {
     show: true,
-    name: { show: false },
-    value: { show: false },
-    total: { show: true, label: 'Total', fontSize: '11px', color: '#94a3b8',
-      formatter: () => fmtRShort(mixCombustivel.value.reduce((s, m) => s + m.valor, 0)) }
-  } } } },
-  tooltip: { y: { formatter: v => 'R$ ' + Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) } },
-  stroke: { width: 2, colors: ['#ffffff'] },
-}))
-
-// ── Donut: Região ─────────────────────────────────────────────────────────
-const seriesDonutRegiao = computed(() => porRegiao.value.map(r => r.valor))
-const optDonutRegiao = computed(() => ({
-  chart: { background: 'transparent', fontFamily: 'Inter, sans-serif' },
-  theme: { mode: 'light' },
-  labels: porRegiao.value.map(r => r.regiao),
-  colors: porRegiao.value.map(r => REGIAO_COLORS[r.regiao] ?? '#6b7280'),
-  legend: { position: 'bottom', fontSize: '12px', fontFamily: 'Inter, sans-serif' },
-  dataLabels: { enabled: true, formatter: (val) => val.toFixed(1) + '%', style: { fontSize: '11px' } },
-  plotOptions: { pie: { donut: { size: '60%', labels: {
-    show: true,
-    total: { show: true, label: 'Regiões', fontSize: '12px',
-      formatter: () => porRegiao.value.length + ' regiões' }
+    name: { show: true, offsetY: -6, fontSize: '11px', fontWeight: 700, color: '#64748b' },
+    value: { show: true, offsetY: 6, fontSize: '17px', fontWeight: 800, color: '#0f172a',
+      formatter: (v) => fmtRShort(Number(v)) },
+    total: { show: true, label: 'TOTAL', fontSize: '11px', fontWeight: 700, color: '#94a3b8',
+      formatter: () => fmtRShort(regiaoTotalValor.value) }
   } } } },
   tooltip: {
     y: {
       formatter: (v, { seriesIndex }) => {
-        const r = porRegiao.value[seriesIndex]
+        const r = porRegiaoOrdenado.value[seriesIndex]
+        const pct = regiaoTotalValor.value > 0 ? ((v / regiaoTotalValor.value) * 100).toFixed(1) : '0'
         return 'R$ ' + Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) +
-          (r ? ` · ${r.filiais} filiais · ${r.veiculos} veíc.` : '')
+          ` · ${pct}%` + (r ? ` · ${r.veiculos} veíc.` : '')
       }
     }
   },
-  stroke: { width: 2 },
+  stroke: { width: 2, colors: ['#ffffff'] },
 }))
 
 // ── Barra horizontal: Grupo de Veículo ────────────────────────────────────
@@ -1029,6 +1041,7 @@ const avgDiarioFDSFeriado = computed(() => {
 
 const optDiarioGeral = computed(() => ({
   ...chartBase,
+  chart: { ...chartBase.chart, zoom: { enabled: false }, toolbar: { show: false } },
   colors: [corTendencia.value, '#f97316'],
   plotOptions: { bar: { borderRadius: 5, columnWidth: '60%' } },
   stroke: { width: [0, 2.5], curve: 'straight', dashArray: [0, 6] },
@@ -1143,6 +1156,128 @@ watch(
 
 onMounted(() => {
   load()
+})
+
+// ── Seletor de mês de referência ─────────────────────────────────────────
+const refPopoverAberto = ref(false)
+
+function toggleRefPopover() {
+  refPopoverAberto.value = !refPopoverAberto.value
+}
+
+function fecharRefPopoverBlur(ev) {
+  // fecha se o foco sair completamente da área (relatedTarget fora do .periodo-ref)
+  const container = ev.currentTarget
+  if (container && ev.relatedTarget && container.contains(ev.relatedTarget)) return
+  setTimeout(() => { refPopoverAberto.value = false }, 120)
+}
+
+function aplicarMesRef(ano, mes) {
+  store.setMesReferencia(ano, mes)
+  refPopoverAberto.value = false
+}
+
+function redefinirMesRef() {
+  store.resetMesReferencia()
+  refPopoverAberto.value = false
+}
+
+// Lista de meses disponíveis para referência: últimos 12 meses antes do período atual
+const mesesRefDisponiveis = computed(() => {
+  const s = store.selecao
+  if (s.modoTempo !== 'mes') return []
+  const lista = []
+  let y = s.ano
+  let m = s.mes
+  for (let i = 0; i < 12; i++) {
+    m -= 1
+    if (m <= 0) { m = 12; y -= 1 }
+    lista.push({
+      ano: y,
+      mes: m,
+      label: store.opcoes.meses[m - 1] + '/' + y,
+    })
+  }
+  return lista
+})
+
+// ── Secundárias dos KPI cards ────────────────────────────────────────────
+function _fmtRefLine(gastoAnt, diasUteisRef) {
+  if (gastoAnt == null) return ''
+  const parts = [fmtR(gastoAnt)]
+  if (diasUteisRef) parts.push(diasUteisRef + ' du')
+  return parts.join(' · ')
+}
+
+const kpiGastoSecundarias = computed(() => {
+  const h = hero.value
+  const items = []
+  if (h.gasto_ant != null && h.mes_ref_label) {
+    items.push({
+      label: h.mes_ref_label,
+      value: _fmtRefLine(h.gasto_ant, h.dias_uteis_ref),
+    })
+  }
+  return items
+})
+
+const kpiVolumeSecundarias = computed(() => {
+  const h = hero.value
+  return (h.por_combustivel || []).slice(0, 3).map(c => ({
+    label: c.grupo,
+    value: fmtN(c.litros) + ' L' + (c.preco_medio != null ? '  ·  R$ ' + c.preco_medio.toFixed(2) : ''),
+    color: combustivelColor(c.grupo),
+  }))
+})
+
+const kpiPrecoSecundarias = computed(() => {
+  const h = hero.value
+  return (h.por_combustivel || []).slice(0, 3).map(c => {
+    const ref = c.preco_medio_ref
+    const delta = (c.preco_medio != null && ref != null) ? c.preco_medio - ref : null
+    const valStr = c.preco_medio != null ? 'R$ ' + c.preco_medio.toFixed(2) : '—'
+    const deltaStr = delta != null
+      ? '  (' + (delta > 0 ? '+' : delta < 0 ? '−' : '') + 'R$ ' + Math.abs(delta).toFixed(2) + ')'
+      : ''
+    return {
+      label: c.grupo,
+      value: valStr + deltaStr,
+      color: combustivelColor(c.grupo),
+    }
+  })
+})
+
+// Grupo líder (maior volume/gasto) para informar meta kml/custo/km nos cards
+const grupoLider = computed(() => {
+  if (!porGrupo.value.length) return null
+  return [...porGrupo.value].sort((a, b) => b.gasto - a.gasto)[0]
+})
+
+const kpiKmlSecundarias = computed(() => {
+  const g = grupoLider.value
+  if (!g) return []
+  const out = [{
+    label: g.grupo + ' (líder)',
+    value: (g.kml ?? '—') + ' km/L' + (g.kml_ref ? '  meta ' + g.kml_ref : ''),
+  }]
+  if (g.kml_variacao_pct != null) {
+    const sign = g.kml_variacao_pct > 0 ? '+' : ''
+    out.push({
+      label: 'vs meta',
+      value: sign + g.kml_variacao_pct + '%',
+      color: g.kml_status === 'ok' ? '#059669' : g.kml_status === 'alerta' ? '#d97706' : '#dc2626',
+    })
+  }
+  return out
+})
+
+const kpiCustoKmSecundarias = computed(() => {
+  const g = grupoLider.value
+  if (!g) return []
+  return [{
+    label: g.grupo + ' (líder)',
+    value: g.custo_km != null ? 'R$ ' + g.custo_km.toFixed(2) + '/km' : '—',
+  }]
 })
 </script>
 
@@ -1682,6 +1817,284 @@ tbody.has-filter .bd-row.dimmed:hover {
   border-radius: 8px;
   padding: 6px 12px;
   font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*  BARRA DE CONTEXTO TEMPORAL (período + mês de ref)                        */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+.periodo-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  color: #475569;
+  flex-wrap: wrap;
+}
+.periodo-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.periodo-atual {
+  color: #0f172a;
+  font-weight: 700;
+}
+.periodo-du {
+  color: #94a3b8;
+  font-size: 12px;
+}
+.periodo-sep {
+  color: #94a3b8;
+  font-style: italic;
+  font-size: 12px;
+}
+.periodo-ref {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+.periodo-ref:hover, .periodo-ref:focus {
+  border-color: #64748b;
+  background: white;
+}
+.periodo-ref-label {
+  color: #0f172a;
+  font-weight: 700;
+}
+.periodo-caret {
+  color: #64748b;
+  font-size: 10px;
+}
+.ref-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+  padding: 10px;
+  z-index: 50;
+  min-width: 200px;
+}
+.ref-popover-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 8px;
+}
+.ref-popover-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.ref-popover-item {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+  color: #1e293b;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s, border-color 0.1s;
+}
+.ref-popover-item:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+.ref-popover-item.selected {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+  font-weight: 700;
+}
+.ref-popover-reset {
+  margin-top: 8px;
+  width: 100%;
+  background: transparent;
+  border: 1px dashed #cbd5e1;
+  border-radius: 6px;
+  padding: 6px;
+  font-size: 11px;
+  color: #64748b;
+  cursor: pointer;
+  font-weight: 600;
+}
+.ref-popover-reset:hover {
+  background: #f8fafc;
+  color: #1e293b;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*  FUEL BAR LIST — Gasto por Combustível (barras horizontais)               */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+.fuel-bar-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 2px;
+}
+.fuel-bar-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.fuel-bar-head {
+  display: grid;
+  grid-template-columns: 10px 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.fuel-bar-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.fuel-bar-name {
+  font-weight: 700;
+  color: #0f172a;
+}
+.fuel-bar-pct {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+.fuel-bar-val {
+  color: #0f172a;
+  font-weight: 700;
+}
+.fuel-bar-track {
+  background: #f1f5f9;
+  height: 10px;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.fuel-bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.fuel-bar-meta {
+  font-size: 11px;
+  color: #94a3b8;
+  padding-left: 18px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*  REGIÃO LAYOUT — Donut + lista lateral                                    */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+.regiao-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 24px;
+  align-items: stretch;
+}
+.regiao-donut-wrap {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 8px;
+  background: #fafbfc;
+  border: 1px solid #f1f5f9;
+  border-radius: 12px;
+  min-height: 260px;
+}
+.regiao-donut-caption {
+  margin-top: 6px;
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.regiao-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  justify-content: center;
+}
+.regiao-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  transition: background 0.15s ease;
+}
+.regiao-row:hover { background: #f8fafc; }
+.regiao-row-head {
+  display: grid;
+  grid-template-columns: 10px 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+}
+.regiao-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.regiao-nome {
+  font-weight: 700;
+  color: #0f172a;
+}
+.regiao-pct {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.regiao-val {
+  color: #0f172a;
+  font-weight: 800;
+  font-size: 13px;
+}
+.regiao-bar-track {
+  height: 4px;
+  background: #f1f5f9;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-left: 20px;
+}
+.regiao-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+.regiao-meta {
+  font-size: 11px;
+  color: #94a3b8;
+  padding-left: 20px;
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .regiao-layout { grid-template-columns: 1fr; }
+  .periodo-bar { font-size: 12px; }
 }
 
 </style>

@@ -6,7 +6,6 @@ export function fetchFkmResumoPorFilial(params = {})        { return cachedFetch
 export function fetchFkmCustoPorVeiculo(params = {})        { return cachedFetch('/api/fkm/custo-por-veiculo', params, { ttl: TTL.DASHBOARD }) }
 export function fetchFkmEvolucaoMensal(params = {})         { return cachedFetch('/api/fkm/evolucao-mensal', params, { ttl: TTL.EVOLUCAO }) }
 export function fetchFkmDistribuicaoCategorias(params = {}) { return cachedFetch('/api/fkm/distribuicao-categorias', params, { ttl: TTL.DASHBOARD }) }
-export function fetchFkmRankingKmLitro(params = {})         { return cachedFetch('/api/fkm/ranking-km-litro', params, { ttl: TTL.DASHBOARD }) }
 export function fetchFkmReconciliacao(params = {})          { return cachedFetch('/api/fkm/reconciliacao', params, { ttl: TTL.DASHBOARD }) }
 
 // Funções para upload de abastecimento direto

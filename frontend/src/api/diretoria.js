@@ -8,10 +8,6 @@ export function fetchTendencia12Meses(params = {}) {
   return cachedFetch('/api/diretoria/tendencia-12-meses', params, { ttl: TTL.EVOLUCAO })
 }
 
-export function fetchPotencialEconomia(params = {}) {
-  return cachedFetch('/api/diretoria/potencial-economia', params, { ttl: TTL.DASHBOARD })
-}
-
 export function fetchMixCombustiveis(params = {}) {
   return cachedFetch('/api/diretoria/mix-combustiveis', params, { ttl: TTL.DASHBOARD })
 }
@@ -26,4 +22,8 @@ export function fetchGastosFiliais(params = {}) {
 
 export function fetchBenchmarkComparativo(params = {}) {
   return cachedFetch('/api/benchmark/comparativo-frota', params, { ttl: TTL.DASHBOARD })
+}
+
+export function fetchAnaliseReferencia(params = {}) {
+  return cachedFetch('/api/diretoria/analise-referencia', params, { ttl: TTL.DASHBOARD })
 }

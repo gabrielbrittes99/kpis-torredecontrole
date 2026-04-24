@@ -26,7 +26,7 @@
               <span class="uf-tag">{{ p.uf_posto }}</span>
             </td>
             <td class="right mono" :class="ordem === 'mais_caro' && i === 0 ? 'red' : 'val'">
-              R$ {{ p.preco_medio.toFixed(3) }}
+              R$ {{ p.preco_medio.toFixed(2) }}
             </td>
             <td class="right mono" :class="ordem === 'maior_custo' ? (i === 0 ? 'red bold' : 'val') : 'dim'">
               {{ fmtR(p.total_valor) }}

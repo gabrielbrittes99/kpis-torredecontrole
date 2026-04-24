@@ -16,18 +16,56 @@ router = APIRouter(prefix="/api/diretoria", tags=["diretoria"])
 
 
 # ---------------------------------------------------------------------------
+# Filtros de atributo (colunas enriquecidas pelo cache)
+# ---------------------------------------------------------------------------
+
+def _apply_attr_filters(
+    df: pd.DataFrame,
+    combustivel: Optional[str] = None,
+    filial: Optional[str] = None,
+    estado: Optional[str] = None,
+    regiao: Optional[str] = None,
+    grupo: Optional[str] = None,
+) -> pd.DataFrame:
+    """Aplica filtros não-temporais (combustível, filial, UF, região, grupo de veículo)."""
+    if df.empty:
+        return df
+    df = df.copy()
+    if combustivel:
+        df = df[df["grupo_combustivel"] == combustivel]
+    if filial:
+        df = df[df["filial_nome"] == filial]
+    if estado:
+        df = df[df["filial_estado"] == estado]
+    if regiao:
+        df = df[df["filial_regiao"] == regiao]
+    if grupo:
+        df = df[df["grupo_veiculo"] == grupo]
+    return df
+
+
+# ---------------------------------------------------------------------------
 # KPIs estratégicos
 # ---------------------------------------------------------------------------
 
 @router.get("/kpis-estrategicos")
 def get_kpis_estrategicos(
     mes: Optional[int] = Query(None),
-    ano: Optional[int] = Query(None)
+    ano: Optional[int] = Query(None),
+    combustivel: Optional[str] = Query(None),
+    filial: Optional[str] = Query(None),
+    estado: Optional[str] = Query(None),
+    regiao: Optional[str] = Query(None),
+    grupo: Optional[str] = Query(None),
 ):
     """
     KPIs de alto nível para a diretoria, com foco em impacto financeiro e eficiência.
+    Respeita filtros de atributo (combustível/filial/UF/região/grupo).
     """
     df = cache.get_df()
+    if df.empty:
+        return {}
+    df = _apply_attr_filters(df, combustivel, filial, estado, regiao, grupo)
     if df.empty:
         return {}
 
@@ -67,9 +105,25 @@ def get_kpis_estrategicos(
             km_max=("hodometro", "max")
         )
         km_ano = float((km_agg["km_max"] - km_agg["km_min"]).sum())
-    
+
     kml_medio = round(km_ano / litros_ano, 2) if litros_ano > 0 else 0
-    custo_km = round(gasto_ano / km_ano, 3) if km_ano > 0 else 0
+
+    # ── KPIs escopo do PERÍODO selecionado (refletem o filtro de mês) ──
+    df_periodo = df_ano[df_ano["data_transacao"].dt.month == mes_ref].copy()
+    gasto_periodo  = float(df_periodo["valor"].sum())
+    litros_periodo = float(df_periodo["litragem"].sum())
+    preco_medio_periodo = round(gasto_periodo / litros_periodo, 2) if litros_periodo > 0 else 0
+
+    km_periodo = 0.0
+    df_hod_periodo = df_periodo.dropna(subset=["hodometro", "placa"])
+    if not df_hod_periodo.empty:
+        km_agg_p = df_hod_periodo.groupby("placa").agg(
+            km_min=("hodometro", "min"),
+            km_max=("hodometro", "max")
+        )
+        km_periodo = float((km_agg_p["km_max"] - km_agg_p["km_min"]).sum())
+    # Custo/km do período só é confiável com volume mínimo de km na frota filtrada
+    custo_km_periodo = round(gasto_periodo / km_periodo, 3) if km_periodo >= 10_000 else 0
 
     # 3. Saving Real (vs ANP) - Passando Filtros
     from routers.benchmark import get_resumo_benchmark
@@ -163,8 +217,10 @@ def get_kpis_estrategicos(
         "projecao_mes_atual": proj_total_mes,
         "projecao_anual": projecao_anual,
         "kml_medio": kml_medio,
-        "preco_medio_litro": round(gasto_ano / litros_ano, 2) if litros_ano > 0 else 0,
-        "custo_por_km": custo_km,
+        "preco_medio_litro": preco_medio_periodo,
+        "preco_medio_ano": round(gasto_ano / litros_ano, 2) if litros_ano > 0 else 0,
+        "custo_por_km": custo_km_periodo,
+        "custo_por_km_ano": round(gasto_ano / km_ano, 3) if km_ano > 0 else 0,
         "saving_acumulado_mes": saving_acumulado,
         "saving_resumo_anp": saving_resumo,
         "pct_diesel": pct_diesel,
@@ -183,13 +239,21 @@ def get_kpis_estrategicos(
 # ---------------------------------------------------------------------------
 
 @router.get("/tendencia-12-meses")
-def get_tendencia_12_meses():
-    """Últimos 12 meses de custo total, litros e preço médio."""
+def get_tendencia_12_meses(
+    combustivel: Optional[str] = Query(None),
+    filial: Optional[str] = Query(None),
+    estado: Optional[str] = Query(None),
+    regiao: Optional[str] = Query(None),
+    grupo: Optional[str] = Query(None),
+):
+    """Últimos 12 meses de custo total, litros e preço médio. Respeita filtros de atributo."""
     df = cache.get_df()
     if df.empty:
         return []
 
-    df = df.copy()
+    df = _apply_attr_filters(df, combustivel, filial, estado, regiao, grupo)
+    if df.empty:
+        return []
     
     # Identificar o último mês com dados completos vs mês atual parcial
     hoje = df["data_transacao"].max()
@@ -242,76 +306,25 @@ def get_tendencia_12_meses():
 
 
 # ---------------------------------------------------------------------------
-# Potencial de economia
-# ---------------------------------------------------------------------------
-
-@router.get("/potencial-economia")
-def get_potencial_economia():
-    """
-    Calcula o potencial de economia se todos os abastecimentos
-    fossem feitos no posto mais barato de cada UF por tipo de combustível.
-    """
-    df = cache.get_df().copy()
-    if df.empty:
-        return {"economia_potencial": 0, "economia_pct": 0, "por_uf": []}
-
-    df = df[df["uf_posto"] != ""].copy()
-    df["preco_litro"] = df["valor"] / df["litragem"]
-
-    # Preço mínimo por UF e tipo de combustível
-    minimos = (
-        df.groupby(["uf_posto", "nome_combustivel"])["preco_litro"]
-        .min()
-        .reset_index()
-        .rename(columns={"preco_litro": "preco_minimo"})
-    )
-
-    df_join = df.merge(minimos, on=["uf_posto", "nome_combustivel"])
-    df_join["valor_minimo"] = df_join["litragem"] * df_join["preco_minimo"]
-    df_join["economia"] = df_join["valor"] - df_join["valor_minimo"]
-
-    total_gasto = float(df_join["valor"].sum())
-    economia_total = round(float(df_join["economia"].sum()), 2)
-    economia_pct = round(economia_total / total_gasto * 100, 1) if total_gasto > 0 else 0
-
-    por_uf = (
-        df_join.groupby("uf_posto")
-        .agg(
-            economia=("economia", "sum"),
-            total_gasto=("valor", "sum"),
-        )
-        .reset_index()
-        .sort_values("economia", ascending=False)
-    )
-    por_uf["economia_pct"] = (por_uf["economia"] / por_uf["total_gasto"] * 100).round(1)
-
-    return {
-        "economia_potencial": economia_total,
-        "economia_pct": economia_pct,
-        "total_gasto": round(total_gasto, 2),
-        "por_uf": [
-            {
-                "uf": row["uf_posto"],
-                "economia": round(float(row["economia"]), 2),
-                "total_gasto": round(float(row["total_gasto"]), 2),
-                "economia_pct": float(row["economia_pct"]),
-            }
-            for _, row in por_uf.iterrows()
-        ],
-    }
-
-
-# ---------------------------------------------------------------------------
 # Distribuição por tipo de combustível (todos os dados)
 # ---------------------------------------------------------------------------
 
 @router.get("/mix-combustiveis")
 def get_mix_combustiveis(
     mes: Optional[int] = Query(None),
-    ano: Optional[int] = Query(None)
+    ano: Optional[int] = Query(None),
+    combustivel: Optional[str] = Query(None),
+    filial: Optional[str] = Query(None),
+    estado: Optional[str] = Query(None),
+    regiao: Optional[str] = Query(None),
+    grupo: Optional[str] = Query(None),
 ):
     """Retorna o mix de combustível do mês selecionado e do ano selecionado."""
     df = cache.get_df().copy()
+    if df.empty:
+        return {"mes": [], "ano": []}
+
+    df = _apply_attr_filters(df, combustivel, filial, estado, regiao, grupo)
     if df.empty:
         return {"mes": [], "ano": []}
 
@@ -360,14 +373,23 @@ def get_mix_combustiveis(
 @router.get("/gastos-filiais")
 def get_gastos_filiais_matriz(
     mes: Optional[int] = Query(None),
-    ano: Optional[int] = Query(None)
+    ano: Optional[int] = Query(None),
+    combustivel: Optional[str] = Query(None),
+    filial: Optional[str] = Query(None),
+    estado: Optional[str] = Query(None),
+    regiao: Optional[str] = Query(None),
+    grupo: Optional[str] = Query(None),
 ):
     """Matriz de gastos por filial e tipo de combustível vs média 3 meses anteriores ao selecionado."""
     from db_sqlserver import get_veiculos_df
-    
+
     df_tp = cache.get_df().copy()
     df_veic = get_veiculos_df()
-    
+
+    if df_tp.empty:
+        return []
+
+    df_tp = _apply_attr_filters(df_tp, combustivel, None, estado, regiao, grupo)
     if df_tp.empty:
         return []
 
@@ -382,7 +404,13 @@ def get_gastos_filiais_matriz(
     
     df = df_tp.merge(df_veic[["Placa", "FilialOperacional"]], left_on="placa_norm", right_on="Placa", how="left")
     df["FilialOperacional"] = df["FilialOperacional"].fillna("NÃO IDENTIFICADA")
-    
+
+    # Filtro de filial é aplicado após o join (o nome vem da tabela de veículos, não do cache)
+    if filial:
+        df = df[df["FilialOperacional"] == filial]
+        if df.empty:
+            return []
+
     def categorize(name):
         n = str(name).upper()
         if any(k in n for k in ["DIESEL", "S10", "S-10", "BIODIESEL"]): return "DIESEL"
@@ -450,10 +478,20 @@ def get_gastos_filiais_matriz(
 @router.get("/comparativo-meses")
 def get_comparativo_meses(
     mes: Optional[int] = Query(None),
-    ano: Optional[int] = Query(None)
+    ano: Optional[int] = Query(None),
+    combustivel: Optional[str] = Query(None),
+    filial: Optional[str] = Query(None),
+    estado: Optional[str] = Query(None),
+    regiao: Optional[str] = Query(None),
+    grupo: Optional[str] = Query(None),
 ):
-    """Comparação detalhada entre mês selecionado e seu anterior, respeitando LFL se for o mês corrente."""
+    """Comparação detalhada entre mês selecionado e seu anterior, respeitando LFL se for o mês corrente.
+    Respeita filtros de atributo (combustível/filial/UF/região/grupo)."""
     df = cache.get_df()
+    if df.empty:
+        return {}
+
+    df = _apply_attr_filters(df, combustivel, filial, estado, regiao, grupo)
     if df.empty:
         return {}
 
@@ -566,4 +604,226 @@ def get_comparativo_meses(
         "media_3_meses": avg_3_meses,
         "variacao": variacao,
         "variacao_vs_media": variacao_avg
+    }
+
+
+# ---------------------------------------------------------------------------
+# Análise a partir de um mês de referência (ex: "Boom da guerra em Fev/2026")
+# Permite ancorar em um mês e ver a evolução ponderada até o mês-alvo.
+# ---------------------------------------------------------------------------
+
+@router.get("/analise-referencia")
+def get_analise_referencia(
+    mes_ref: int = Query(..., description="Mês de referência (âncora)"),
+    ano_ref: int = Query(..., description="Ano de referência"),
+    mes_ate: Optional[int] = Query(None, description="Mês final da janela (default: último mês com dados)"),
+    ano_ate: Optional[int] = Query(None, description="Ano final da janela"),
+    combustivel: Optional[str] = Query(None),
+    filial: Optional[str] = Query(None),
+    estado: Optional[str] = Query(None),
+    regiao: Optional[str] = Query(None),
+    grupo: Optional[str] = Query(None),
+):
+    """
+    Retorna a evolução mês-a-mês entre um mês de referência e o mês-alvo,
+    incluindo médias ponderadas (por litragem/km) e variações vs a referência.
+    Respeita os filtros de atributo.
+    """
+    df_raw = cache.get_df()
+    if df_raw.empty:
+        return {}
+
+    # df_scope = filtros NÃO-combustível (usado para calcular km real da frota)
+    # df_fuel  = df_scope + filtro de combustível (usado para valor/litros/preço)
+    df_scope = _apply_attr_filters(df_raw, None, filial, estado, regiao, grupo)
+    df_fuel  = _apply_attr_filters(df_scope, combustivel, None, None, None, None)
+    if df_fuel.empty:
+        return {"status": "empty", "referencia": None, "serie": [], "ponderado": None}
+
+    # Define mês-fim (alvo) — default = último mês com dados
+    ultima = df_fuel["data_transacao"].max()
+    if pd.isna(ultima):
+        ultima = datetime.now()
+    mes_fim = mes_ate if mes_ate else int(ultima.month)
+    ano_fim = ano_ate if ano_ate else int(ultima.year)
+
+    dt_ref = datetime(ano_ref, mes_ref, 1)
+    dt_fim = datetime(ano_fim, mes_fim, 1)
+
+    # Garante ordem correta (ref sempre ≤ fim)
+    invertido = False
+    if dt_fim < dt_ref:
+        dt_ref, dt_fim = dt_fim, dt_ref
+        invertido = True
+
+    def _calcular_km(hod_df: pd.DataFrame) -> float:
+        """KM por diff consecutivo de hodômetro por placa. Descarta diffs ≤0 ou >2000 km."""
+        if hod_df.empty:
+            return 0.0
+        total = 0.0
+        for _, g in hod_df.sort_values("data_transacao").groupby("placa"):
+            diffs = g["hodometro"].diff()
+            validos = diffs[(diffs > 0) & (diffs <= 2000)]
+            total += float(validos.sum())
+        return total
+
+    def _preco_laspeyres(sub_fuel: pd.DataFrame, pesos: dict) -> float:
+        """
+        Preço médio ponderado pelo mix de combustível do mês de referência (índice de Laspeyres).
+        Pesos = {grupo_combustivel: fração_litros_ref}.
+        Isolando mudança de preço de mudança de mix entre meses.
+        """
+        if sub_fuel.empty or not pesos:
+            return 0.0
+        total_ponderado = 0.0
+        total_peso_usado = 0.0
+        for comb, peso in pesos.items():
+            sub_c = sub_fuel[sub_fuel["grupo_combustivel"] == comb]
+            litros_c = float(sub_c["litragem"].sum())
+            valor_c  = float(sub_c["valor"].sum())
+            if litros_c > 0:
+                total_ponderado += (valor_c / litros_c) * peso
+                total_peso_usado += peso
+        return round(total_ponderado / total_peso_usado, 2) if total_peso_usado > 0 else 0.0
+
+    def kpis_mes(m: int, a: int):
+        sub_fuel = df_fuel[(df_fuel["data_transacao"].dt.month == m) & (df_fuel["data_transacao"].dt.year == a)]
+        if sub_fuel.empty:
+            return None
+        valor  = float(sub_fuel["valor"].sum())
+        litros = float(sub_fuel["litragem"].sum())
+
+        placas = sub_fuel["placa"].unique()
+        hod_scope = df_scope[
+            (df_scope["data_transacao"].dt.month == m)
+            & (df_scope["data_transacao"].dt.year == a)
+            & (df_scope["placa"].isin(placas))
+            & df_scope["hodometro"].notna()
+            & (df_scope["hodometro"] > 0)
+        ]
+        km = _calcular_km(hod_scope)
+
+        preco    = round(valor / litros, 2) if litros > 0 else 0
+        custo_km = round(valor / km, 3) if km >= 1_000 else 0
+
+        return {
+            "mes": m,
+            "ano": a,
+            "rotulo": f"{m:02d}/{a}",
+            "total_valor": round(valor, 2),
+            "total_litros": round(litros, 0),
+            "total_km": round(km, 0),
+            "preco_medio": preco,
+            "custo_km": custo_km,
+            "qtd_veiculos": int(sub_fuel["placa"].nunique()),
+            "_sub_fuel": sub_fuel,  # removido antes de retornar ao cliente
+        }
+
+    def pct(novo, base):
+        if base is None or base == 0:
+            return None
+        return round((novo / base - 1) * 100, 1)
+
+    def abs_diff(novo, base, casas=2):
+        if base is None:
+            return None
+        return round(novo - base, casas)
+
+    # Referência (mês-âncora)
+    ref_raw = kpis_mes(dt_ref.month, dt_ref.year)
+    if not ref_raw:
+        return {"status": "sem_dados_referencia", "referencia": None, "serie": [], "ponderado": None}
+
+    # Pesos do mês de referência por grupo_combustivel (índice de Laspeyres)
+    # Usados fixos em todos os meses para isolar variação de preço da variação de mix.
+    sub_ref = ref_raw.pop("_sub_fuel")
+    litros_por_comb_ref = sub_ref.groupby("grupo_combustivel")["litragem"].sum()
+    total_litros_ref_comb = float(litros_por_comb_ref.sum())
+    pesos_ref = (litros_por_comb_ref / total_litros_ref_comb).to_dict() if total_litros_ref_comb > 0 else {}
+
+    # Preço de referência já é a média ponderada do próprio mês (pesos somam 1, mesmo resultado)
+    ref_raw["preco_ponderado"] = ref_raw["preco_medio"]
+    ref = ref_raw
+
+    # Série: cada mês da janela [ref → fim] com deltas vs referência
+    # preco_pct e preco_abs usam o índice de Laspeyres (mix fixo da referência)
+    serie = []
+    cursor = dt_ref
+    while cursor <= dt_fim:
+        k = kpis_mes(cursor.month, cursor.year)
+        if k:
+            sub_m = k.pop("_sub_fuel")
+            k["preco_ponderado"] = _preco_laspeyres(sub_m, pesos_ref)
+
+            k["valor_pct"]     = pct(k["total_valor"],  ref["total_valor"])
+            k["litros_pct"]    = pct(k["total_litros"], ref["total_litros"])
+            k["km_pct"]        = pct(k["total_km"],     ref["total_km"]) if ref["total_km"] > 0 else None
+            # Variação de preço: Laspeyres (mix fixo da ref) → isola efeito-preço do efeito-mix
+            k["preco_abs"]     = abs_diff(k["preco_ponderado"], ref["preco_ponderado"], 2) if ref["preco_ponderado"] > 0 else None
+            k["preco_pct"]     = pct(k["preco_ponderado"], ref["preco_ponderado"])
+            k["custo_km_abs"]  = abs_diff(k["custo_km"], ref["custo_km"], 3) if (ref["custo_km"] > 0 and k["custo_km"] > 0) else None
+            k["custo_km_pct"]  = pct(k["custo_km"], ref["custo_km"]) if (ref["custo_km"] > 0 and k["custo_km"] > 0) else None
+            k["eh_referencia"] = (k["mes"] == ref["mes"] and k["ano"] == ref["ano"])
+            serie.append(k)
+        cursor = cursor + relativedelta(months=1)
+
+    # Médias ponderadas do período completo (ref até fim, inclusive)
+    dt_ini_ts = pd.Timestamp(dt_ref)
+    ultimo_dia = calendar.monthrange(dt_fim.year, dt_fim.month)[1]
+    dt_fim_ts = pd.Timestamp(datetime(dt_fim.year, dt_fim.month, ultimo_dia, 23, 59, 59))
+
+    df_fuel_janela  = df_fuel[(df_fuel["data_transacao"]  >= dt_ini_ts) & (df_fuel["data_transacao"]  <= dt_fim_ts)]
+    df_scope_janela = df_scope[(df_scope["data_transacao"] >= dt_ini_ts) & (df_scope["data_transacao"] <= dt_fim_ts)]
+
+    ponderado = None
+    if not df_fuel_janela.empty:
+        v_j = float(df_fuel_janela["valor"].sum())
+        l_j = float(df_fuel_janela["litragem"].sum())
+
+        placas_janela = df_fuel_janela["placa"].unique()
+        hod_janela = df_scope_janela[
+            df_scope_janela["placa"].isin(placas_janela)
+            & df_scope_janela["hodometro"].notna()
+            & (df_scope_janela["hodometro"] > 0)
+        ]
+        km_j = _calcular_km(hod_janela)
+
+        # Preço simples da janela (total gasto / total litros)
+        preco_simples_janela = round(v_j / l_j, 2) if l_j > 0 else 0
+        custo_km_pond = round(v_j / km_j, 3) if km_j >= 1_000 else 0
+
+        # Preço Laspeyres do último mês da série (mês-alvo vs mês-âncora)
+        # Responde: "quanto custaria em X o mesmo mix de combustível de fevereiro?"
+        ultimo = serie[-1] if serie else None
+        preco_laspeyres_ultimo = ultimo["preco_ponderado"] if ultimo else preco_simples_janela
+
+        preco_vs_ref_pct = None
+        if ref["preco_ponderado"] > 0 and preco_laspeyres_ultimo > 0:
+            preco_vs_ref_pct = round((preco_laspeyres_ultimo / ref["preco_ponderado"] - 1) * 100, 1)
+        custo_km_vs_ref_pct = None
+        if ref["custo_km"] > 0 and custo_km_pond > 0:
+            custo_km_vs_ref_pct = round((custo_km_pond / ref["custo_km"] - 1) * 100, 1)
+
+        n_meses = len(serie)
+        ponderado = {
+            # Preço do último mês com mix fixo da referência (Laspeyres)
+            "preco_medio_ponderado": preco_laspeyres_ultimo,
+            "custo_km_ponderado": custo_km_pond,
+            "gasto_total_janela": round(v_j, 2),
+            "litros_total_janela": round(l_j, 0),
+            "km_total_janela": round(km_j, 0),
+            "gasto_medio_mensal": round(v_j / n_meses, 2) if n_meses > 0 else 0,
+            "n_meses": n_meses,
+            "preco_vs_ref_pct": preco_vs_ref_pct,
+            "custo_km_vs_ref_pct": custo_km_vs_ref_pct,
+            # Mix usado como peso (para transparência)
+            "pesos_combustivel_ref": {k: round(v * 100, 1) for k, v in pesos_ref.items()},
+        }
+
+    return {
+        "status": "success",
+        "referencia": ref,
+        "serie": serie,
+        "ponderado": ponderado,
+        "invertido": invertido,
     }

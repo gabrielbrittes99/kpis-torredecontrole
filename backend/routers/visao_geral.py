@@ -118,6 +118,20 @@ def _tipo_dia(d: date) -> str:
     return "util"
 
 
+def _contar_dias_uteis(ano: int, mes: int) -> int:
+    """Retorna a quantidade de dias úteis (exclui FDS e feriados) no mês/ano dado."""
+    from calendar import monthrange
+    _, ultimo = monthrange(ano, mes)
+    return sum(1 for d in range(1, ultimo + 1) if _tipo_dia(date(ano, mes, d)) == "util")
+
+
+_MESES_PT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
+
+
+def _mes_label(ano: int, mes: int) -> str:
+    return f"{_MESES_PT[mes - 1]}/{ano}"
+
+
 def _apply_filters(
     df: pd.DataFrame,
     modo_tempo: str = "mes",
@@ -181,6 +195,8 @@ def get_dashboard(
     estado: Optional[str] = None,
     regiao: Optional[str] = None,
     filial: Optional[str] = None,
+    mes_ref: Optional[int] = None,
+    ano_ref: Optional[int] = None,
 ):
     now = datetime.now()
     mes = mes or now.month
@@ -209,11 +225,19 @@ def get_dashboard(
 
     # Variação vs período anterior — suporta todos os modos de tempo
     df_ant = None
+    mes_ref_usado: Optional[int] = None
+    ano_ref_usado: Optional[int] = None
     if modo_tempo == "mes":
+        # Default: mês imediatamente anterior
         m_ant = mes - 1 if mes > 1 else 12
         a_ant = ano if mes > 1 else ano - 1
+        # Override via mes_ref/ano_ref — apenas se for estritamente anterior ao período atual
+        if mes_ref and ano_ref and (ano_ref, mes_ref) < (ano, mes):
+            m_ant, a_ant = mes_ref, ano_ref
+        mes_ref_usado, ano_ref_usado = m_ant, a_ant
         df_ant = _apply_filters(df_all, "mes", a_ant, m_ant, None, None, None, None, grupo, combustivel, estado, regiao, filial)
-        if is_current_month:
+        if is_current_month and (mes_ref_usado == (mes - 1 if mes > 1 else 12)):
+            # só aplica recorte MTD quando comparando com o mês anterior imediato
             df_ant = df_ant[df_ant["data_transacao"].dt.day <= now.day]
     elif modo_tempo == "bimestre":
         b_ant = bimestre - 1 if bimestre and bimestre > 1 else 6
@@ -266,17 +290,75 @@ def get_dashboard(
             custo_km  = fkm_kml["custo_km"]
             kml_fonte = fkm_kml["fonte"]
 
+    # ── Deltas absolutos + rótulos de período ───────────────────────────────
+    gasto_delta_abs  = round(gasto_mes - gasto_ant, 2) if gasto_ant is not None else None
+    litros_delta_abs = round(litros_mes - litros_ant, 1) if litros_ant is not None else None
+    preco_delta_abs  = round(preco_medio - preco_ant, 3) if (preco_medio is not None and preco_ant is not None) else None
+
+    dias_uteis_periodo = _contar_dias_uteis(ano, mes) if modo_tempo == "mes" else None
+    dias_uteis_ref = _contar_dias_uteis(ano_ref_usado, mes_ref_usado) \
+        if (modo_tempo == "mes" and mes_ref_usado and ano_ref_usado) else None
+
+    periodo_label = _mes_label(ano, mes) if modo_tempo == "mes" else None
+    mes_ref_label = _mes_label(ano_ref_usado, mes_ref_usado) \
+        if (modo_tempo == "mes" and mes_ref_usado and ano_ref_usado) else None
+
+    # ── Breakdown por combustível no hero (atual + referência) ──────────────
+    def _agg_por_combustivel(df_base: Optional[pd.DataFrame]) -> dict:
+        if df_base is None or df_base.empty:
+            return {}
+        out: dict = {}
+        for comb, g in df_base.groupby("grupo_combustivel"):
+            lit = float(g["litragem"].sum())
+            val = float(g["valor"].sum())
+            out[str(comb)] = {
+                "litros": round(lit, 1),
+                "valor":  round(val, 2),
+                "preco_medio": round(val / lit, 3) if lit > 0 else None,
+            }
+        return out
+
+    atual_por_comb = _agg_por_combustivel(df_periodo)
+    ref_por_comb   = _agg_por_combustivel(df_ant)
+    combs_ordenados = sorted(atual_por_comb.keys(), key=lambda c: atual_por_comb[c]["valor"], reverse=True)
+    por_combustivel = []
+    for comb in combs_ordenados:
+        a = atual_por_comb[comb]
+        r = ref_por_comb.get(comb, {})
+        por_combustivel.append({
+            "grupo":            comb,
+            "litros":           a["litros"],
+            "valor":            a["valor"],
+            "preco_medio":      a["preco_medio"],
+            "litros_ref":       r.get("litros"),
+            "valor_ref":        r.get("valor"),
+            "preco_medio_ref":  r.get("preco_medio"),
+        })
+
     hero = {
         "gasto_mes":              round(gasto_mes, 2),
         "gasto_mes_var_pct":      var_pct,
+        "gasto_mes_delta_abs":    gasto_delta_abs,
+        "gasto_ant":              round(gasto_ant, 2) if gasto_ant is not None else None,
         "litros_mes":             round(litros_mes, 1),
         "litros_mes_var_pct":     litros_var_pct,
+        "litros_mes_delta_abs":   litros_delta_abs,
+        "litros_ant":             round(litros_ant, 1) if litros_ant is not None else None,
         "total_abastecimentos":   total_abs,
         "abastecimentos_var_pct": abs_var_pct,
         "total_veiculos":         total_veic,
         "preco_medio":            preco_medio,
         "preco_medio_var_pct":    preco_medio_var_pct,
+        "preco_medio_delta_abs":  preco_delta_abs,
+        "preco_ant":              preco_ant,
         "trend_label":            trend_label,
+        "periodo_label":          periodo_label,
+        "mes_ref_label":          mes_ref_label,
+        "mes_ref":                mes_ref_usado,
+        "ano_ref":                ano_ref_usado,
+        "dias_uteis_periodo":     dias_uteis_periodo,
+        "dias_uteis_ref":         dias_uteis_ref,
+        "por_combustivel":        por_combustivel,
         "kml_medio":              kml_medio,
         "custo_km":               custo_km,
         "kml_fonte":              kml_fonte,  # "fkm_reconciliado" ou "truckpag"

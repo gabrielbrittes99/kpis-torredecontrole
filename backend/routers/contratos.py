@@ -152,42 +152,6 @@ def get_resumo(ano_mes: Optional[str] = Query(default=None)):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# ENDPOINT: Evolução mensal de um contrato
-# ═══════════════════════════════════════════════════════════════════════════
-@router.get("/historico")
-def get_historico(contrato: str = Query(...)):
-    """Evolução mensal de um contrato específico."""
-    df = get_fkm_df()
-    df = df[df["contrato"] == contrato]
-
-    if df.empty:
-        return []
-
-    evolucao = (
-        df.groupby("ano_mes")
-        .agg(
-            total_km=("total_km", "sum"),
-            total_valor=("total", "sum"),
-            custo_combustivel=("valor_comb", "sum"),
-            custo_manutencao=("manutencao", "sum"),
-            qtd_veiculos=("placa", "nunique"),
-        )
-        .reset_index()
-        .sort_values("ano_mes")
-    )
-
-    res = evolucao.to_dict(orient="records")
-    for r in res:
-        km = r["total_km"]
-        r["custo_km"]  = safe_round(r["total_valor"] / km, 2) if km > 0 else 0
-        r["total_km"]  = safe_round(km, 0)
-        r["total_valor"]         = safe_round(r["total_valor"], 2)
-        r["custo_combustivel"]   = safe_round(r["custo_combustivel"], 2)
-        r["custo_manutencao"]    = safe_round(r["custo_manutencao"], 2)
-    return res
-
-
-# ═══════════════════════════════════════════════════════════════════════════
 # ENDPOINT: Veículos de um contrato
 # ═══════════════════════════════════════════════════════════════════════════
 @router.get("/veiculos/{contrato}")

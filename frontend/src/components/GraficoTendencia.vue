@@ -57,7 +57,7 @@ function buildTooltip(i) {
     '</div>',
     '<div style="display:flex;justify-content:space-between;gap:16px;margin-bottom:4px">',
     '<span style="color:#a1a1aa">Preco/L</span>',
-    '<span style="color:#fafafa">R$ ' + d.preco_medio.toFixed(3) + '</span>',
+    '<span style="color:#fafafa">R$ ' + d.preco_medio.toFixed(2) + '</span>',
     '</div>',
     '<div style="display:flex;justify-content:space-between;gap:16px;margin-bottom:4px">',
     '<span style="color:#a1a1aa">Dias c/ dados</span>',

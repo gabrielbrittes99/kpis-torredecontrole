@@ -7,7 +7,7 @@ import pandas as pd
 from dotenv import load_dotenv
 from config import (
     FUEL_GROUP_MAP, PALMAS_PLACAS, PALMAS_FILIAL, FILIAIS_MAP, get_veiculo_group,
-    CWB_BASE_PLACAS, CWB_BASE_FILIAL, IGNORAR_PLACAS, PLACAS_RENOMEADAS
+    CWB_BASE_PLACAS, CWB_BASE_FILIAL, IGNORAR_PLACAS, PLACAS_RENOMEADAS, FILIAIS_EXCLUIR
 )
 
 load_dotenv()
@@ -373,6 +373,10 @@ class DataCache:
 
         df_estornos = df[estornos_mask].copy()
 
+        # Filtra registros não operacionais (vendidos, referência, filiais desconhecidas, Outros)
+        df_combustivel = self._filter_operational(df_combustivel, "transacoes")
+        df_pedagios    = self._filter_operational(df_pedagios,    "pedagios")
+
         logger.info(
             f"Cache DW split: {len(df_combustivel)} combustível, "
             f"{len(df_pedagios)} pedágios, {len(df_estornos)} estornos"
@@ -565,6 +569,37 @@ class DataCache:
         ]
         return df
 
+    def _filter_operational(self, df: pd.DataFrame, key: str = "transacoes") -> pd.DataFrame:
+        """
+        Remove registros que não fazem parte da frota operacional Gritsch:
+          - Veículos Vendidos (flag_venda)
+          - Filiais de Referência (veículos de uso interno, não faturados)
+          - Filiais não mapeadas (filial_estado == "?" → sigla desconhecida no FILIAIS_MAP)
+          - Combustível "Outros" (nome_combustivel sem correspondência no mapa — só para transacoes)
+        """
+        n_before = len(df)
+
+        if "flag_venda" in df.columns:
+            df = df[df["flag_venda"] != True]
+
+        if "filial_nome" in df.columns:
+            # Remove filiais de referência pelo nome
+            df = df[~df["filial_nome"].str.startswith("Referência", na=False)]
+
+        if "filial_estado" in df.columns:
+            # Remove registros com filial não mapeada (estado desconhecido)
+            df = df[df["filial_estado"] != "?"]
+
+        if key == "transacoes" and "grupo_combustivel" in df.columns:
+            # Remove combustíveis não reconhecidos (Arla mal-digitado, produtos sem classificação, etc.)
+            df = df[df["grupo_combustivel"] != "Outros"]
+
+        n_after = len(df)
+        if n_before != n_after:
+            logger.info(f"Cache filter_operational ({key}): {n_before - n_after} registros excluídos ({n_after} restantes)")
+
+        return df
+
     def _calc_kml(self, df: pd.DataFrame) -> pd.DataFrame:
         if "hodometro" not in df.columns:
             return pd.DataFrame()
@@ -627,6 +662,8 @@ class DataCache:
                     df = self._fetch_generic(key)
                     df = self._enrich_filiais(df)
                     df = self._add_grupo(df)
+                    if key in ("transacoes", "pedagios"):
+                        df = self._filter_operational(df, key)
 
                     if key == "transacoes":
                         self._cache[key]["kml_df"] = self._calc_kml(df)

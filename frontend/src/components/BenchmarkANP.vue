@@ -209,12 +209,12 @@ const groupedCharts = computed(() => {
 
               <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px;">
                 <span style="color: #64748b; display: flex; align-items: center; gap: 4px;"><div style="width: 8px; height: 2px; background: #94a3b8; border-radius: 1px;"></div> Preço ANP:</span>
-                <span style="font-weight: 600;">R$ ${item.preco_anp_mercado?.toFixed(3)}/L</span>
+                <span style="font-weight: 600;">R$ ${item.preco_anp_mercado?.toFixed(2)}/L</span>
               </div>
               
               <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 12px;">
                 <span style="color: #64748b; display: flex; align-items: center; gap: 4px;"><div style="width: 8px; height: 2px; background: #0f172a; border-radius: 1px;"></div> Preço Frota:</span>
-                <span style="font-weight: 800; color: #0f172a;">R$ ${item.preco_frota?.toFixed(3)}/L</span>
+                <span style="font-weight: 800; color: #0f172a;">R$ ${item.preco_frota?.toFixed(2)}/L</span>
               </div>
               
               <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; padding-top: 10px; border-top: 1px dashed #cbd5e1; background: #f8fafc; margin: 0 -14px -14px; padding: 12px 14px;">

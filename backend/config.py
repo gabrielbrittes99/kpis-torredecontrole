@@ -112,6 +112,17 @@ FILIAIS_MAP: dict[str, dict] = {
     "GRITSCH - SAO (PERUS)":     {"nome": "Gritsch São Paulo (Perus)","estado": "SP", "regiao": "Sudeste"},
     # ── Nordeste / BA ─────────────────────────────────────────────────────
     "GRITSCH - SSA":             {"nome": "Gritsch Salvador",         "estado": "BA", "regiao": "Nordeste"},
+    # ── Norte / TO ────────────────────────────────────────────────────────
+    "GRITSCH - PMW":             {"nome": "Gritsch Palmas",           "estado": "TO", "regiao": "Norte"},
+}
+
+# Siglas do SQL Server que NUNCA devem aparecer nas análises operacionais.
+# Veículos de referência, vendidos ou categorias administrativas.
+FILIAIS_EXCLUIR: set[str] = {
+    "REFERÊNCIA CURITIBA",
+    "REFERÊNCIA BRASILIA",
+    "REFERÊNCIA SÃO PAULO",
+    "REFERÊNCIA SINOP",
 }
 
 # Filial Palmas — sem sigla no SQL Server ainda, identificada por placa

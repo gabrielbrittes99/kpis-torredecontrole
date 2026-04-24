@@ -26,7 +26,7 @@
 
         <!-- Preço médio geral do período -->
         <div class="cell-avg mono">
-          <span v-if="row.preco_medio_geral">R$ {{ row.preco_medio_geral.toFixed(3) }}</span>
+          <span v-if="row.preco_medio_geral">R$ {{ row.preco_medio_geral.toFixed(2) }}</span>
           <span v-else class="dim">—</span>
         </div>
 
@@ -34,7 +34,7 @@
         <template v-for="mes in meses" :key="mes">
           <div class="cell-mes-data">
             <template v-if="row.meses[mes]">
-              <span class="preco mono">R$ {{ row.meses[mes].preco.toFixed(3) }}</span>
+              <span class="preco mono">R$ {{ row.meses[mes].preco.toFixed(2) }}</span>
               <span
                 v-if="row.meses[mes].var != null"
                 class="var-badge"

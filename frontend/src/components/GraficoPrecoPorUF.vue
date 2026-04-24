@@ -68,7 +68,7 @@ const chartOptions = computed(() => {
         fontWeight: 'bold',
         colors: ['#0f172a']
       },
-      formatter: v => 'R$ ' + v.toFixed(3),
+      formatter: v => 'R$ ' + v.toFixed(2),
       offsetX: 10
     },
     xaxis: {
@@ -100,7 +100,7 @@ const chartOptions = computed(() => {
       y: {
         formatter: (val, { dataPointIndex }) => {
           const item = sortedData.value[dataPointIndex]
-          return `R$ ${val.toFixed(3)} | Vol: ${(item.total_litros/1000).toFixed(1)}k L`
+          return `R$ ${val.toFixed(2)} | Vol: ${(item.total_litros/1000).toFixed(1)}k L`
         }
       }
     }

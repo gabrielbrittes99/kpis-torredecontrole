@@ -128,7 +128,7 @@
                 <span class="sl-stat-unit">gasto total</span>
               </div>
               <div v-if="g.preco_medio">
-                <span class="sl-stat-num mono">R$ {{ g.preco_medio?.toFixed(3) }}</span>
+                <span class="sl-stat-num mono">R$ {{ g.preco_medio?.toFixed(2) }}</span>
                 <span class="sl-stat-unit">preço médio/L</span>
               </div>
             </div>
