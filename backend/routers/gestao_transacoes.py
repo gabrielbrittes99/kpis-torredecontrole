@@ -325,7 +325,7 @@ def get_recusadas(
             try:
                 t_data = pd.to_datetime(row["transacao_data"])
                 if t_data.tzinfo is not None:
-                    t_data = t_data.tz_localize(None)
+                    t_data = t_data.tz_convert(None)
                 diff_minutes = (now_ts - t_data).total_seconds() / 60.0
             except Exception:
                 diff_minutes = 0
@@ -337,7 +337,7 @@ def get_recusadas(
     for row, res_time in resolved:
         try:
             if res_time.tzinfo is not None:
-                res_time = res_time.tz_localize(None)
+                res_time = res_time.tz_convert(None)
             diff_minutes = (now_ts - res_time).total_seconds() / 60.0
         except Exception:
             diff_minutes = 0
@@ -385,6 +385,122 @@ def get_motivos_ranking(
     return [
         {"motivo": m, "qtd": int(q), "pct": safe_round(q / total * 100, 1)}
         for m, q in contagem.items()
+    ]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ENDPOINT: Aprovações Recentes (painel lateral)
+# ═══════════════════════════════════════════════════════════════════════════
+@router.get("/aprovadas-recentes")
+def get_aprovadas_recentes(limit: int = Query(default=10)):
+    """Últimas transações aprovadas do dia para o painel Aprovações Recentes."""
+    hoje = _get_today()
+    try:
+        df = _fetch_dw(hoje, hoje, status="APROVADA")
+    except Exception as e:
+        logger.error(f"Gestão transações aprovadas-recentes: {e}")
+        return []
+
+    if df.empty:
+        return []
+
+    df = df.sort_values("transacao_data", ascending=False).head(limit)
+
+    records = []
+    for _, row in df.iterrows():
+        records.append(
+            {
+                "transacao_id": int(row["transacao_id"])
+                if pd.notna(row.get("transacao_id"))
+                else None,
+                "transacao_data": str(row["transacao_data"])
+                if pd.notna(row.get("transacao_data"))
+                else None,
+                "veiculo_placa": str(row.get("veiculo_placa", "")),
+                "combustivel_nome": str(row.get("combustivel_nome", "")),
+                "transacao_valor": float(row["transacao_valor"])
+                if pd.notna(row.get("transacao_valor"))
+                else 0,
+                "litragem": float(row["litragem"])
+                if pd.notna(row.get("litragem"))
+                else 0,
+                "valor_litro": float(row["valor_litro"])
+                if pd.notna(row.get("valor_litro"))
+                else 0,
+                "estabelecimento_nome": str(row.get("estabelecimento_nome", "")),
+            }
+        )
+    return records
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ENDPOINT: Atividade por hora (sparkline)
+# ═══════════════════════════════════════════════════════════════════════════
+@router.get("/atividade-hora")
+def get_atividade_hora(horas: int = Query(default=6)):
+    """Contagem de aprovadas e recusadas por hora nas últimas N horas."""
+    hoje = _get_today()
+    try:
+        df = _fetch_dw(hoje, hoje)
+    except Exception as e:
+        logger.error(f"Gestão transações atividade-hora: {e}")
+        return []
+
+    if df.empty:
+        agora = pd.Timestamp.now().replace(minute=0, second=0, microsecond=0)
+        return [
+            {"hora": (agora - pd.Timedelta(hours=i)).strftime("%H:00"), "aprovadas": 0, "recusadas": 0}
+            for i in range(horas - 1, -1, -1)
+        ]
+
+    ts = pd.to_datetime(df["transacao_data"])
+    if ts.dt.tz is not None:
+        ts = ts.dt.tz_convert(None)
+    df["hora"] = ts.dt.strftime("%H:00")
+
+    agora = pd.Timestamp.now().replace(minute=0, second=0, microsecond=0)
+    janela = [(agora - pd.Timedelta(hours=i)).strftime("%H:00") for i in range(horas - 1, -1, -1)]
+
+    result = []
+    for h in janela:
+        fatia = df[df["hora"] == h]
+        result.append(
+            {
+                "hora": h,
+                "aprovadas": int((fatia["transacao_status"] == "APROVADA").sum()),
+                "recusadas": int((fatia["transacao_status"] == "RECUSADA").sum()),
+            }
+        )
+    return result
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ENDPOINT: Top postos do dia
+# ═══════════════════════════════════════════════════════════════════════════
+@router.get("/top-postos")
+def get_top_postos(limit: int = Query(default=3)):
+    """Top N estabelecimentos por número de transações hoje."""
+    hoje = _get_today()
+    try:
+        df = _fetch_dw(hoje, hoje)
+    except Exception as e:
+        logger.error(f"Gestão transações top-postos: {e}")
+        return []
+
+    if df.empty:
+        return []
+
+    df["estabelecimento_nome"] = df["estabelecimento_nome"].fillna("Desconhecido").str.strip()
+    ranking = (
+        df.groupby("estabelecimento_nome")
+        .size()
+        .sort_values(ascending=False)
+        .head(limit)
+    )
+    total = len(df)
+    return [
+        {"nome": nome, "qtd": int(q), "pct": safe_round(q / total * 100, 1)}
+        for nome, q in ranking.items()
     ]
 
 
