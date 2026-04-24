@@ -1,47 +1,31 @@
-# KPIs Torre de Controle
+# KPIs Torre de Controle - Modo TV (Dashboard)
 
-Torre de monitoramento de KPIs da Gritsch via TV.
+Este guia explica como colocar o painel em funcionamento em uma TV ou monitor de monitoramento.
 
-## Como usar na TV (Windows)
+## 🚀 Como Rodar (O jeito mais fácil)
 
-### 1. Clone o projeto
-```powershell
-git clone <url-do-repositorio> kpis-torredecontrole
-cd kpis-torredecontrole
-```
+Se você já tem o projeto na máquina:
 
-### 2. Configure o ambiente
-Crie o arquivo `backend\.env` com suas credenciais:
-```env
-TRUCKPAG_URL=https://api.prd.truckpag.com.br
-TRUCKPAG_TOKEN=seu_token_aqui
+1. **Configure o `.env`**: Certifique-se de que o arquivo `backend\.env` existe e tem as credenciais corretas.
+2. **Execute o `INICIAR.bat`**: Basta dar um duplo clique neste arquivo.
+    - Ele vai verificar/instalar o Python e Node.js automaticamente.
+    - Vai configurar o ambiente e baixar as dependências.
+    - Vai buildar o frontend se necessário.
+    - Vai abrir o navegador automaticamente em modo **Fullscreen (Kiosk)**.
 
-DB_HOST=seu_host
-DB_PORT=5432
-DB_NAME=railway
-DB_USER=seu_usuario
-DB_PASSWORD=sua_senha
+## 🛑 Como Parar
 
-SQLSERVER_HOST=bi.bluefleet.com.br
-SQLSERVER_PORT=1433
-SQLSERVER_USER=seu_usuario
-SQLSERVER_PASSWORD=sua_senha
-SQLSERVER_DB=referencia
-```
+1. Execute o arquivo **`PARAR.bat`**.
+    - Ele vai encerrar o servidor e liberar os processos.
 
-### 3. Setup (primeira vez)
-```powershell
-.\setup.ps1
-```
+## 🛠️ Requisitos Mínimos (O script tenta instalar sozinho)
 
-### 4. Rode
-```powershell
-.\run.ps1
-```
+- **Windows 10 ou 11** (com suporte a `winget` preferencialmente).
+- Conexão com a internet para a primeira execução (instalação de dependências).
+- Arquivo `backend\.env` configurado.
 
-Acesse: **http://localhost:8000**
+## 📝 Observações
 
-## Requisitos
-- Python 3.10+
-- Node.js 18+
-- Git
+- O servidor roda localmente na porta `8000`.
+- Os logs do servidor ficam salvos em `server_log.txt` para diagnóstico.
+- Se o navegador não abrir em tela cheia, verifique se você tem o **Microsoft Edge** ou **Google Chrome** instalado.
