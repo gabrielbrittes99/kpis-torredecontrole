@@ -6,314 +6,188 @@
         />
 
         <div class="page-body">
-            <!-- ━━━━━ KPIs ━━━━━ -->
-            <section class="v-block">
-                <div class="section-heading">Indicadores do Dia</div>
-                <div class="kpi-pro-grid" v-if="!lKpis">
-                    <KpiCardPro
-                        title="Volume Movimentado"
-                        :value="kpis.valor_total || 0"
-                        format="currency"
-                    />
-                    <KpiCardPro
-                        title="Aprovadas"
-                        :value="kpis.qtd_aprovadas || 0"
-                        format="number"
-                        :description="
-                            (kpis.taxa_aprovacao || 0) + '% de aprovação'
-                        "
-                    />
-                    <KpiCardPro
-                        title="Recusadas"
-                        :value="kpis.qtd_recusadas || 0"
-                        format="number"
-                        theme="primary"
-                        :description="(kpis.taxa_recusa || 0) + '% de recusa'"
-                    />
-                    <KpiCardPro
-                        title="Placas Distintas"
-                        :value="kpis.veiculos_unicos || 0"
-                        format="number"
-                    />
-                </div>
-                <div v-else class="kpi-pro-grid">
-                    <div v-for="i in 4" :key="i" class="skel kpi-skel" />
-                </div>
-            </section>
-
-            <!-- ━━━━━ ÁREA PRINCIPAL ━━━━━ -->
-            <div class="main-grid">
-                <!-- FEED DE RECUSADAS -->
-                <section class="v-block" style="overflow: hidden">
-                    <div
-                        class="section-heading"
-                        style="justify-content: space-between"
-                    >
-                        <div
-                            style="
-                                display: flex;
-                                align-items: center;
-                                gap: 16px;
-                            "
+            <!-- ━━━━━ KPI STRIP ━━━━━ -->
+            <div class="kpi-strip">
+                <template v-if="!lKpis">
+                    <div class="kpi-chip">
+                        <span class="kpi-chip-label">Volume</span>
+                        <span class="kpi-chip-val">{{
+                            fmtR(kpis.valor_total || 0)
+                        }}</span>
+                    </div>
+                    <div class="kpi-sep" />
+                    <div class="kpi-chip">
+                        <span class="kpi-chip-label">Aprovadas</span>
+                        <span class="kpi-chip-val">{{
+                            kpis.qtd_aprovadas || 0
+                        }}</span>
+                        <span class="kpi-chip-sub"
+                            >{{ kpis.taxa_aprovacao || 0 }}%</span
                         >
-                            Últimas Transações Recusadas
-                            <span class="live-badge">● AO VIVO</span>
-                        </div>
+                    </div>
+                    <div class="kpi-sep" />
+                    <div class="kpi-chip">
+                        <span class="kpi-chip-label">Recusadas</span>
+                        <span class="kpi-chip-val danger">{{
+                            kpis.qtd_recusadas || 0
+                        }}</span>
+                        <span class="kpi-chip-sub"
+                            >{{ kpis.taxa_recusa || 0 }}%</span
+                        >
+                    </div>
+                    <div class="kpi-sep" />
+                    <div class="kpi-chip">
+                        <span class="kpi-chip-label">Placas</span>
+                        <span class="kpi-chip-val">{{
+                            kpis.veiculos_unicos || 0
+                        }}</span>
+                    </div>
+                </template>
+                <div
+                    v-else
+                    class="skel"
+                    style="height: 20px; width: 100%; border-radius: 6px"
+                />
+            </div>
+
+            <!-- ━━━━━ RECUSADAS ━━━━━ -->
+            <section class="v-block">
+                <div class="section-heading" style="justify-content: space-between">
+                    <div style="display: flex; align-items: center; gap: 16px">
+                        Transações Recusadas
+                        <span class="live-badge">● AO VIVO</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 16px">
                         <div class="status-row">
-                            <span
-                                class="status-dot"
-                                :class="{ active: !lKpis }"
-                            ></span>
+                            <span class="status-dot" :class="{ active: !lKpis }"></span>
                             <span class="dim" style="font-size: 11px">
-                                {{
-                                    ultimaAtualizacao
-                                        ? "Atualizado " +
-                                          formatTime(ultimaAtualizacao)
-                                        : "Aguardando..."
-                                }}
+                                {{ ultimaAtualizacao ? "Atualizado " + formatTime(ultimaAtualizacao) : "Aguardando..." }}
                             </span>
                         </div>
-                    </div>
-
-                    <div class="card p-0">
-                        <div
-                            v-if="lRecusadas"
-                            class="skel"
-                            style="height: 400px; margin: 24px"
-                        />
-                        <div v-else-if="recusadas.length === 0" class="empty">
-                            Nenhuma transação recusada hoje 🎉
-                        </div>
-                        <div v-else class="table-wrap">
-                            <table class="t-table">
-                                <thead>
-                                    <tr>
-                                        <th style="width: 14%">Transação</th>
-                                        <th style="width: 15%">
-                                            Placa / Motorista
-                                        </th>
-                                        <th style="width: 18%">
-                                            Estabelecimento
-                                        </th>
-                                        <th style="width: 13%">Combustível</th>
-                                        <th class="right" style="width: 10%">
-                                            Valor Un.
-                                        </th>
-                                        <th class="right" style="width: 10%">
-                                            Valor Total
-                                        </th>
-                                        <th style="width: 20%">
-                                            Motivo / Regra do Sistema
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr
-                                        v-for="t in recusadas"
-                                        :key="t.transacao_id"
-                                        class="t-row"
-                                    >
-                                        <!-- Transação -->
-                                        <td>
-                                            <div class="t-id mono">
-                                                {{ t.transacao_id }}
-                                            </div>
-                                            <div class="t-time">
-                                                {{
-                                                    formatTime(t.transacao_data)
-                                                }}
-                                            </div>
-                                        </td>
-                                        <!-- Placa -->
-                                        <td>
-                                            <div class="t-placa mono">
-                                                {{ t.veiculo_placa || "—" }}
-                                            </div>
-                                            <div class="t-motorista">
-                                                {{
-                                                    t.motorista_nome?.split(
-                                                        " ",
-                                                    )[0] || ""
-                                                }}
-                                            </div>
-                                        </td>
-                                        <!-- Estabelecimento -->
-                                        <td>
-                                            <div class="t-posto">
-                                                {{
-                                                    t.estabelecimento_nome ||
-                                                    "—"
-                                                }}
-                                            </div>
-                                            <div class="t-sub">
-                                                {{
-                                                    t.estabelecimento_cnpj ||
-                                                    "—"
-                                                }}
-                                            </div>
-                                        </td>
-                                        <!-- Combustível -->
-                                        <td>
-                                            <div class="t-comb">
-                                                {{ t.combustivel_nome || "—" }}
-                                            </div>
-                                            <div class="t-sub">
-                                                {{
-                                                    t.litragem
-                                                        ? t.litragem.toFixed(
-                                                              1,
-                                                          ) + " L"
-                                                        : "—"
-                                                }}
-                                            </div>
-                                        </td>
-                                        <!-- Valores -->
-                                        <td class="right">
-                                            <div class="t-val mono">
-                                                {{ fmtR(t.valor_litro) }}
-                                            </div>
-                                        </td>
-                                        <td class="right">
-                                            <div class="t-val-total mono">
-                                                {{ fmtR(t.transacao_valor) }}
-                                            </div>
-                                        </td>
-                                        <!-- Motivo e Regra -->
-                                        <td>
-                                            <div class="t-motivo">
-                                                <span
-                                                    class="status-indicator"
-                                                    :class="t.semaforo"
-                                                ></span>
-                                                <span>{{
-                                                    t.motivo_descricao
-                                                }}</span>
-                                            </div>
-                                            <div
-                                                v-if="
-                                                    t.regras_sistema &&
-                                                    t.regras_sistema.tipo_regra
-                                                "
-                                                class="t-regra-alert"
-                                            >
-                                                <strong
-                                                    >Regra Quebrada ({{
-                                                        t.regras_sistema
-                                                            .tipo_regra
-                                                    }}):</strong
-                                                ><br />
-                                                Teto:
-                                                <strong
-                                                    >R$
-                                                    {{
-                                                        t.regras_sistema.valor_regra?.toFixed(
-                                                            2,
-                                                        )
-                                                    }}</strong
-                                                ><br />
-                                                Tentativa:
-                                                <strong style="color: #dc2626"
-                                                    >R$
-                                                    {{
-                                                        t.regras_sistema.valor_tentado?.toFixed(
-                                                            2,
-                                                        )
-                                                    }}</strong
-                                                >
-                                                <span class="t-diff"
-                                                    >(+R$
-                                                    {{
-                                                        (
-                                                            t.regras_sistema
-                                                                .valor_tentado -
-                                                            t.regras_sistema
-                                                                .valor_regra
-                                                        ).toFixed(2)
-                                                    }})</span
-                                                >
-                                            </div>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- SIDEBAR: RANKING DE MOTIVOS -->
-                <section class="v-block side-panel">
-                    <div class="section-heading">Motivos de Recusa</div>
-                    <div class="card" style="padding: 24px">
-                        <div
-                            v-if="lMotivos"
-                            class="skel"
-                            style="height: 200px"
-                        />
-                        <div
-                            v-else-if="motivos.length === 0"
-                            class="empty"
-                            style="height: 100px"
-                        >
-                            Sem dados
-                        </div>
-                        <div v-else class="motivos-list">
-                            <div
-                                v-for="m in motivos"
-                                :key="m.motivo"
-                                class="motivo-item"
-                            >
-                                <div class="motivo-header">
-                                    <span
-                                        class="motivo-nome"
-                                        :title="m.motivo"
-                                        >{{ m.motivo }}</span
-                                    >
-                                    <span class="motivo-qtd">{{ m.qtd }}x</span>
-                                </div>
-                                <div class="motivo-bar-track">
-                                    <div
-                                        class="motivo-bar-fill"
-                                        :style="{ width: m.pct + '%' }"
-                                    />
-                                </div>
-                                <span class="motivo-pct">{{ m.pct }}%</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Controle de atualização -->
-                    <div class="card" style="padding: 20px; margin-top: 0">
-                        <div
-                            style="display: flex; gap: 8px; align-items: center"
-                        >
-                            <span style="font-size: 12px; color: #94a3b8"
-                                >Varredura:</span
-                            >
-                            <select
-                                v-model="intervalo"
-                                class="select-intervalo"
-                                @change="resetPolling"
-                            >
+                        <div style="display: flex; align-items: center; gap: 8px">
+                            <span style="font-size: 11px; color: #94a3b8">Varredura:</span>
+                            <select v-model="intervalo" class="select-intervalo" @change="resetPolling">
                                 <option :value="15000">15s</option>
                                 <option :value="30000">30s</option>
                                 <option :value="60000">1 min</option>
                                 <option :value="120000">2 min</option>
                             </select>
+                            <button @click="loadAll" class="btn-sync" :disabled="lKpis">
+                                {{ lKpis ? "..." : "Forçar" }}
+                            </button>
                         </div>
-                        <button
-                            @click="loadAll"
-                            class="btn-atualizar"
-                            :disabled="lKpis"
-                        >
-                            {{
-                                lKpis
-                                    ? "Sincronizando..."
-                                    : "Forçar Sincronização"
-                            }}
-                        </button>
                     </div>
-                </section>
-            </div>
+                </div>
+
+                <div class="card p-0">
+                    <div v-if="lRecusadas" class="skel" style="height: 120px; margin: 20px" />
+                    <div v-else-if="recusadasAtivas.length === 0" class="empty">
+                        Nenhuma transação recusada pendente
+                    </div>
+                    <div v-else class="table-wrap">
+                        <table class="t-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 12%">Hora</th>
+                                    <th style="width: 14%">Placa / Motorista</th>
+                                    <th style="width: 22%">Estabelecimento</th>
+                                    <th style="width: 14%">Combustível</th>
+                                    <th class="right" style="width: 9%">R$/L</th>
+                                    <th class="right" style="width: 9%">Total</th>
+                                    <th style="width: 20%">Motivo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="t in recusadasAtivas" :key="t.transacao_id" class="t-row">
+                                    <td>
+                                        <div class="t-id mono">{{ t.transacao_id }}</div>
+                                        <div class="t-time">{{ formatTime(t.transacao_data) }}</div>
+                                    </td>
+                                    <td>
+                                        <div class="t-placa mono">{{ t.veiculo_placa || "—" }}</div>
+                                        <div class="t-motorista">{{ t.motorista_nome?.split(" ")[0] || "" }}</div>
+                                    </td>
+                                    <td>
+                                        <div class="t-posto">{{ t.estabelecimento_nome || "—" }}</div>
+                                        <div class="t-sub">{{ t.estabelecimento_cnpj || "—" }}</div>
+                                    </td>
+                                    <td>
+                                        <div class="t-comb">{{ t.combustivel_nome || "—" }}</div>
+                                        <div class="t-sub">{{ t.litragem ? t.litragem.toFixed(1) + " L" : "—" }}</div>
+                                    </td>
+                                    <td class="right">
+                                        <div class="t-val mono">{{ fmtR(t.valor_litro) }}</div>
+                                    </td>
+                                    <td class="right">
+                                        <div class="t-val-total mono">{{ fmtR(t.transacao_valor) }}</div>
+                                    </td>
+                                    <td>
+                                        <div class="t-motivo">
+                                            <span class="status-indicator" :class="t.semaforo"></span>
+                                            <span>{{ t.motivo_descricao }}</span>
+                                        </div>
+                                        <div v-if="t.regras_sistema?.tipo_regra" class="t-regra-alert">
+                                            <strong>Regra ({{ t.regras_sistema.tipo_regra }}):</strong>
+                                            Teto <strong>R$ {{ t.regras_sistema.valor_regra?.toFixed(2) }}</strong> ·
+                                            Tentativa <strong style="color:#dc2626">R$ {{ t.regras_sistema.valor_tentado?.toFixed(2) }}</strong>
+                                            <span class="t-diff">(+R$ {{ (t.regras_sistema.valor_tentado - t.regras_sistema.valor_regra).toFixed(2) }})</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ━━━━━ APROVADAS ━━━━━ -->
+            <section class="v-block">
+                <div class="section-heading">Transações Aprovadas Recentes</div>
+                <div class="card p-0">
+                    <div v-if="lAprovadas" class="skel" style="height: 100px; margin: 20px" />
+                    <div v-else-if="aprovadas.length === 0" class="empty">
+                        Sem aprovações registradas hoje
+                    </div>
+                    <div v-else class="table-wrap">
+                        <table class="t-table t-aprov">
+                            <thead>
+                                <tr>
+                                    <th style="width: 12%">Hora</th>
+                                    <th style="width: 14%">Placa / Motorista</th>
+                                    <th style="width: 22%">Estabelecimento</th>
+                                    <th style="width: 14%">Combustível</th>
+                                    <th class="right" style="width: 9%">R$/L</th>
+                                    <th class="right" style="width: 9%">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="a in aprovadas" :key="a.transacao_id" class="t-row t-row-aprov">
+                                    <td>
+                                        <div class="t-id mono">{{ a.transacao_id }}</div>
+                                        <div class="t-time">{{ formatTime(a.transacao_data) }}</div>
+                                    </td>
+                                    <td>
+                                        <div class="t-placa mono">{{ a.veiculo_placa || "—" }}</div>
+                                    </td>
+                                    <td>
+                                        <div class="t-posto">{{ a.estabelecimento_nome || "—" }}</div>
+                                    </td>
+                                    <td>
+                                        <div class="t-comb">{{ a.combustivel_nome || "—" }}</div>
+                                        <div class="t-sub">{{ a.litragem ? a.litragem.toFixed(1) + " L" : "—" }}</div>
+                                    </td>
+                                    <td class="right">
+                                        <div class="t-val mono">{{ a.valor_litro ? fmtR(a.valor_litro) : "—" }}</div>
+                                    </td>
+                                    <td class="right">
+                                        <div class="t-val-aprov mono">{{ fmtR(a.transacao_valor) }}</div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
         </div>
 
         <footer class="footer">
@@ -326,22 +200,23 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import GlobalTopbar from "../components/GlobalTopbar.vue";
-import KpiCardPro from "../components/KpiCardPro.vue";
 import { GRITSCH_CONFIG } from "../gritsch.config.js";
 
 const BASE = GRITSCH_CONFIG.URLS.BACKEND;
 
 const kpis = ref({});
 const recusadas = ref([]);
-const motivos = ref([]);
+const aprovadas = ref([]);
 const ultimaAtualizacao = ref(null);
 const intervalo = ref(60000);
 
 const lKpis = ref(true);
 const lRecusadas = ref(true);
-const lMotivos = ref(true);
+const lAprovadas = ref(true);
+
+const recusadasAtivas = computed(() => recusadas.value.filter((t) => t.semaforo !== "green"));
 
 let pollingTimer = null;
 
@@ -363,32 +238,23 @@ const formatTime = (dateStr) => {
 };
 
 async function loadAll() {
-    lKpis.value = lRecusadas.value = lMotivos.value = true;
+    lKpis.value = lRecusadas.value = lAprovadas.value = true;
     await Promise.allSettled([
         fetch(`${BASE}/api/gestao-transacoes/kpis-dia`)
-            .then((r) => {
-                if (!r.ok) throw new Error(r.statusText);
-                return r.json();
-            })
+            .then((r) => { if (!r.ok) throw new Error(r.statusText); return r.json(); })
             .then((d) => (kpis.value = d ?? {}))
             .catch((e) => console.warn("[Transações] KPIs:", e))
             .finally(() => (lKpis.value = false)),
         fetch(`${BASE}/api/gestao-transacoes/recusadas?limit=50`)
-            .then((r) => {
-                if (!r.ok) throw new Error(r.statusText);
-                return r.json();
-            })
+            .then((r) => { if (!r.ok) throw new Error(r.statusText); return r.json(); })
             .then((d) => (recusadas.value = d ?? []))
             .catch((e) => console.warn("[Transações] Recusadas:", e))
             .finally(() => (lRecusadas.value = false)),
-        fetch(`${BASE}/api/gestao-transacoes/motivos-ranking`)
-            .then((r) => {
-                if (!r.ok) throw new Error(r.statusText);
-                return r.json();
-            })
-            .then((d) => (motivos.value = d ?? []))
-            .catch((e) => console.warn("[Transações] Motivos:", e))
-            .finally(() => (lMotivos.value = false)),
+        fetch(`${BASE}/api/gestao-transacoes/aprovadas-recentes?limit=20`)
+            .then((r) => { if (!r.ok) throw new Error(r.statusText); return r.json(); })
+            .then((d) => (aprovadas.value = d ?? []))
+            .catch((e) => console.warn("[Transações] Aprovadas:", e))
+            .finally(() => (lAprovadas.value = false)),
     ]);
     ultimaAtualizacao.value = new Date().toISOString();
 }
@@ -417,10 +283,10 @@ onUnmounted(() => {
     color: #0f172a;
 }
 .page-body {
-    padding: 24px 32px;
+    padding: 16px 32px 24px;
     display: flex;
     flex-direction: column;
-    gap: 32px;
+    gap: 16px;
 }
 
 .v-block {
@@ -445,6 +311,49 @@ onUnmounted(() => {
     background: #e2e8f0;
 }
 
+.kpi-strip {
+    display: flex;
+    align-items: center;
+    background: white;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 10px;
+    padding: 0 24px;
+    height: 44px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+.kpi-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.kpi-chip-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.kpi-chip-val {
+    font-size: 16px;
+    font-weight: 800;
+    color: #0f172a;
+    font-family: "JetBrains Mono", monospace;
+    letter-spacing: -0.02em;
+}
+.kpi-chip-val.danger {
+    color: #c41230;
+}
+.kpi-chip-sub {
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+}
+.kpi-sep {
+    width: 1px;
+    height: 22px;
+    background: #e2e8f0;
+    margin: 0 24px;
+}
 .kpi-pro-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -478,7 +387,7 @@ onUnmounted(() => {
     align-items: start;
 }
 .side-panel {
-    gap: 20px;
+    gap: 8px;
 }
 
 /* Live badge */
@@ -645,54 +554,31 @@ onUnmounted(() => {
     margin-left: 4px;
 }
 
-/* Motivos sidebar */
-.motivos-list {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
+/* Tabela aprovadas */
+.t-val-aprov {
+    font-weight: 700;
+    color: #16a34a;
 }
-.motivo-item {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+.t-row-aprov td {
+    border-left: 3px solid #22c55e;
 }
-.motivo-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+.t-row-aprov td:not(:first-child) {
+    border-left: none;
 }
-.motivo-nome {
-    font-size: 12px;
-    font-weight: 600;
-    color: #334155;
-    word-break: break-word;
+
+/* Varredura inline */
+.btn-sync {
+    background: #0f172a;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 5px 12px;
+    cursor: pointer;
+    white-space: nowrap;
 }
-.motivo-qtd {
-    font-size: 12px;
-    font-weight: 800;
-    color: #c41230;
-    font-family: "JetBrains Mono", monospace;
-}
-.motivo-bar-track {
-    height: 6px;
-    background: #f1f5f9;
-    border-radius: 3px;
-    overflow: hidden;
-}
-.motivo-bar-fill {
-    height: 100%;
-    background: #c41230;
-    border-radius: 3px;
-    transition: width 0.5s ease;
-}
-.motivo-pct {
-    font-size: 10px;
-    font-weight: 600;
-    color: #94a3b8;
-    font-family: "JetBrains Mono", monospace;
-    text-align: right;
-    margin-top: -2px;
-}
+.btn-sync:disabled { opacity: 0.5; cursor: default; }
 
 /* Status e controles */
 .status-row {
